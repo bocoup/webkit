@@ -31,42 +31,47 @@ use strict;
 use warnings;
 use 5.8.8;
 
+use File::Find;
+use File::Temp qw(tempfile tempdir);
+# use FindBin;
+
+######
 # # Use the following code run this script directly from Perl.
 # # Otherwise, just use carton.
-# 
-# use FindBin;
-# use Config;
-# use Encode;
-#
-# BEGIN {
-#     $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK} = 1;
-#
-#     unshift @INC, ".";
-#     unshift @INC, "$FindBin::Bin/lib";
-#     unshift @INC, "$FindBin::Bin/local/lib/perl5";
-#     unshift @INC, "$FindBin::Bin/local/lib/perl5/$Config{archname}";
-#
-#     $ENV{LOAD_ROUTES} = 1;
-# }
+use FindBin;
+use Config;
+use Encode;
+
+BEGIN {
+    $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK} = 1;
+
+    unshift @INC, ".";
+    unshift @INC, "$FindBin::Bin/lib";
+    unshift @INC, "$FindBin::Bin/local/lib/perl5";
+    unshift @INC, "$FindBin::Bin/local/lib/perl5/$Config{archname}";
+
+    $ENV{LOAD_ROUTES} = 1;
+}
+######
 
 use YAML qw(Load);
-use File::Find;
-use FindBin;
-
+use Try::Tiny;
 use DDP;
+
+my $tempdir = tempdir();
+
+my @default_harnesses = (
+    'sta.js',
+    'assert.js'
+);
+
+my $default_content = getHarness(<@default_harnesses>);
 
 main();
 
 sub main {
-#     my $data = <<'HEADERDATA';
-#     description: foobar
-#     info: barbaz
-#     features: [async-abruption, cancelation]
-# HEADERDATA
-
-#     my $parsed_data = Load( $data );
-#     p $parsed_data;
-    find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/');
+    # find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/');
+    find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/built-ins/WeakMap/prototype');
 }
 
 sub wanted {
@@ -76,20 +81,79 @@ sub wanted {
 sub processFile {
     my $filename = shift;
 
-    # print $filename, "\n";
+    my $contents = getContents($filename);
+    my $parsed = parseData($contents, $filename);
+    my ($tfh, $tfname) = getTempFile();
 
-    open(my $fh, '<', "$FindBin::Bin/$filename") or die;
+    # Append the test file contents to the temporary file
+    print $tfh $contents;
 
-    my $contents = join("\n", <$fh>);
+    runTest($tfname, $filename);
 
-    if ($contents =~ /\/\*---([\S\s]*)---\*\//m) {
-        my $parsed = parseData($1);
-    }
+    close $tfh;
+}
+
+sub runTest {
+    my ($tempfile, $filename) = @_;
+
+    system("jsc", $tempfile);
+
+    if ($? != 0) {
+        print "$filename: $?\n";
+    };
+}
+
+sub getTempFile {
+    my ($tfh, $tfname) = tempfile(DIR => $tempdir);
+
+    print $tfh $default_content;
+
+    return ($tfh, $tfname);
+}
+
+sub getContents {
+    my $filename = shift;
+
+    open(my $fh, '<', "$FindBin::Bin/$filename") or die $!;
+    my $contents = join('', <$fh>);
+    close $fh;
+
+    return $contents;
 }
 
 sub parseData {
-    my $data = shift;
+    my ($contents, $filename) = @_;
+    
+    my $parsed = {};
+    my $found = '';
+    if ($contents =~ /\/\*(---\n[\S\s]*)\n---\*\//m) {
+        $found = $1;
+        #$parsed = Load($1);
+    };
 
-    my $parsed_data = Load( $data );
-    p $parsed_data;
+    try {
+        $parsed = Load($found);
+    } catch {
+        print "Error parsing YAML data on file $filename.\n";
+        print "@_\n";
+    };
+    return $parsed;
+}
+
+sub getHarness {
+    my @files = @_;
+    my $content;
+    for (@files) {
+        my $file = $_;
+        
+        open(my $harness_file, '<',
+            "$FindBin::Bin/../../../JSTests/test262/harness/$file")
+            or die "$!, '$file'";
+
+        $content .= join('', <$harness_file>);
+
+        close $harness_file;
+    };
+
+    return $content;
 }

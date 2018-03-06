@@ -1,5 +1,5 @@
 requires 'perl', '== 5.8.8';
-
 requires 'YAML', '1.24';
+requires 'Try::Tiny', '0.30';
 
 # https://metacpan.org/pod/File::Data
