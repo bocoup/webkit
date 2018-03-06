@@ -1,3 +1,15 @@
+2018-03-05  Leo Balter  <leonardo.balter@gmail.com>
+
+        Perl-based Test262 runner
+        https://bugs.webkit.org/show_bug.cgi?id=183343
+
+        Reviewed by NOBODY (OOPS!).
+
+        * Scripts/test262-helpers/README.md: Added.
+        * Scripts/test262-helpers/cpanfile: Added.
+        * Scripts/test262-helpers/cpanfile.snapshot: Added.
+        * Scripts/test262-helpers/test262-runner.pl: Added.
+
 2018-03-14  Brendan McLoughlin  <brendan@bocoup.com>
 
         Add label on github when exporting wpt tests to w3c/web-platform-test repo
