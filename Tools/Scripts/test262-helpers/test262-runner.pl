@@ -56,6 +56,8 @@ BEGIN {
 
 use YAML qw(Load);
 use Try::Tiny;
+use Parallel::ForkManager;
+
 use DDP;
 
 my $tempdir = tempdir();
@@ -67,30 +69,94 @@ my @default_harnesses = (
 
 my $default_content = getHarness(<@default_harnesses>);
 
+my $max_process = 8;
+my $pm = Parallel::ForkManager->new($max_process);
+
 main();
 
 sub main {
+    my @files;
+
     # find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/');
-    find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/built-ins/WeakMap/prototype');
+    find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/language/expressions');
+    sub wanted {
+        /\.js$/s && push(@files, $File::Find::name);
+    }
+
+    FILES:
+    foreach my $file (@files) {
+        $pm->start and next FILES; # do the fork
+        processFile($file);
+
+        $pm->finish; # do the exit in the child process
+    };
+
+    $pm->wait_all_children;
 }
 
-sub wanted {
-    /\.js$/s && processFile($File::Find::name);
-}
+
 
 sub processFile {
     my $filename = shift;
 
     my $contents = getContents($filename);
     my $parsed = parseData($contents, $filename);
+    my @scenarios = getScenarios(@{ $parsed->{flags} });
+
+    for (@scenarios) {
+        my $scenario = $_;
+
+        my ($tfh, $tfname) = @{ $scenario };
+
+        compileTest($contents, $parsed, $tfh);
+
+        runTest($tfname, $filename);
+
+        close $tfh;
+    }
+}
+
+sub getScenarios {
+    my @flags = @_;
+    my @scenarios;
+
+    if (grep $_ eq 'noStrict', @flags) {
+        push @scenarios, [ addScenario() ];
+    } elsif (grep $_ eq 'onlyStrict', @flags) {
+        push @scenarios, [ addScenario("\"use strict;\"\n") ];
+    } else {
+        # Add 2 default scenarios
+        push @scenarios, [ addScenario("\"use strict;\"\n") ];
+        push @scenarios, [ addScenario() ];
+    };
+
+    return @scenarios;
+}
+
+sub addScenario {
+    my $prepend = shift;
+
     my ($tfh, $tfname) = getTempFile();
+
+    print $tfh $prepend if defined $prepend;
+    print $tfh $default_content;
+
+    return ($tfh, $tfname);
+}
+
+sub compileTest {
+    my ($contents, $parsed, $tfh) = @_;
+
+    my $includesContent;
+
+    if (exists $parsed->{includes}) {
+        my $includes = $parsed->{includes};
+        $includesContent = getHarness(@{ $includes });
+        print $tfh $includesContent;
+    }
 
     # Append the test file contents to the temporary file
     print $tfh $contents;
-
-    runTest($tfname, $filename);
-
-    close $tfh;
 }
 
 sub runTest {
@@ -99,14 +165,12 @@ sub runTest {
     system("jsc", $tempfile);
 
     if ($? != 0) {
-        print "$filename: $?\n";
+        print "$filename: $?\n\n";
     };
 }
 
 sub getTempFile {
     my ($tfh, $tfname) = tempfile(DIR => $tempdir);
-
-    print $tfh $default_content;
 
     return ($tfh, $tfname);
 }
@@ -124,11 +188,10 @@ sub getContents {
 sub parseData {
     my ($contents, $filename) = @_;
     
-    my $parsed = {};
+    my $parsed;
     my $found = '';
     if ($contents =~ /\/\*(---\n[\S\s]*)\n---\*\//m) {
         $found = $1;
-        #$parsed = Load($1);
     };
 
     try {
@@ -145,7 +208,7 @@ sub getHarness {
     my $content;
     for (@files) {
         my $file = $_;
-        
+
         open(my $harness_file, '<',
             "$FindBin::Bin/../../../JSTests/test262/harness/$file")
             or die "$!, '$file'";
