@@ -69,7 +69,7 @@ my @default_harnesses = (
 
 my $default_content = getHarness(<@default_harnesses>);
 
-my $max_process = 8;
+my $max_process = 64;
 my $pm = Parallel::ForkManager->new($max_process);
 
 main();
@@ -78,7 +78,7 @@ sub main {
     my @files;
 
     # find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/');
-    find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/language/expressions');
+    find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/built-ins/Array');
     sub wanted {
         /\.js$/s && push(@files, $File::Find::name);
     }
@@ -86,6 +86,7 @@ sub main {
     FILES:
     foreach my $file (@files) {
         $pm->start and next FILES; # do the fork
+        srand(time ^ $$); # Creates a new seed for each parallel process
         processFile($file);
 
         $pm->finish; # do the exit in the child process
@@ -162,10 +163,10 @@ sub compileTest {
 sub runTest {
     my ($tempfile, $filename) = @_;
 
-    system("jsc", $tempfile);
+    my $result = qx/jsc $tempfile/;
 
-    if ($? != 0) {
-        print "$filename: $?\n\n";
+    if ($?) { # Any Error?
+        print "$filename:\n$result\n\n";
     };
 }
 
