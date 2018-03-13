@@ -58,7 +58,7 @@ use YAML qw(Load);
 use Try::Tiny;
 use Parallel::ForkManager;
 
-use DDP;
+# use DDP;
 
 my $tempdir = tempdir();
 
@@ -71,12 +71,11 @@ my $default_content = getHarness(<@default_harnesses>);
 
 my $max_process = 64;
 my $pm = Parallel::ForkManager->new($max_process);
+my @files;
 
 main();
 
 sub main {
-    my @files;
-
     # find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/');
     find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/built-ins/Array');
     sub wanted {
@@ -107,11 +106,11 @@ sub processFile {
     for (@scenarios) {
         my $scenario = $_;
 
-        my ($tfh, $tfname) = @{ $scenario };
+        my ($tfh, $tfname, $name) = @{ $scenario };
 
         compileTest($contents, $parsed, $tfh);
 
-        runTest($tfname, $filename);
+        runTest($tfname, $filename, $name);
 
         close $tfh;
     }
@@ -122,13 +121,13 @@ sub getScenarios {
     my @scenarios;
 
     if (grep $_ eq 'noStrict', @flags) {
-        push @scenarios, [ addScenario() ];
+        push @scenarios, [ addScenario(), "non strict" ];
     } elsif (grep $_ eq 'onlyStrict', @flags) {
-        push @scenarios, [ addScenario("\"use strict;\"\n") ];
+        push @scenarios, [ addScenario("\"use strict;\"\n"), "strict mode" ];
     } else {
         # Add 2 default scenarios
-        push @scenarios, [ addScenario("\"use strict;\"\n") ];
-        push @scenarios, [ addScenario() ];
+        push @scenarios, [ addScenario("\"use strict;\"\n"), "strict mode" ];
+        push @scenarios, [ addScenario(), "non strict" ];
     };
 
     return @scenarios;
@@ -161,12 +160,13 @@ sub compileTest {
 }
 
 sub runTest {
-    my ($tempfile, $filename) = @_;
+    my ($tempfile, $filename, $scenario) = @_;
 
     my $result = qx/jsc $tempfile/;
 
     if ($?) { # Any Error?
-        print "$filename:\n$result\n\n";
+        my $msg = "$filename ($scenario):\n$result\n"; # Avoid racing conditions
+        print $msg;
     };
 }
 
