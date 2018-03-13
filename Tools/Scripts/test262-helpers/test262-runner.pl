@@ -86,7 +86,7 @@ sub main {
     FILES:
     foreach my $file (@files) {
         $pm->start and next FILES; # do the fork
-        srand(time ^ $$); # Creates a new seed for each parallel process
+        srand(time ^ $$); # Creates a new seed for each fork
         processFile($file);
 
         $pm->finish; # do the exit in the child process
