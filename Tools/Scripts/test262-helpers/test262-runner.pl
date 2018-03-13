@@ -58,14 +58,17 @@ use YAML qw(Load);
 use Try::Tiny;
 use Parallel::ForkManager;
 
-# use DDP;
-
 my $tempdir = tempdir();
 
+my $test262Dir = "$FindBin::Bin/../../../JSTests/test262/harness";
+
 my @default_harnesses = (
-    'sta.js',
-    'assert.js'
+    "$test262Dir/sta.js",
+    "$test262Dir/assert.js",
+    'agent.js'
 );
+
+my $custom_harness_api = 'agent.js';
 
 my $default_content = getHarness(<@default_harnesses>);
 
@@ -93,8 +96,6 @@ sub main {
 
     $pm->wait_all_children;
 }
-
-
 
 sub processFile {
     my $filename = shift;
@@ -151,7 +152,7 @@ sub compileTest {
 
     if (exists $parsed->{includes}) {
         my $includes = $parsed->{includes};
-        $includesContent = getHarness(@{ $includes });
+        $includesContent = getHarness(map { "$test262Dir/$_" } @{ $includes });
         print $tfh $includesContent;
     }
 
@@ -210,8 +211,7 @@ sub getHarness {
     for (@files) {
         my $file = $_;
 
-        open(my $harness_file, '<',
-            "$FindBin::Bin/../../../JSTests/test262/harness/$file")
+        open(my $harness_file, '<', $file)
             or die "$!, '$file'";
 
         $content .= join('', <$harness_file>);
