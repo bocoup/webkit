@@ -1,6 +1,15 @@
-Install [Perlbrew](https://perlbrew.pl/)
+To install Perl 5.8.8, use [Perlbrew](https://perlbrew.pl/)
+
+Mac:
 
 `\curl -L https://install.perlbrew.pl | bash`
+
+Linux (Debian derivative):
+
+```
+sudo apt-get install perlbrew
+perlbrew init
+```
 
 Append the following piece of code to the end of your ~/.bash_profile and start a
 new shell, perlbrew should be up and fully functional from there:
@@ -9,7 +18,13 @@ new shell, perlbrew should be up and fully functional from there:
 
 Install Perl 5.8.8 through Perlbrew
 
+Mac:
+
 `perlbrew install perl-5.8.8`
+
+Linux:
+
+`perlbrew --notest install perl-5.8.8   # Perl 5.8.8 has some known compilation errors`
 
 ---
 
@@ -31,7 +46,7 @@ Install Carton
 
 ---
 
-If you don't have a cpanfile yet, create one (`touch cpanfile`) and run `carton install`. This will create a `cpanfile.snapshot` file and a `./local/` folder. **This folder should be ignored in the version control**.
+If you don't have a cpanfile yet, create one (`touch cpanfile`) in this directory and run `carton install`. This will create a `cpanfile.snapshot` file and a `./local/` folder. **This folder should be ignored in the version control**.
 
 If you need to save the installed dependencies, search for the use of `carton bundle` and `carton install --cached`, but do not export the created `local` folder.
 
