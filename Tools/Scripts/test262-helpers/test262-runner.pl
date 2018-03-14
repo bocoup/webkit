@@ -67,6 +67,7 @@ my $harnessDir = "$test262Dir/harness";
 my @default_harnesses = (
     "$harnessDir/sta.js",
     "$harnessDir/assert.js",
+    "$harnessDir/doneprintHandle.js",
     'agent.js'
 );
 
@@ -89,7 +90,7 @@ sub main {
     # good for negative tests: '/test/language/identifiers');
     find(
         { wanted => \&wanted, bydepth => 1 },
-        qq($test262Dir/test/built-ins/String)
+        qq($test262Dir/test/language/expressions/async-function)
     );
     sub wanted {
         /\.js$/s && push(@files, $File::Find::name);
@@ -119,7 +120,7 @@ sub processFile {
 
         compileTest($contents, $data, $tfh);
 
-        my $result = runTest($tfname, $filename, $sname);
+        my $result = runTest($tfname, $filename, $sname, $data);
 
         processResult($filename, $data, $sname, $result);
 
@@ -171,9 +172,23 @@ sub compileTest {
 }
 
 sub runTest {
-    my ($tempfile, $filename, $scenario) = @_;
+    my ($tempfile, $filename, $scenario, $data) = @_;
 
-    my $result = qx/jsc $tempfile/;
+    my $args = '';
+
+    if (exists $data->{negative}) {
+        my $type = $data->{negative}->{type};
+        $args .=  " --exception=$type ";
+    }
+
+    if (exists $data->{flags}) {
+        my @flags = $data->{flags};
+        if (grep $_ eq 'async', @flags) {
+            $args .= ' --test262-async ';
+        }
+    }
+
+    my $result = qx/jsc $args $tempfile/;
 
     chomp $result;
 
@@ -189,23 +204,12 @@ sub processResult {
     my $file = abs2rel( $path, $test262Dir );
 
     # Check if it's negative test
-    if (exists $data->{negative}) {
-        my $type = $data->{negative}->{type};
-
-        # This works only with JSC
-        if (not index($result, "Exception: $type") > -1) {
-            print qq(FAIL $file\nExpected $type found: \n$result\n\n);
-        } else {
-            # The actual failure matches the expected constructor
-            $pass = 1;
-        }
-    } elsif ($result) {
-        # The test really failed
+    if ($result) {
         print qq(FAIL $file\n$result\n\n);
     } else {
         $pass = 1;
     }
-    
+
     print $resfh $file;
 }
 
