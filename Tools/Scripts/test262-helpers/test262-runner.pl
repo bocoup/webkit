@@ -33,12 +33,13 @@ use 5.8.8;
 
 use File::Find;
 use File::Temp qw(tempfile tempdir);
-# use FindBin;
+use File::Spec::Functions qw(abs2rel);
+use Cwd 'abs_path';
+use FindBin;
 
 ######
 # # Use the following code run this script directly from Perl.
 # # Otherwise, just use carton.
-use FindBin;
 use Config;
 use Encode;
 
@@ -60,11 +61,12 @@ use Parallel::ForkManager;
 
 my $tempdir = tempdir();
 
-my $test262Dir = "$FindBin::Bin/../../../JSTests/test262/harness";
+my $test262Dir = abs_path("$FindBin::Bin/../../../JSTests/test262");
+my $harnessDir = "$test262Dir/harness";
 
 my @default_harnesses = (
-    "$test262Dir/sta.js",
-    "$test262Dir/assert.js",
+    "$harnessDir/sta.js",
+    "$harnessDir/assert.js",
     'agent.js'
 );
 
@@ -75,12 +77,20 @@ my $default_content = getHarness(<@default_harnesses>);
 my $max_process = 64;
 my $pm = Parallel::ForkManager->new($max_process);
 my @files;
+my ($resfh, $resfilename) = getTempFile();
 
 main();
 
 sub main {
-    # find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/');
-    find({ wanted => \&wanted, bydepth => 1 }, '../../../JSTests/test262/test/built-ins/Array');
+    # find(
+    #     { wanted => \&wanted, bydepth => 1 },
+    #     qq($test262Dir/test)
+    # );
+    # good for negative tests: '/test/language/identifiers');
+    find(
+        { wanted => \&wanted, bydepth => 1 },
+        qq($test262Dir/test/built-ins/String)
+    );
     sub wanted {
         /\.js$/s && push(@files, $File::Find::name);
     }
@@ -101,17 +111,17 @@ sub processFile {
     my $filename = shift;
 
     my $contents = getContents($filename);
-    my $parsed = parseData($contents, $filename);
-    my @scenarios = getScenarios(@{ $parsed->{flags} });
+    my $data = parseData($contents, $filename);
+    my @scenarios = getScenarios(@{ $data->{flags} });
 
-    for (@scenarios) {
-        my $scenario = $_;
+    foreach my $scenario (@scenarios) {
+        my ($tfh, $tfname, $sname) = @{ $scenario };
 
-        my ($tfh, $tfname, $name) = @{ $scenario };
+        compileTest($contents, $data, $tfh);
 
-        compileTest($contents, $parsed, $tfh);
+        my $result = runTest($tfname, $filename, $sname);
 
-        runTest($tfname, $filename, $name);
+        processResult($filename, $data, $sname, $result);
 
         close $tfh;
     }
@@ -152,7 +162,7 @@ sub compileTest {
 
     if (exists $parsed->{includes}) {
         my $includes = $parsed->{includes};
-        $includesContent = getHarness(map { "$test262Dir/$_" } @{ $includes });
+        $includesContent = getHarness(map { "$harnessDir/$_" } @{ $includes });
         print $tfh $includesContent;
     }
 
@@ -165,10 +175,38 @@ sub runTest {
 
     my $result = qx/jsc $tempfile/;
 
-    if ($?) { # Any Error?
-        my $msg = "$filename ($scenario):\n$result\n"; # Avoid racing conditions
-        print $msg;
-    };
+    chomp $result;
+
+    return $result if ($?);
+}
+
+sub processResult {
+    my ($path, $data, $scenario, $result) = @_;
+
+    my $pass = 0;
+
+    # Report a relative path
+    my $file = abs2rel( $path, $test262Dir );
+
+    # Check if it's negative test
+    if (exists $data->{negative}) {
+        my $type = $data->{negative}->{type};
+
+        # This works only with JSC
+        if (not index($result, "Exception: $type") > -1) {
+            print qq(FAIL $file\nExpected $type found: \n$result\n\n);
+        } else {
+            # The actual failure matches the expected constructor
+            $pass = 1;
+        }
+    } elsif ($result) {
+        # The test really failed
+        print qq(FAIL $file\n$result\n\n);
+    } else {
+        $pass = 1;
+    }
+    
+    print $resfh $file;
 }
 
 sub getTempFile {
@@ -180,7 +218,7 @@ sub getTempFile {
 sub getContents {
     my $filename = shift;
 
-    open(my $fh, '<', "$FindBin::Bin/$filename") or die $!;
+    open(my $fh, '<', $filename) or die $!;
     my $contents = join('', <$fh>);
     close $fh;
 
