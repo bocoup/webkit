@@ -73,12 +73,16 @@ my @default_harnesses = (
 
 my $custom_harness_api = 'agent.js';
 
+my $tests_log = "$FindBin::Bin/tests.log";
+
 my $default_content = getHarness(<@default_harnesses>);
 
 my $max_process = 64;
 my $pm = Parallel::ForkManager->new($max_process);
 my @files;
 my ($resfh, $resfilename) = getTempFile();
+
+my $startTime = time();
 
 main();
 
@@ -106,6 +110,20 @@ sub main {
     };
 
     $pm->wait_all_children;
+
+    $resfh->seek(0, 0);
+    my @res = <$resfh>;
+
+    open(my $logfh, '>', $tests_log);
+
+    print $logfh (sort @res);
+
+    my $endTime = time();
+    my $totalTime = $endTime - $startTime;
+    print "Done in $totalTime seconds! Log saved in $tests_log\n";
+
+    close $resfh;
+    close $logfh;
 }
 
 sub processFile {
@@ -131,15 +149,17 @@ sub processFile {
 sub getScenarios {
     my @flags = @_;
     my @scenarios;
+    my $nonStrict = "default";
+    my $strictMode = "strict mode";
 
     if (grep $_ eq 'noStrict', @flags) {
-        push @scenarios, [ addScenario(), "non strict" ];
+        push @scenarios, [ addScenario(), $nonStrict ];
     } elsif (grep $_ eq 'onlyStrict', @flags) {
-        push @scenarios, [ addScenario("\"use strict;\"\n"), "strict mode" ];
+        push @scenarios, [ addScenario("\"use strict;\"\n"), $strictMode ];
     } else {
         # Add 2 default scenarios
-        push @scenarios, [ addScenario("\"use strict;\"\n"), "strict mode" ];
-        push @scenarios, [ addScenario(), "non strict" ];
+        push @scenarios, [ addScenario("\"use strict;\"\n"), $strictMode ];
+        push @scenarios, [ addScenario(), $nonStrict ];
     };
 
     return @scenarios;
@@ -198,19 +218,19 @@ sub runTest {
 sub processResult {
     my ($path, $data, $scenario, $result) = @_;
 
-    my $pass = 0;
-
     # Report a relative path
     my $file = abs2rel( $path, $test262Dir );
 
     # Check if it's negative test
     if ($result) {
-        print qq(FAIL $file\n$result\n\n);
-    } else {
-        $pass = 1;
+        print "FAIL $file ($scenario)\n$result\n\n";
     }
 
-    print $resfh $file;
+    my $msg = "$file ($scenario): ";
+    $msg .= "PASS\n" if not $result;
+    $msg .= "FAIL\n" if $result;
+
+    print $resfh $msg;
 }
 
 sub getTempFile {
