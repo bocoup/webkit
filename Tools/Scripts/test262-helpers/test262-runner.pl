@@ -71,13 +71,13 @@ my @default_harnesses = (
     'agent.js'
 );
 
-my $custom_harness_api = 'agent.js';
-
 my $tests_log = "$FindBin::Bin/tests.log";
 
 my $default_content = getHarness(<@default_harnesses>);
 
-my $max_process = 64;
+# TODO: derive this number by probing the system. 
+my $cpus = 8;
+my $max_process = $cpus * 8;
 my $pm = Parallel::ForkManager->new($max_process);
 my @files;
 my ($resfh, $resfilename) = getTempFile();
