@@ -111,7 +111,7 @@ sub main {
 
     $pm->wait_all_children;
 
-    $resfh->seek(0, 0);
+    seek($resfh, 0, 0);
     my @res = <$resfh>;
 
     open(my $logfh, '>', $tests_log);
