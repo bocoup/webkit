@@ -56,7 +56,7 @@ You can specify a required Perl version in the cpanfile by adding the following 
 
 ---
 
-To install dependencies from a `cpanfile`, run `carton install`.
+Run `carton install` to install dependencies from a `cpanfile`.
 
 More documentation on the cpanfile [here](https://metacpan.org/pod/distribution/Module-CPANfile/lib/cpanfile.pod).
 
