@@ -133,56 +133,51 @@ sub processFile {
     my $data = parseData($contents, $filename);
     my @scenarios = getScenarios(@{ $data->{flags} });
 
+    my ($tfh, $tfname) = getTempFile();
+
+    compileTest($contents, ${ $data->{includes} }, $tfh);
+
     foreach my $scenario (@scenarios) {
-        my ($tfh, $tfname, $sname) = @{ $scenario };
+        seek($tfh, 0, 0);
+        my $result = runTest($tfname, $filename, $scenario, $data);
 
-        compileTest($contents, $data, $tfh);
-
-        my $result = runTest($tfname, $filename, $sname, $data);
-
-        processResult($filename, $data, $sname, $result);
-
-        close $tfh;
+        processResult($filename, $data, $scenario, $result);
     }
+
+    close $tfh;
 }
 
 sub getScenarios {
     my @flags = @_;
     my @scenarios;
-    my $nonStrict = "default";
-    my $strictMode = "strict mode";
+    my $nonStrict = 'default';
+    my $strictMode = 'strict mode';
+    my $moduleCode = 'module code';
 
     if (grep $_ eq 'noStrict', @flags) {
-        push @scenarios, [ addScenario(), $nonStrict ];
+        push @scenarios, $nonStrict;
     } elsif (grep $_ eq 'onlyStrict', @flags) {
-        push @scenarios, [ addScenario("\"use strict;\"\n"), $strictMode ];
+        push @scenarios, $strictMode;
+    } elsif (grep $_ eq 'module', @flags) {
+        push @scenarios, 'module';
     } else {
         # Add 2 default scenarios
-        push @scenarios, [ addScenario("\"use strict;\"\n"), $strictMode ];
-        push @scenarios, [ addScenario(), $nonStrict ];
+        push @scenarios, $strictMode;
+        push @scenarios, $nonStrict;
     };
 
     return @scenarios;
 }
 
-sub addScenario {
-    my $prepend = shift;
-
-    my ($tfh, $tfname) = getTempFile();
-
-    print $tfh $prepend if defined $prepend;
-    print $tfh $default_content;
-
-    return ($tfh, $tfname);
-}
-
 sub compileTest {
-    my ($contents, $parsed, $tfh) = @_;
+    my ($contents, $includes, $tfh) = @_;
 
     my $includesContent;
 
-    if (exists $parsed->{includes}) {
-        my $includes = $parsed->{includes};
+    print $tfh $default_content;
+
+    if (defined $includes) {
+        my $includes = $includes;
         $includesContent = getHarness(map { "$harnessDir/$_" } @{ $includes });
         print $tfh $includesContent;
     }
@@ -208,7 +203,15 @@ sub runTest {
         }
     }
 
-    my $result = qx/jsc $args $tempfile/;
+    my $prefixFile = '';
+
+    if ($scenario eq 'module') {
+        $prefixFile='--module-file=';
+    } elsif ($scenario eq 'strict mode') {
+        $prefixFile='--strict-file=';
+    }
+
+    my $result = qx/jsc $args $prefixFile$tempfile/;
 
     chomp $result;
 

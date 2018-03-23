@@ -12,13 +12,13 @@ test/language/expressions/async-function/await-as-label-identifier.js (default):
 test/language/expressions/async-function/await-as-label-identifier.js (strict mode): PASS
 test/language/expressions/async-function/early-errors-expression-NSPL-with-USD.js (default): PASS
 test/language/expressions/async-function/early-errors-expression-NSPL-with-USD.js (strict mode): PASS
-test/language/expressions/async-function/early-errors-expression-binding-identifier-arguments.js (strict mode): FAIL
-test/language/expressions/async-function/early-errors-expression-binding-identifier-eval.js (strict mode): FAIL
+test/language/expressions/async-function/early-errors-expression-binding-identifier-arguments.js (strict mode): PASS
+test/language/expressions/async-function/early-errors-expression-binding-identifier-eval.js (strict mode): PASS
 test/language/expressions/async-function/early-errors-expression-body-contains-super-call.js (default): PASS
 test/language/expressions/async-function/early-errors-expression-body-contains-super-call.js (strict mode): PASS
 test/language/expressions/async-function/early-errors-expression-body-contains-super-property.js (default): PASS
 test/language/expressions/async-function/early-errors-expression-body-contains-super-property.js (strict mode): PASS
-test/language/expressions/async-function/early-errors-expression-eval-in-formal-parameters.js (strict mode): FAIL
+test/language/expressions/async-function/early-errors-expression-eval-in-formal-parameters.js (strict mode): PASS
 test/language/expressions/async-function/early-errors-expression-formals-body-duplicate.js (default): PASS
 test/language/expressions/async-function/early-errors-expression-formals-body-duplicate.js (strict mode): PASS
 test/language/expressions/async-function/early-errors-expression-formals-contains-super-call.js (default): PASS
