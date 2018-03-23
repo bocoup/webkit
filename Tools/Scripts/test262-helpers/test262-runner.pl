@@ -73,14 +73,15 @@ my @default_harnesses = (
 
 my $tests_log = "$FindBin::Bin/tests.log";
 
-my $default_content = getHarness(<@default_harnesses>);
-
 # TODO: derive this number by probing the system. 
 my $cpus = 8;
 my $max_process = $cpus * 8;
 my $pm = Parallel::ForkManager->new($max_process);
 my @files;
 my ($resfh, $resfilename) = getTempFile();
+
+my ($deffh, $deffile) = getTempFile();
+print $deffh getHarness(<@default_harnesses>);
 
 my $startTime = time();
 
@@ -92,12 +93,16 @@ sub main {
     #     qq($test262Dir/test)
     # );
     # good for negative tests: '/test/language/identifiers');
+    # find(
+    #     { wanted => \&wanted, bydepth => 1 },
+    #     qq($test262Dir/test/language/expressions/async-function)
+    # );
     find(
         { wanted => \&wanted, bydepth => 1 },
-        qq($test262Dir/test/language/expressions/async-function)
+        qq($test262Dir/test/language/module-code)
     );
     sub wanted {
-        /\.js$/s && push(@files, $File::Find::name);
+        /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
     }
 
     FILES:
@@ -110,6 +115,8 @@ sub main {
     };
 
     $pm->wait_all_children;
+
+    close $deffh;
 
     seek($resfh, 0, 0);
     my @res = <$resfh>;
@@ -133,18 +140,17 @@ sub processFile {
     my $data = parseData($contents, $filename);
     my @scenarios = getScenarios(@{ $data->{flags} });
 
-    my ($tfh, $tfname) = getTempFile();
-
-    compileTest($contents, ${ $data->{includes} }, $tfh);
+    my $includes = $data->{includes};
+    my ($includesfh, $includesfile);
+    ($includesfh, $includesfile) = compileTest($includes) if defined $includes;
 
     foreach my $scenario (@scenarios) {
-        seek($tfh, 0, 0);
-        my $result = runTest($tfname, $filename, $scenario, $data);
+        my $result = runTest($includesfile, $filename, $scenario, $data);
 
         processResult($filename, $data, $scenario, $result);
     }
 
-    close $tfh;
+    close $includesfh if defined $includesfh;
 }
 
 sub getScenarios {
@@ -170,24 +176,18 @@ sub getScenarios {
 }
 
 sub compileTest {
-    my ($contents, $includes, $tfh) = @_;
+    my $includes = shift;
+    my ($tfh, $tfname) = getTempFile();
 
-    my $includesContent;
+    my $includesContent = getHarness(map { "$harnessDir/$_" } @{ $includes });
+    print $tfh $includesContent;
 
-    print $tfh $default_content;
-
-    if (defined $includes) {
-        my $includes = $includes;
-        $includesContent = getHarness(map { "$harnessDir/$_" } @{ $includes });
-        print $tfh $includesContent;
-    }
-
-    # Append the test file contents to the temporary file
-    print $tfh $contents;
+    return ($tfh, $tfname);
 }
 
 sub runTest {
-    my ($tempfile, $filename, $scenario, $data) = @_;
+    my ($includesfile, $filename, $scenario, $data) = @_;
+    $includesfile ||= '';
 
     my $args = '';
 
@@ -211,7 +211,7 @@ sub runTest {
         $prefixFile='--strict-file=';
     }
 
-    my $result = qx/jsc $args $prefixFile$tempfile/;
+    my $result = qx/jsc $args $deffile $includesfile $prefixFile$filename/;
 
     chomp $result;
 
