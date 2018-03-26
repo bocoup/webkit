@@ -68,7 +68,7 @@ my @default_harnesses = (
     "$harnessDir/sta.js",
     "$harnessDir/assert.js",
     "$harnessDir/doneprintHandle.js",
-    'agent.js'
+    "$FindBin::Bin/agent.js"
 );
 
 my $tests_log = "$FindBin::Bin/tests.log";
