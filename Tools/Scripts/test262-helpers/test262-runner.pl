@@ -56,7 +56,6 @@ BEGIN {
 ######
 
 use YAML qw(Load);
-use Try::Tiny;
 use Parallel::ForkManager;
 
 my $tempdir = tempdir();
@@ -261,11 +260,12 @@ sub parseData {
         $found = $1;
     };
 
-    try {
+    eval {
         $parsed = Load($found);
-    } catch {
-        print "Error parsing YAML data on file $filename.\n";
-        print "@_\n";
+    };
+    if ($@) {
+        print "\nError parsing YAML data on file $filename.\n";
+        print "$@\n";
     };
     return $parsed;
 }

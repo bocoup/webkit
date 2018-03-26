@@ -48,6 +48,3 @@ __cmake_systeminformation/
 
 # Ignore YouCompleteMe symlinks
 .ycm_extra_conf.py
-
-# Ignore Perl local dependencies
-/Tools/Scripts/test262-helpers/local
