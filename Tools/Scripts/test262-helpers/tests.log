@@ -1,564 +1,282 @@
-test/language/module-code/comment-multi-line-html-close.js (default): FAIL
-test/language/module-code/comment-multi-line-html-close.js (strict mode): FAIL
-test/language/module-code/comment-single-line-html-close.js (default): FAIL
-test/language/module-code/comment-single-line-html-close.js (strict mode): FAIL
-test/language/module-code/comment-single-line-html-open.js (default): FAIL
-test/language/module-code/comment-single-line-html-open.js (strict mode): FAIL
-test/language/module-code/early-dup-export-decl.js (default): FAIL
-test/language/module-code/early-dup-export-decl.js (strict mode): FAIL
-test/language/module-code/early-dup-export-dflt-id.js (default): FAIL
-test/language/module-code/early-dup-export-dflt-id.js (strict mode): FAIL
-test/language/module-code/early-dup-export-dflt.js (default): FAIL
-test/language/module-code/early-dup-export-dflt.js (strict mode): FAIL
-test/language/module-code/early-dup-export-id-as.js (default): FAIL
-test/language/module-code/early-dup-export-id-as.js (strict mode): FAIL
-test/language/module-code/early-dup-export-id.js (default): FAIL
-test/language/module-code/early-dup-export-id.js (strict mode): FAIL
-test/language/module-code/early-dup-lables.js (default): FAIL
-test/language/module-code/early-dup-lables.js (strict mode): FAIL
-test/language/module-code/early-dup-lex.js (default): FAIL
-test/language/module-code/early-dup-lex.js (strict mode): FAIL
-test/language/module-code/early-export-global.js (default): FAIL
-test/language/module-code/early-export-global.js (strict mode): FAIL
-test/language/module-code/early-export-unresolvable.js (default): FAIL
-test/language/module-code/early-export-unresolvable.js (strict mode): FAIL
-test/language/module-code/early-import-arguments.js (default): FAIL
-test/language/module-code/early-import-arguments.js (strict mode): FAIL
-test/language/module-code/early-import-as-arguments.js (default): FAIL
-test/language/module-code/early-import-as-arguments.js (strict mode): FAIL
-test/language/module-code/early-import-as-eval.js (default): FAIL
-test/language/module-code/early-import-as-eval.js (strict mode): FAIL
-test/language/module-code/early-import-eval.js (default): FAIL
-test/language/module-code/early-import-eval.js (strict mode): FAIL
-test/language/module-code/early-lex-and-var.js (default): FAIL
-test/language/module-code/early-lex-and-var.js (strict mode): FAIL
-test/language/module-code/early-new-target.js (default): FAIL
-test/language/module-code/early-new-target.js (strict mode): FAIL
-test/language/module-code/early-strict-mode.js (default): FAIL
-test/language/module-code/early-strict-mode.js (strict mode): FAIL
-test/language/module-code/early-super.js (default): FAIL
-test/language/module-code/early-super.js (strict mode): FAIL
-test/language/module-code/early-undef-break.js (default): FAIL
-test/language/module-code/early-undef-break.js (strict mode): FAIL
-test/language/module-code/early-undef-continue.js (default): FAIL
-test/language/module-code/early-undef-continue.js (strict mode): FAIL
-test/language/module-code/eval-export-cls-semi.js (default): FAIL
-test/language/module-code/eval-export-cls-semi.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-cls-anon-semi.js (default): FAIL
-test/language/module-code/eval-export-dflt-cls-anon-semi.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-cls-anon.js (default): FAIL
-test/language/module-code/eval-export-dflt-cls-anon.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-cls-name-meth.js (default): FAIL
-test/language/module-code/eval-export-dflt-cls-name-meth.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-cls-named-semi.js (default): FAIL
-test/language/module-code/eval-export-dflt-cls-named-semi.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-cls-named.js (default): FAIL
-test/language/module-code/eval-export-dflt-cls-named.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-cls-anon.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-cls-anon.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-cls-name-meth.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-cls-name-meth.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-cls-named.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-cls-named.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-err-eval.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-err-eval.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-err-get-value.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-err-get-value.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-fn-anon.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-fn-anon.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-fn-named.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-fn-named.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-gen-anon.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-gen-anon.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-gen-named.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-gen-named.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-expr-in.js (default): FAIL
-test/language/module-code/eval-export-dflt-expr-in.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-fun-anon-semi.js (default): FAIL
-test/language/module-code/eval-export-dflt-fun-anon-semi.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-fun-named-semi.js (default): FAIL
-test/language/module-code/eval-export-dflt-fun-named-semi.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-gen-anon-semi.js (default): FAIL
-test/language/module-code/eval-export-dflt-gen-anon-semi.js (strict mode): FAIL
-test/language/module-code/eval-export-dflt-gen-named-semi.js (default): FAIL
-test/language/module-code/eval-export-dflt-gen-named-semi.js (strict mode): FAIL
-test/language/module-code/eval-export-fun-semi.js (default): FAIL
-test/language/module-code/eval-export-fun-semi.js (strict mode): FAIL
-test/language/module-code/eval-export-gen-semi.js (default): FAIL
-test/language/module-code/eval-export-gen-semi.js (strict mode): FAIL
-test/language/module-code/eval-gtbndng-indirect-trlng-comma.js (default): FAIL
-test/language/module-code/eval-gtbndng-indirect-trlng-comma.js (strict mode): FAIL
-test/language/module-code/eval-gtbndng-indirect-update-as.js (default): FAIL
-test/language/module-code/eval-gtbndng-indirect-update-as.js (strict mode): FAIL
-test/language/module-code/eval-gtbndng-indirect-update-dflt.js (default): FAIL
-test/language/module-code/eval-gtbndng-indirect-update-dflt.js (strict mode): FAIL
-test/language/module-code/eval-gtbndng-indirect-update.js (default): FAIL
-test/language/module-code/eval-gtbndng-indirect-update.js (strict mode): FAIL
-test/language/module-code/eval-gtbndng-local-bndng-cls.js (default): PASS
-test/language/module-code/eval-gtbndng-local-bndng-cls.js (strict mode): PASS
-test/language/module-code/eval-gtbndng-local-bndng-const.js (default): PASS
-test/language/module-code/eval-gtbndng-local-bndng-const.js (strict mode): PASS
-test/language/module-code/eval-gtbndng-local-bndng-let.js (default): PASS
-test/language/module-code/eval-gtbndng-local-bndng-let.js (strict mode): PASS
-test/language/module-code/eval-gtbndng-local-bndng-var.js (default): PASS
-test/language/module-code/eval-gtbndng-local-bndng-var.js (strict mode): PASS
-test/language/module-code/eval-rqstd-abrupt.js (default): FAIL
-test/language/module-code/eval-rqstd-abrupt.js (strict mode): FAIL
-test/language/module-code/eval-rqstd-once.js (default): FAIL
-test/language/module-code/eval-rqstd-once.js (strict mode): FAIL
-test/language/module-code/eval-rqstd-order.js (default): FAIL
-test/language/module-code/eval-rqstd-order.js (strict mode): FAIL
-test/language/module-code/eval-self-abrupt.js (default): FAIL
-test/language/module-code/eval-self-abrupt.js (strict mode): FAIL
-test/language/module-code/eval-self-once.js (default): FAIL
-test/language/module-code/eval-self-once.js (strict mode): FAIL
-test/language/module-code/eval-this.js (default): FAIL
-test/language/module-code/eval-this.js (strict mode): FAIL
-test/language/module-code/instn-iee-bndng-cls.js (default): FAIL
-test/language/module-code/instn-iee-bndng-cls.js (strict mode): FAIL
-test/language/module-code/instn-iee-bndng-const.js (default): FAIL
-test/language/module-code/instn-iee-bndng-const.js (strict mode): FAIL
-test/language/module-code/instn-iee-bndng-fun.js (default): FAIL
-test/language/module-code/instn-iee-bndng-fun.js (strict mode): FAIL
-test/language/module-code/instn-iee-bndng-gen.js (default): FAIL
-test/language/module-code/instn-iee-bndng-gen.js (strict mode): FAIL
-test/language/module-code/instn-iee-bndng-let.js (default): FAIL
-test/language/module-code/instn-iee-bndng-let.js (strict mode): FAIL
-test/language/module-code/instn-iee-bndng-var.js (default): FAIL
-test/language/module-code/instn-iee-bndng-var.js (strict mode): FAIL
-test/language/module-code/instn-iee-err-ambiguous-as.js (default): FAIL
-test/language/module-code/instn-iee-err-ambiguous-as.js (strict mode): FAIL
-test/language/module-code/instn-iee-err-ambiguous.js (default): FAIL
-test/language/module-code/instn-iee-err-ambiguous.js (strict mode): FAIL
-test/language/module-code/instn-iee-err-circular-as.js (default): FAIL
-test/language/module-code/instn-iee-err-circular-as.js (strict mode): FAIL
-test/language/module-code/instn-iee-err-circular.js (default): FAIL
-test/language/module-code/instn-iee-err-circular.js (strict mode): FAIL
-test/language/module-code/instn-iee-err-dflt-thru-star-as.js (default): FAIL
-test/language/module-code/instn-iee-err-dflt-thru-star-as.js (strict mode): FAIL
-test/language/module-code/instn-iee-err-dflt-thru-star.js (default): FAIL
-test/language/module-code/instn-iee-err-dflt-thru-star.js (strict mode): FAIL
-test/language/module-code/instn-iee-err-not-found-as.js (default): FAIL
-test/language/module-code/instn-iee-err-not-found-as.js (strict mode): FAIL
-test/language/module-code/instn-iee-err-not-found.js (default): FAIL
-test/language/module-code/instn-iee-err-not-found.js (strict mode): FAIL
-test/language/module-code/instn-iee-iee-cycle.js (default): FAIL
-test/language/module-code/instn-iee-iee-cycle.js (strict mode): FAIL
-test/language/module-code/instn-iee-star-cycle.js (default): FAIL
-test/language/module-code/instn-iee-star-cycle.js (strict mode): FAIL
-test/language/module-code/instn-iee-trlng-comma.js (default): FAIL
-test/language/module-code/instn-iee-trlng-comma.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-cls.js (default): FAIL
-test/language/module-code/instn-local-bndng-cls.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-const.js (default): FAIL
-test/language/module-code/instn-local-bndng-const.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-export-cls.js (default): FAIL
-test/language/module-code/instn-local-bndng-export-cls.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-export-const.js (default): FAIL
-test/language/module-code/instn-local-bndng-export-const.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-export-fun.js (default): FAIL
-test/language/module-code/instn-local-bndng-export-fun.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-export-gen.js (default): FAIL
-test/language/module-code/instn-local-bndng-export-gen.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-export-let.js (default): FAIL
-test/language/module-code/instn-local-bndng-export-let.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-export-var.js (default): FAIL
-test/language/module-code/instn-local-bndng-export-var.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-for-dup.js (default): PASS
-test/language/module-code/instn-local-bndng-for-dup.js (strict mode): PASS
-test/language/module-code/instn-local-bndng-for.js (default): FAIL
-test/language/module-code/instn-local-bndng-for.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-fun.js (default): FAIL
-test/language/module-code/instn-local-bndng-fun.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-gen.js (default): FAIL
-test/language/module-code/instn-local-bndng-gen.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-let.js (default): FAIL
-test/language/module-code/instn-local-bndng-let.js (strict mode): FAIL
-test/language/module-code/instn-local-bndng-var-dup.js (default): PASS
-test/language/module-code/instn-local-bndng-var-dup.js (strict mode): PASS
-test/language/module-code/instn-local-bndng-var.js (default): FAIL
-test/language/module-code/instn-local-bndng-var.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-cls.js (default): FAIL
-test/language/module-code/instn-named-bndng-cls.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-const.js (default): FAIL
-test/language/module-code/instn-named-bndng-const.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-dflt-cls.js (default): FAIL
-test/language/module-code/instn-named-bndng-dflt-cls.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-dflt-expr.js (default): FAIL
-test/language/module-code/instn-named-bndng-dflt-expr.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-dflt-fun-anon.js (default): FAIL
-test/language/module-code/instn-named-bndng-dflt-fun-anon.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-dflt-fun-named.js (default): FAIL
-test/language/module-code/instn-named-bndng-dflt-fun-named.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-dflt-gen-anon.js (default): FAIL
-test/language/module-code/instn-named-bndng-dflt-gen-anon.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-dflt-gen-named.js (default): FAIL
-test/language/module-code/instn-named-bndng-dflt-gen-named.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-dflt-named.js (default): FAIL
-test/language/module-code/instn-named-bndng-dflt-named.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-dflt-star.js (default): FAIL
-test/language/module-code/instn-named-bndng-dflt-star.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-fun.js (default): FAIL
-test/language/module-code/instn-named-bndng-fun.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-gen.js (default): FAIL
-test/language/module-code/instn-named-bndng-gen.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-let.js (default): FAIL
-test/language/module-code/instn-named-bndng-let.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-trlng-comma.js (default): FAIL
-test/language/module-code/instn-named-bndng-trlng-comma.js (strict mode): FAIL
-test/language/module-code/instn-named-bndng-var.js (default): FAIL
-test/language/module-code/instn-named-bndng-var.js (strict mode): FAIL
-test/language/module-code/instn-named-err-ambiguous-as.js (default): FAIL
-test/language/module-code/instn-named-err-ambiguous-as.js (strict mode): FAIL
-test/language/module-code/instn-named-err-ambiguous.js (default): FAIL
-test/language/module-code/instn-named-err-ambiguous.js (strict mode): FAIL
-test/language/module-code/instn-named-err-dflt-thru-star-as.js (default): FAIL
-test/language/module-code/instn-named-err-dflt-thru-star-as.js (strict mode): FAIL
-test/language/module-code/instn-named-err-dflt-thru-star-dflt.js (default): FAIL
-test/language/module-code/instn-named-err-dflt-thru-star-dflt.js (strict mode): FAIL
-test/language/module-code/instn-named-err-not-found-as.js (default): FAIL
-test/language/module-code/instn-named-err-not-found-as.js (strict mode): FAIL
-test/language/module-code/instn-named-err-not-found-dflt.js (default): FAIL
-test/language/module-code/instn-named-err-not-found-dflt.js (strict mode): FAIL
-test/language/module-code/instn-named-err-not-found.js (default): FAIL
-test/language/module-code/instn-named-err-not-found.js (strict mode): FAIL
-test/language/module-code/instn-named-id-name.js (default): FAIL
-test/language/module-code/instn-named-id-name.js (strict mode): FAIL
-test/language/module-code/instn-named-iee-cycle.js (default): FAIL
-test/language/module-code/instn-named-iee-cycle.js (strict mode): FAIL
-test/language/module-code/instn-named-star-cycle.js (default): FAIL
-test/language/module-code/instn-named-star-cycle.js (strict mode): FAIL
-test/language/module-code/instn-once.js (default): FAIL
-test/language/module-code/instn-once.js (strict mode): FAIL
-test/language/module-code/instn-resolve-empty-export.js (default): FAIL
-test/language/module-code/instn-resolve-empty-export.js (strict mode): FAIL
-test/language/module-code/instn-resolve-empty-import.js (default): FAIL
-test/language/module-code/instn-resolve-empty-import.js (strict mode): FAIL
-test/language/module-code/instn-resolve-err-reference.js (default): FAIL
-test/language/module-code/instn-resolve-err-reference.js (strict mode): FAIL
-test/language/module-code/instn-resolve-err-syntax.js (default): FAIL
-test/language/module-code/instn-resolve-err-syntax.js (strict mode): FAIL
-test/language/module-code/instn-resolve-order-depth.js (default): FAIL
-test/language/module-code/instn-resolve-order-depth.js (strict mode): FAIL
-test/language/module-code/instn-resolve-order-src.js (default): FAIL
-test/language/module-code/instn-resolve-order-src.js (strict mode): FAIL
-test/language/module-code/instn-same-global.js (default): FAIL
-test/language/module-code/instn-same-global.js (strict mode): FAIL
-test/language/module-code/instn-star-ambiguous.js (default): FAIL
-test/language/module-code/instn-star-ambiguous.js (strict mode): FAIL
-test/language/module-code/instn-star-binding.js (default): FAIL
-test/language/module-code/instn-star-binding.js (strict mode): FAIL
-test/language/module-code/instn-star-equality.js (default): FAIL
-test/language/module-code/instn-star-equality.js (strict mode): FAIL
-test/language/module-code/instn-star-err-not-found.js (default): FAIL
-test/language/module-code/instn-star-err-not-found.js (strict mode): FAIL
-test/language/module-code/instn-star-id-name.js (default): FAIL
-test/language/module-code/instn-star-id-name.js (strict mode): FAIL
-test/language/module-code/instn-star-iee-cycle.js (default): FAIL
-test/language/module-code/instn-star-iee-cycle.js (strict mode): FAIL
-test/language/module-code/instn-star-props-circular.js (default): FAIL
-test/language/module-code/instn-star-props-circular.js (strict mode): FAIL
-test/language/module-code/instn-star-props-dflt-keep-indirect.js (default): FAIL
-test/language/module-code/instn-star-props-dflt-keep-indirect.js (strict mode): FAIL
-test/language/module-code/instn-star-props-dflt-keep-local.js (default): FAIL
-test/language/module-code/instn-star-props-dflt-keep-local.js (strict mode): FAIL
-test/language/module-code/instn-star-props-dflt-skip.js (default): FAIL
-test/language/module-code/instn-star-props-dflt-skip.js (strict mode): FAIL
-test/language/module-code/instn-star-props-nrml.js (default): FAIL
-test/language/module-code/instn-star-props-nrml.js (strict mode): FAIL
-test/language/module-code/instn-star-star-cycle.js (default): FAIL
-test/language/module-code/instn-star-star-cycle.js (strict mode): FAIL
-test/language/module-code/instn-uniq-env-rec.js (default): FAIL
-test/language/module-code/instn-uniq-env-rec.js (strict mode): FAIL
-test/language/module-code/namespace/Symbol.iterator.js (default): FAIL
-test/language/module-code/namespace/Symbol.iterator.js (strict mode): FAIL
-test/language/module-code/namespace/Symbol.toStringTag.js (default): FAIL
-test/language/module-code/namespace/Symbol.toStringTag.js (strict mode): FAIL
-test/language/module-code/namespace/internals/define-own-property.js (default): FAIL
-test/language/module-code/namespace/internals/define-own-property.js (strict mode): FAIL
-test/language/module-code/namespace/internals/delete-exported-init.js (default): FAIL
-test/language/module-code/namespace/internals/delete-exported-init.js (strict mode): FAIL
-test/language/module-code/namespace/internals/delete-exported-uninit.js (default): FAIL
-test/language/module-code/namespace/internals/delete-exported-uninit.js (strict mode): FAIL
-test/language/module-code/namespace/internals/delete-non-exported.js (default): FAIL
-test/language/module-code/namespace/internals/delete-non-exported.js (strict mode): FAIL
-test/language/module-code/namespace/internals/enumerate-binding-uninit.js (default): FAIL
-test/language/module-code/namespace/internals/enumerate-binding-uninit.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-own-property-str-found-init.js (default): FAIL
-test/language/module-code/namespace/internals/get-own-property-str-found-init.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-own-property-str-found-uninit.js (default): FAIL
-test/language/module-code/namespace/internals/get-own-property-str-found-uninit.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-own-property-str-not-found.js (default): FAIL
-test/language/module-code/namespace/internals/get-own-property-str-not-found.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-own-property-sym.js (default): FAIL
-test/language/module-code/namespace/internals/get-own-property-sym.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-prototype-of.js (default): FAIL
-test/language/module-code/namespace/internals/get-prototype-of.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-str-found-init.js (default): FAIL
-test/language/module-code/namespace/internals/get-str-found-init.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-str-found-uninit.js (default): FAIL
-test/language/module-code/namespace/internals/get-str-found-uninit.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-str-initialize.js (default): FAIL
-test/language/module-code/namespace/internals/get-str-initialize.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-str-not-found.js (default): FAIL
-test/language/module-code/namespace/internals/get-str-not-found.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-str-update.js (default): FAIL
-test/language/module-code/namespace/internals/get-str-update.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-sym-found.js (default): FAIL
-test/language/module-code/namespace/internals/get-sym-found.js (strict mode): FAIL
-test/language/module-code/namespace/internals/get-sym-not-found.js (default): FAIL
-test/language/module-code/namespace/internals/get-sym-not-found.js (strict mode): FAIL
-test/language/module-code/namespace/internals/has-property-str-found-init.js (default): FAIL
-test/language/module-code/namespace/internals/has-property-str-found-init.js (strict mode): FAIL
-test/language/module-code/namespace/internals/has-property-str-found-uninit.js (default): FAIL
-test/language/module-code/namespace/internals/has-property-str-found-uninit.js (strict mode): FAIL
-test/language/module-code/namespace/internals/has-property-str-not-found.js (default): FAIL
-test/language/module-code/namespace/internals/has-property-str-not-found.js (strict mode): FAIL
-test/language/module-code/namespace/internals/has-property-sym-found.js (default): FAIL
-test/language/module-code/namespace/internals/has-property-sym-found.js (strict mode): FAIL
-test/language/module-code/namespace/internals/has-property-sym-not-found.js (default): FAIL
-test/language/module-code/namespace/internals/has-property-sym-not-found.js (strict mode): FAIL
-test/language/module-code/namespace/internals/is-extensible.js (default): FAIL
-test/language/module-code/namespace/internals/is-extensible.js (strict mode): FAIL
-test/language/module-code/namespace/internals/object-hasOwnProperty-binding-uninit.js (default): FAIL
-test/language/module-code/namespace/internals/object-hasOwnProperty-binding-uninit.js (strict mode): FAIL
-test/language/module-code/namespace/internals/object-keys-binding-uninit.js (default): FAIL
-test/language/module-code/namespace/internals/object-keys-binding-uninit.js (strict mode): FAIL
-test/language/module-code/namespace/internals/object-propertyIsEnumerable-binding-uninit.js (default): FAIL
-test/language/module-code/namespace/internals/object-propertyIsEnumerable-binding-uninit.js (strict mode): FAIL
-test/language/module-code/namespace/internals/own-property-keys-binding-types.js (default): FAIL
-test/language/module-code/namespace/internals/own-property-keys-binding-types.js (strict mode): FAIL
-test/language/module-code/namespace/internals/own-property-keys-sort.js (default): FAIL
-test/language/module-code/namespace/internals/own-property-keys-sort.js (strict mode): FAIL
-test/language/module-code/namespace/internals/prevent-extensions.js (default): FAIL
-test/language/module-code/namespace/internals/prevent-extensions.js (strict mode): FAIL
-test/language/module-code/namespace/internals/set-prototype-of-null.js (default): FAIL
-test/language/module-code/namespace/internals/set-prototype-of-null.js (strict mode): FAIL
-test/language/module-code/namespace/internals/set-prototype-of.js (default): FAIL
-test/language/module-code/namespace/internals/set-prototype-of.js (strict mode): FAIL
-test/language/module-code/namespace/internals/set.js (default): FAIL
-test/language/module-code/namespace/internals/set.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-arrow-function.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-arrow-function.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-block-stmt-list.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-block-stmt-list.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-block-stmt.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-block-stmt.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-decl-meth-static.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-decl-meth-static.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-decl-meth.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-decl-meth.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-decl-method-gen-static.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-decl-method-gen-static.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-decl-method-gen.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-decl-method-gen.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-expr-meth-gen-static.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-expr-meth-gen-static.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-expr-meth-gen.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-expr-meth-gen.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-expr-meth-static.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-expr-meth-static.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-expr-meth.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-class-expr-meth.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-do-while.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-do-while.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-const.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-const.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-in-const.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-in-const.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-in-let.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-in-let.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-in-lhs.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-in-lhs.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-in-var.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-in-var.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-let.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-let.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-lhs.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-lhs.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-of-const.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-of-const.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-of-let.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-of-let.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-of-lhs.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-of-lhs.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-of-var.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-of-var.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-var.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-for-var.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-function-decl.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-function-decl.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-function-expr.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-function-expr.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-generator-decl.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-generator-decl.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-generator-expr.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-generator-expr.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-if-else.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-if-else.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-if-if.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-if-if.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-labeled.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-labeled.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-object-gen-method.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-object-gen-method.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-object-getter.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-object-getter.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-object-method.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-object-method.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-object-setter.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-object-setter.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-switch-case-dflt.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-switch-case-dflt.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-switch-case.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-switch-case.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-switch-dftl.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-switch-dftl.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-try-catch-finally.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-try-catch-finally.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-try-catch.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-try-catch.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-try-finally.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-try-finally.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-try-try.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-try-try.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-export-while.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-export-while.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-arrow-function.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-arrow-function.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-block-stmt-list.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-block-stmt-list.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-block-stmt.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-block-stmt.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-decl-meth-static.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-decl-meth-static.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-decl-meth.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-decl-meth.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-decl-method-gen-static.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-decl-method-gen-static.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-decl-method-gen.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-decl-method-gen.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-expr-meth-gen-static.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-expr-meth-gen-static.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-expr-meth-gen.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-expr-meth-gen.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-expr-meth-static.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-expr-meth-static.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-expr-meth.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-class-expr-meth.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-do-while.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-do-while.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-const.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-const.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-in-const.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-in-const.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-in-let.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-in-let.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-in-lhs.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-in-lhs.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-in-var.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-in-var.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-let.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-let.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-lhs.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-lhs.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-of-const.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-of-const.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-of-let.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-of-let.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-of-lhs.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-of-lhs.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-of-var.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-of-var.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-var.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-for-var.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-function-decl.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-function-decl.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-function-expr.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-function-expr.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-generator-decl.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-generator-decl.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-generator-expr.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-generator-expr.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-if-else.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-if-else.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-if-if.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-if-if.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-labeled.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-labeled.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-object-gen-method.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-object-gen-method.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-object-getter.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-object-getter.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-object-method.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-object-method.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-object-setter.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-object-setter.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-switch-case-dflt.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-switch-case-dflt.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-switch-case.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-switch-case.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-switch-dftl.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-switch-dftl.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-try-catch-finally.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-try-catch-finally.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-try-catch.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-try-catch.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-try-finally.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-try-finally.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-try-try.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-try-try.js (strict mode): FAIL
-test/language/module-code/parse-err-decl-pos-import-while.js (default): FAIL
-test/language/module-code/parse-err-decl-pos-import-while.js (strict mode): FAIL
-test/language/module-code/parse-err-export-dflt-const.js (default): FAIL
-test/language/module-code/parse-err-export-dflt-const.js (strict mode): FAIL
-test/language/module-code/parse-err-export-dflt-expr.js (default): FAIL
-test/language/module-code/parse-err-export-dflt-expr.js (strict mode): FAIL
-test/language/module-code/parse-err-export-dflt-let.js (default): FAIL
-test/language/module-code/parse-err-export-dflt-let.js (strict mode): FAIL
-test/language/module-code/parse-err-export-dflt-var.js (default): FAIL
-test/language/module-code/parse-err-export-dflt-var.js (strict mode): FAIL
-test/language/module-code/parse-err-hoist-lex-fun.js (default): FAIL
-test/language/module-code/parse-err-hoist-lex-fun.js (strict mode): FAIL
-test/language/module-code/parse-err-hoist-lex-gen.js (default): FAIL
-test/language/module-code/parse-err-hoist-lex-gen.js (strict mode): FAIL
-test/language/module-code/parse-err-invoke-anon-fun-decl.js (default): FAIL
-test/language/module-code/parse-err-invoke-anon-fun-decl.js (strict mode): FAIL
-test/language/module-code/parse-err-invoke-anon-gen-decl.js (default): FAIL
-test/language/module-code/parse-err-invoke-anon-gen-decl.js (strict mode): FAIL
-test/language/module-code/parse-err-reference.js (default): FAIL
-test/language/module-code/parse-err-reference.js (strict mode): FAIL
-test/language/module-code/parse-err-return.js (default): FAIL
-test/language/module-code/parse-err-return.js (strict mode): FAIL
-test/language/module-code/parse-err-semi-dflt-expr.js (default): FAIL
-test/language/module-code/parse-err-semi-dflt-expr.js (strict mode): FAIL
-test/language/module-code/parse-err-semi-export-clause-from.js (default): FAIL
-test/language/module-code/parse-err-semi-export-clause-from.js (strict mode): FAIL
-test/language/module-code/parse-err-semi-export-clause.js (default): FAIL
-test/language/module-code/parse-err-semi-export-clause.js (strict mode): FAIL
-test/language/module-code/parse-err-semi-export-star.js (default): FAIL
-test/language/module-code/parse-err-semi-export-star.js (strict mode): FAIL
-test/language/module-code/parse-err-syntax.js (default): FAIL
-test/language/module-code/parse-err-syntax.js (strict mode): FAIL
-test/language/module-code/parse-err-yield.js (default): FAIL
-test/language/module-code/parse-err-yield.js (strict mode): FAIL
-test/language/module-code/parse-export-empty.js (default): FAIL
-test/language/module-code/parse-export-empty.js (strict mode): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-1.js (default): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-1.js (strict mode): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-2.js (default): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-2.js (strict mode): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-3.js (default): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-3.js (strict mode): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-4.js (default): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-4.js (strict mode): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-5.js (default): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-5.js (strict mode): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-6.js (default): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-6.js (strict mode): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-7.js (default): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-7.js (strict mode): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-8.js (default): FAIL
-test/language/module-code/privatename-not-valid-earlyerr-module-8.js (strict mode): FAIL
-test/language/module-code/privatename-valid-no-earlyerr.js (default): FAIL
-test/language/module-code/privatename-valid-no-earlyerr.js (strict mode): FAIL
+test/language/module-code/comment-multi-line-html-close.js (module): PASS
+test/language/module-code/comment-single-line-html-close.js (module): PASS
+test/language/module-code/comment-single-line-html-open.js (module): PASS
+test/language/module-code/early-dup-export-decl.js (module): PASS
+test/language/module-code/early-dup-export-dflt-id.js (module): PASS
+test/language/module-code/early-dup-export-dflt.js (module): PASS
+test/language/module-code/early-dup-export-id-as.js (module): PASS
+test/language/module-code/early-dup-export-id.js (module): PASS
+test/language/module-code/early-dup-lables.js (module): PASS
+test/language/module-code/early-dup-lex.js (module): PASS
+test/language/module-code/early-export-global.js (module): PASS
+test/language/module-code/early-export-unresolvable.js (module): PASS
+test/language/module-code/early-import-arguments.js (module): PASS
+test/language/module-code/early-import-as-arguments.js (module): PASS
+test/language/module-code/early-import-as-eval.js (module): PASS
+test/language/module-code/early-import-eval.js (module): PASS
+test/language/module-code/early-lex-and-var.js (module): PASS
+test/language/module-code/early-new-target.js (module): PASS
+test/language/module-code/early-strict-mode.js (module): PASS
+test/language/module-code/early-super.js (module): PASS
+test/language/module-code/early-undef-break.js (module): PASS
+test/language/module-code/early-undef-continue.js (module): PASS
+test/language/module-code/eval-export-cls-semi.js (module): PASS
+test/language/module-code/eval-export-dflt-cls-anon-semi.js (module): PASS
+test/language/module-code/eval-export-dflt-cls-anon.js (module): PASS
+test/language/module-code/eval-export-dflt-cls-name-meth.js (module): PASS
+test/language/module-code/eval-export-dflt-cls-named-semi.js (module): PASS
+test/language/module-code/eval-export-dflt-cls-named.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-cls-anon.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-cls-name-meth.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-cls-named.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-err-eval.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-err-get-value.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-fn-anon.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-fn-named.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-gen-anon.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-gen-named.js (module): PASS
+test/language/module-code/eval-export-dflt-expr-in.js (module): PASS
+test/language/module-code/eval-export-dflt-fun-anon-semi.js (module): PASS
+test/language/module-code/eval-export-dflt-fun-named-semi.js (module): PASS
+test/language/module-code/eval-export-dflt-gen-anon-semi.js (module): PASS
+test/language/module-code/eval-export-dflt-gen-named-semi.js (module): PASS
+test/language/module-code/eval-export-fun-semi.js (module): PASS
+test/language/module-code/eval-export-gen-semi.js (module): PASS
+test/language/module-code/eval-gtbndng-indirect-trlng-comma.js (module): PASS
+test/language/module-code/eval-gtbndng-indirect-update-as.js (module): PASS
+test/language/module-code/eval-gtbndng-indirect-update-dflt.js (module): PASS
+test/language/module-code/eval-gtbndng-indirect-update.js (module): PASS
+test/language/module-code/eval-gtbndng-local-bndng-cls.js (module): PASS
+test/language/module-code/eval-gtbndng-local-bndng-const.js (module): PASS
+test/language/module-code/eval-gtbndng-local-bndng-let.js (module): PASS
+test/language/module-code/eval-gtbndng-local-bndng-var.js (module): PASS
+test/language/module-code/eval-rqstd-abrupt.js (module): PASS
+test/language/module-code/eval-rqstd-once.js (module): PASS
+test/language/module-code/eval-rqstd-order.js (module): PASS
+test/language/module-code/eval-self-abrupt.js (module): PASS
+test/language/module-code/eval-self-once.js (module): PASS
+test/language/module-code/eval-this.js (module): PASS
+test/language/module-code/instn-iee-bndng-cls.js (module): PASS
+test/language/module-code/instn-iee-bndng-const.js (module): PASS
+test/language/module-code/instn-iee-bndng-fun.js (module): PASS
+test/language/module-code/instn-iee-bndng-gen.js (module): PASS
+test/language/module-code/instn-iee-bndng-let.js (module): PASS
+test/language/module-code/instn-iee-bndng-var.js (module): PASS
+test/language/module-code/instn-iee-err-ambiguous-as.js (module): PASS
+test/language/module-code/instn-iee-err-ambiguous.js (module): PASS
+test/language/module-code/instn-iee-err-circular-as.js (module): PASS
+test/language/module-code/instn-iee-err-circular.js (module): PASS
+test/language/module-code/instn-iee-err-dflt-thru-star-as.js (module): PASS
+test/language/module-code/instn-iee-err-dflt-thru-star.js (module): PASS
+test/language/module-code/instn-iee-err-not-found-as.js (module): PASS
+test/language/module-code/instn-iee-err-not-found.js (module): PASS
+test/language/module-code/instn-iee-iee-cycle.js (module): PASS
+test/language/module-code/instn-iee-star-cycle.js (module): PASS
+test/language/module-code/instn-iee-trlng-comma.js (module): PASS
+test/language/module-code/instn-local-bndng-cls.js (module): PASS
+test/language/module-code/instn-local-bndng-const.js (module): PASS
+test/language/module-code/instn-local-bndng-export-cls.js (module): PASS
+test/language/module-code/instn-local-bndng-export-const.js (module): PASS
+test/language/module-code/instn-local-bndng-export-fun.js (module): PASS
+test/language/module-code/instn-local-bndng-export-gen.js (module): PASS
+test/language/module-code/instn-local-bndng-export-let.js (module): PASS
+test/language/module-code/instn-local-bndng-export-var.js (module): PASS
+test/language/module-code/instn-local-bndng-for-dup.js (module): PASS
+test/language/module-code/instn-local-bndng-for.js (module): PASS
+test/language/module-code/instn-local-bndng-fun.js (module): PASS
+test/language/module-code/instn-local-bndng-gen.js (module): PASS
+test/language/module-code/instn-local-bndng-let.js (module): PASS
+test/language/module-code/instn-local-bndng-var-dup.js (module): PASS
+test/language/module-code/instn-local-bndng-var.js (module): PASS
+test/language/module-code/instn-named-bndng-cls.js (module): PASS
+test/language/module-code/instn-named-bndng-const.js (module): PASS
+test/language/module-code/instn-named-bndng-dflt-cls.js (module): PASS
+test/language/module-code/instn-named-bndng-dflt-expr.js (module): PASS
+test/language/module-code/instn-named-bndng-dflt-fun-anon.js (module): PASS
+test/language/module-code/instn-named-bndng-dflt-fun-named.js (module): PASS
+test/language/module-code/instn-named-bndng-dflt-gen-anon.js (module): PASS
+test/language/module-code/instn-named-bndng-dflt-gen-named.js (module): PASS
+test/language/module-code/instn-named-bndng-dflt-named.js (module): PASS
+test/language/module-code/instn-named-bndng-dflt-star.js (module): PASS
+test/language/module-code/instn-named-bndng-fun.js (module): PASS
+test/language/module-code/instn-named-bndng-gen.js (module): PASS
+test/language/module-code/instn-named-bndng-let.js (module): PASS
+test/language/module-code/instn-named-bndng-trlng-comma.js (module): PASS
+test/language/module-code/instn-named-bndng-var.js (module): PASS
+test/language/module-code/instn-named-err-ambiguous-as.js (module): PASS
+test/language/module-code/instn-named-err-ambiguous.js (module): PASS
+test/language/module-code/instn-named-err-dflt-thru-star-as.js (module): PASS
+test/language/module-code/instn-named-err-dflt-thru-star-dflt.js (module): PASS
+test/language/module-code/instn-named-err-not-found-as.js (module): PASS
+test/language/module-code/instn-named-err-not-found-dflt.js (module): PASS
+test/language/module-code/instn-named-err-not-found.js (module): PASS
+test/language/module-code/instn-named-id-name.js (module): PASS
+test/language/module-code/instn-named-iee-cycle.js (module): PASS
+test/language/module-code/instn-named-star-cycle.js (module): PASS
+test/language/module-code/instn-once.js (module): PASS
+test/language/module-code/instn-resolve-empty-export.js (module): PASS
+test/language/module-code/instn-resolve-empty-import.js (module): PASS
+test/language/module-code/instn-resolve-err-reference.js (module): PASS
+test/language/module-code/instn-resolve-err-syntax.js (module): PASS
+test/language/module-code/instn-resolve-order-depth.js (module): FAIL
+test/language/module-code/instn-resolve-order-src.js (module): FAIL
+test/language/module-code/instn-same-global.js (module): PASS
+test/language/module-code/instn-star-ambiguous.js (module): PASS
+test/language/module-code/instn-star-binding.js (module): PASS
+test/language/module-code/instn-star-equality.js (module): PASS
+test/language/module-code/instn-star-err-not-found.js (module): PASS
+test/language/module-code/instn-star-id-name.js (module): PASS
+test/language/module-code/instn-star-iee-cycle.js (module): PASS
+test/language/module-code/instn-star-props-circular.js (module): PASS
+test/language/module-code/instn-star-props-dflt-keep-indirect.js (module): PASS
+test/language/module-code/instn-star-props-dflt-keep-local.js (module): PASS
+test/language/module-code/instn-star-props-dflt-skip.js (module): PASS
+test/language/module-code/instn-star-props-nrml.js (module): PASS
+test/language/module-code/instn-star-star-cycle.js (module): PASS
+test/language/module-code/instn-uniq-env-rec.js (module): PASS
+test/language/module-code/namespace/Symbol.iterator.js (module): PASS
+test/language/module-code/namespace/Symbol.toStringTag.js (module): PASS
+test/language/module-code/namespace/internals/define-own-property.js (module): FAIL
+test/language/module-code/namespace/internals/delete-exported-init.js (module): PASS
+test/language/module-code/namespace/internals/delete-exported-uninit.js (module): PASS
+test/language/module-code/namespace/internals/delete-non-exported.js (module): PASS
+test/language/module-code/namespace/internals/enumerate-binding-uninit.js (module): PASS
+test/language/module-code/namespace/internals/get-own-property-str-found-init.js (module): PASS
+test/language/module-code/namespace/internals/get-own-property-str-found-uninit.js (module): PASS
+test/language/module-code/namespace/internals/get-own-property-str-not-found.js (module): PASS
+test/language/module-code/namespace/internals/get-own-property-sym.js (module): PASS
+test/language/module-code/namespace/internals/get-prototype-of.js (module): PASS
+test/language/module-code/namespace/internals/get-str-found-init.js (module): PASS
+test/language/module-code/namespace/internals/get-str-found-uninit.js (module): PASS
+test/language/module-code/namespace/internals/get-str-initialize.js (module): PASS
+test/language/module-code/namespace/internals/get-str-not-found.js (module): PASS
+test/language/module-code/namespace/internals/get-str-update.js (module): PASS
+test/language/module-code/namespace/internals/get-sym-found.js (module): PASS
+test/language/module-code/namespace/internals/get-sym-not-found.js (module): PASS
+test/language/module-code/namespace/internals/has-property-str-found-init.js (module): PASS
+test/language/module-code/namespace/internals/has-property-str-found-uninit.js (module): PASS
+test/language/module-code/namespace/internals/has-property-str-not-found.js (module): PASS
+test/language/module-code/namespace/internals/has-property-sym-found.js (module): PASS
+test/language/module-code/namespace/internals/has-property-sym-not-found.js (module): PASS
+test/language/module-code/namespace/internals/is-extensible.js (module): PASS
+test/language/module-code/namespace/internals/object-hasOwnProperty-binding-uninit.js (module): PASS
+test/language/module-code/namespace/internals/object-keys-binding-uninit.js (module): FAIL
+test/language/module-code/namespace/internals/object-propertyIsEnumerable-binding-uninit.js (module): PASS
+test/language/module-code/namespace/internals/own-property-keys-binding-types.js (module): PASS
+test/language/module-code/namespace/internals/own-property-keys-sort.js (module): PASS
+test/language/module-code/namespace/internals/prevent-extensions.js (module): PASS
+test/language/module-code/namespace/internals/set-prototype-of-null.js (module): PASS
+test/language/module-code/namespace/internals/set-prototype-of.js (module): PASS
+test/language/module-code/namespace/internals/set.js (module): FAIL
+test/language/module-code/parse-err-decl-pos-export-arrow-function.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-block-stmt-list.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-block-stmt.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-class-decl-meth-static.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-class-decl-meth.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-class-decl-method-gen-static.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-class-decl-method-gen.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-class-expr-meth-gen-static.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-class-expr-meth-gen.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-class-expr-meth-static.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-class-expr-meth.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-do-while.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-const.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-in-const.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-in-let.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-in-lhs.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-in-var.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-let.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-lhs.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-of-const.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-of-let.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-of-lhs.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-of-var.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-for-var.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-function-decl.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-function-expr.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-generator-decl.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-generator-expr.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-if-else.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-if-if.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-labeled.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-object-gen-method.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-object-getter.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-object-method.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-object-setter.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-switch-case-dflt.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-switch-case.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-switch-dftl.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-try-catch-finally.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-try-catch.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-try-finally.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-try-try.js (module): PASS
+test/language/module-code/parse-err-decl-pos-export-while.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-arrow-function.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-block-stmt-list.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-block-stmt.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-class-decl-meth-static.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-class-decl-meth.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-class-decl-method-gen-static.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-class-decl-method-gen.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-class-expr-meth-gen-static.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-class-expr-meth-gen.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-class-expr-meth-static.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-class-expr-meth.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-do-while.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-const.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-in-const.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-in-let.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-in-lhs.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-in-var.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-let.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-lhs.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-of-const.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-of-let.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-of-lhs.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-of-var.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-for-var.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-function-decl.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-function-expr.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-generator-decl.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-generator-expr.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-if-else.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-if-if.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-labeled.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-object-gen-method.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-object-getter.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-object-method.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-object-setter.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-switch-case-dflt.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-switch-case.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-switch-dftl.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-try-catch-finally.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-try-catch.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-try-finally.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-try-try.js (module): PASS
+test/language/module-code/parse-err-decl-pos-import-while.js (module): PASS
+test/language/module-code/parse-err-export-dflt-const.js (module): PASS
+test/language/module-code/parse-err-export-dflt-expr.js (module): PASS
+test/language/module-code/parse-err-export-dflt-let.js (module): PASS
+test/language/module-code/parse-err-export-dflt-var.js (module): PASS
+test/language/module-code/parse-err-hoist-lex-fun.js (module): FAIL
+test/language/module-code/parse-err-hoist-lex-gen.js (module): FAIL
+test/language/module-code/parse-err-invoke-anon-fun-decl.js (module): PASS
+test/language/module-code/parse-err-invoke-anon-gen-decl.js (module): PASS
+test/language/module-code/parse-err-reference.js (module): FAIL
+test/language/module-code/parse-err-return.js (module): PASS
+test/language/module-code/parse-err-semi-dflt-expr.js (module): PASS
+test/language/module-code/parse-err-semi-export-clause-from.js (module): PASS
+test/language/module-code/parse-err-semi-export-clause.js (module): PASS
+test/language/module-code/parse-err-semi-export-star.js (module): PASS
+test/language/module-code/parse-err-syntax.js (module): PASS
+test/language/module-code/parse-err-yield.js (module): PASS
+test/language/module-code/parse-export-empty.js (module): PASS
+test/language/module-code/privatename-not-valid-earlyerr-module-1.js (module): PASS
+test/language/module-code/privatename-not-valid-earlyerr-module-2.js (module): PASS
+test/language/module-code/privatename-not-valid-earlyerr-module-3.js (module): PASS
+test/language/module-code/privatename-not-valid-earlyerr-module-4.js (module): PASS
+test/language/module-code/privatename-not-valid-earlyerr-module-5.js (module): PASS
+test/language/module-code/privatename-not-valid-earlyerr-module-6.js (module): PASS
+test/language/module-code/privatename-not-valid-earlyerr-module-7.js (module): PASS
+test/language/module-code/privatename-not-valid-earlyerr-module-8.js (module): PASS
+test/language/module-code/privatename-valid-no-earlyerr.js (module): FAIL
