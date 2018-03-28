@@ -57,6 +57,15 @@ BEGIN {
 
 use YAML qw(Load);
 use Parallel::ForkManager;
+use Getopt::Long qw(GetOptions);
+use Pod::Usage;
+
+# Commandline args
+my $cliProcesses;
+my @cliTestDirs;
+my $JSC;
+
+processCLI();
 
 my $tempdir = tempdir();
 
@@ -72,7 +81,7 @@ my @default_harnesses = (
 
 my $tests_log = "$FindBin::Bin/tests.log";
 
-# TODO: derive this number by probing the system. 
+# TODO: derive this number by probing the system.
 my $cpus = 8;
 my $max_process = $cpus * 8;
 my $pm = Parallel::ForkManager->new($max_process);
@@ -86,22 +95,48 @@ my $startTime = time();
 
 main();
 
+sub processCLI {
+    my $help = 0;
+
+    GetOptions(
+	'j|jsc=s' => \$JSC,
+        't|t262=s@' => \@cliTestDirs,
+	'p|child-processes=i' => \$cliProcesses,
+	'h|help' => \$help,
+	);
+
+    if ($help) {
+	pod2usage(-exitstatus => 0, -verbose => 2);
+    }
+
+    if ($JSC) {
+	$JSC = abs_path($JSC);
+	# Make sure the path and file jsc exist
+	if (! ($JSC && -e $JSC)) {
+	    die "Error: --jsc path does not exist.";
+	}
+    }
+    else {
+	# Try to find JSC for user
+	$JSC = qx(which jsc);
+	if (!$JSC) {
+	    die "Error: cannot find jsc, specify with --jsc.";
+	}
+        chomp $JSC;
+    }
+}
+
 sub main {
-    # find(
-    #     { wanted => \&wanted, bydepth => 1 },
-    #     qq($test262Dir/test)
-    # );
-    # good for negative tests: '/test/language/identifiers');
-    # find(
-    #     { wanted => \&wanted, bydepth => 1 },
-    #     qq($test262Dir/test/language/expressions/async-function)
-    # );
-    find(
-        { wanted => \&wanted, bydepth => 1 },
-        qq($test262Dir/test/language/module-code)
-    );
-    sub wanted {
-        /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
+    my @testsDirs = @cliTestDirs ? @cliTestDirs : ('test');
+
+    foreach my $testsDir (@testsDirs) {
+	find(
+	    { wanted => \&wanted, bydepth => 1 },
+	    qq($test262Dir/$testsDir)
+	    );
+	sub wanted {
+	    /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
+	}
     }
 
     FILES:
@@ -210,7 +245,7 @@ sub runTest {
         $prefixFile='--strict-file=';
     }
 
-    my $result = qx/jsc $args $deffile $includesfile $prefixFile$filename/;
+    my $result = qx/$JSC $args $deffile $includesfile $prefixFile$filename/;
 
     chomp $result;
 
@@ -253,7 +288,7 @@ sub getContents {
 
 sub parseData {
     my ($contents, $filename) = @_;
-    
+
     my $parsed;
     my $found = '';
     if ($contents =~ /\/\*(---\n[\S\s]*)\n---\*\//m) {
@@ -286,3 +321,51 @@ sub getHarness {
 
     return $content;
 }
+
+__END__
+
+=head1 DESCRIPTION
+
+This program will run all test262 tests. If you edit, make sure your changes are Perl 5.8.8 compatible.
+
+=head1 SYNOPSIS
+
+Run using native Perl:
+
+=over 8
+
+./test262-runner.pl -j $jsc-dir
+
+=back
+
+Run using carton (recommended for testing on Perl 5.8.8):
+
+=over 8
+
+carton exec './test262-runner.pl -j $jsc-dir'
+
+=back
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--help, -h>
+
+Print a brief help message and exits.
+
+=item B<--child-processes, -p>
+
+Specify number of child processes.
+
+=item B<--t262, -t>
+
+Specify a specific test262 directory of test to run, relative to the root test262 directory. For example, 'test/built-ins/Number/prototype'
+
+=item B<--jsc, -j>
+
+Specify JSC location.
+
+=back
+
+=cut
