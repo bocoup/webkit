@@ -97,12 +97,14 @@ main();
 
 sub processCLI {
     my $help = 0;
+    my $debug;
 
     GetOptions(
         'j|jsc=s' => \$JSC,
         't|t262=s@' => \@cliTestDirs,
         'p|child-processes=i' => \$cliProcesses,
         'h|help' => \$help,
+        'd|debug' => \$debug,
     );
 
     if ($help) {
@@ -117,14 +119,32 @@ sub processCLI {
         }
     }
     else {
-        # Try to find JSC for user
-        $JSC = qx(which jsc);
-        if (!$JSC) {
-            die "Error: cannot find jsc, specify with --jsc.";
+        # Try to find JSC for user, if not supplied
+        my $cmd = abs_path("$FindBin::Bin/../webkit-build-directory");
+        if (! -e $cmd) {
+            die "Error: cannot find webkit-build-directory, specify with JSC with --jsc <path>.";
         }
-        chomp $JSC;
+
+        if ($debug) {
+            $cmd .= " --debug";
+        } else {
+            $cmd .= " --release";
+        }
+        $cmd .= " --executablePath";
+        my $JSCdir = qx($cmd);
+        chomp $JSCdir;
+
+        $JSC = $JSCdir . "/jsc";
+        $JSC = $JSCdir . "/JavaScriptCore.framework/Resources/jsc" if (! -e $JSC);
+        $JSC = $JSCdir . "/bin/jsc" if (! -e $JSC);
+        if (! -e $JSC) {
+            die "Error: cannot find jsc, specify with --jsc <path>.";
+        }
+
+        print("Using the following jsc path: $JSC\n");
     }
 }
+
 
 sub main {
     my @testsDirs = @cliTestDirs ? @cliTestDirs : ('test');
@@ -364,7 +384,11 @@ Specify a specific test262 directory of test to run, relative to the root test26
 
 =item B<--jsc, -j>
 
-Specify JSC location.
+Specify JSC location. If not provided, script will attempt to look up JSC.
+
+=item B<--debug, -d>
+
+Use debug build of JSC. Can only use if --jsc <path> is not provided. Release build of JSC is used by default.
 
 =back
 
