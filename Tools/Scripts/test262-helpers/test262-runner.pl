@@ -99,29 +99,29 @@ sub processCLI {
     my $help = 0;
 
     GetOptions(
-	'j|jsc=s' => \$JSC,
+        'j|jsc=s' => \$JSC,
         't|t262=s@' => \@cliTestDirs,
-	'p|child-processes=i' => \$cliProcesses,
-	'h|help' => \$help,
-	);
+        'p|child-processes=i' => \$cliProcesses,
+        'h|help' => \$help,
+    );
 
     if ($help) {
-	pod2usage(-exitstatus => 0, -verbose => 2);
+        pod2usage(-exitstatus => 0, -verbose => 2);
     }
 
     if ($JSC) {
-	$JSC = abs_path($JSC);
-	# Make sure the path and file jsc exist
-	if (! ($JSC && -e $JSC)) {
-	    die "Error: --jsc path does not exist.";
-	}
+        $JSC = abs_path($JSC);
+        # Make sure the path and file jsc exist
+        if (! ($JSC && -e $JSC)) {
+            die "Error: --jsc path does not exist.";
+        }
     }
     else {
-	# Try to find JSC for user
-	$JSC = qx(which jsc);
-	if (!$JSC) {
-	    die "Error: cannot find jsc, specify with --jsc.";
-	}
+        # Try to find JSC for user
+        $JSC = qx(which jsc);
+        if (!$JSC) {
+            die "Error: cannot find jsc, specify with --jsc.";
+        }
         chomp $JSC;
     }
 }
@@ -130,13 +130,13 @@ sub main {
     my @testsDirs = @cliTestDirs ? @cliTestDirs : ('test');
 
     foreach my $testsDir (@testsDirs) {
-	find(
-	    { wanted => \&wanted, bydepth => 1 },
-	    qq($test262Dir/$testsDir)
-	    );
-	sub wanted {
-	    /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
-	}
+    find(
+        { wanted => \&wanted, bydepth => 1 },
+        qq($test262Dir/$testsDir)
+        );
+    sub wanted {
+        /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
+    }
     }
 
     FILES:
