@@ -55,10 +55,11 @@ BEGIN {
 }
 ######
 
-use YAML qw(Load);
+use YAML qw(Load LoadFile);
 use Parallel::ForkManager;
 use Getopt::Long qw(GetOptions);
 use Pod::Usage;
+use Data::Printer;
 
 # Commandline args
 my $cliProcesses;
@@ -79,12 +80,11 @@ my @default_harnesses = (
     "$FindBin::Bin/agent.js"
 );
 
+my $config = LoadFile("$FindBin::Bin/test262-config.yaml")
+    or die $!;
+
 my $tests_log = "$FindBin::Bin/tests.log";
 
-# TODO: derive this number by probing the system.
-my $cpus = 8;
-my $max_process = $cpus * 8;
-my $pm = Parallel::ForkManager->new($max_process);
 my @files;
 my ($resfh, $resfilename) = getTempFile();
 
@@ -149,14 +149,17 @@ sub processCLI {
 sub main {
     my @testsDirs = @cliTestDirs ? @cliTestDirs : ('test');
 
+    my $max_process = $cliProcesses || 64;
+    my $pm = Parallel::ForkManager->new($max_process);
+
     foreach my $testsDir (@testsDirs) {
-    find(
-        { wanted => \&wanted, bydepth => 1 },
-        qq($test262Dir/$testsDir)
+        find(
+            { wanted => \&wanted, bydepth => 1 },
+            qq($test262Dir/$testsDir)
         );
-    sub wanted {
-        /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
-    }
+        sub wanted {
+            /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
+        }
     }
 
     FILES:
@@ -175,7 +178,8 @@ sub main {
     seek($resfh, 0, 0);
     my @res = <$resfh>;
 
-    open(my $logfh, '>', $tests_log);
+    open(my $logfh, '>', $tests_log)
+        or die $!;
 
     print $logfh (sort @res);
 
@@ -189,9 +193,19 @@ sub main {
 
 sub processFile {
     my $filename = shift;
+    my $skip = 0;
 
     my $contents = getContents($filename);
+    # TODO: should skip from path?
+
     my $data = parseData($contents, $filename);
+    # TODO: should skip from features?
+
+    if (shouldSkip($filename, $data)) {
+        processResult($filename, $data, "skip");
+        return;
+    }
+
     my @scenarios = getScenarios(@{ $data->{flags} });
 
     my $includes = $data->{includes};
@@ -205,6 +219,26 @@ sub processFile {
     }
 
     close $includesfh if defined $includesfh;
+}
+
+sub shouldSkip {
+    my ($filename, $data) = @_;
+
+    my @skipPaths = @{ $config->{skip}->{paths} };
+    my @skipFeatures = @{ $config->{skip}->{features} };
+
+    # Filter by paths
+    return 1 if (grep {$filename =~ $_} @skipPaths);
+
+    if (defined $data->{features}) {
+        my @features = @{ $data->{features} };
+        # Filter by features, loop over file features to for less iterations
+        foreach my $feature (@features) {
+            return 1 if (grep {$_ eq $feature} @skipFeatures);
+        }
+    }
+ 
+    return 0;
 }
 
 sub getScenarios {
@@ -277,17 +311,20 @@ sub processResult {
 
     # Report a relative path
     my $file = abs2rel( $path, $test262Dir );
+    my $msg;
 
-    # Check if it's negative test
-    if ($result) {
-        print "FAIL $file ($scenario)\n$result\n\n";
+    if ($scenario ne 'skip') {
+        # TODO: use verbose mode for more information or compact information otherwise
+        if ($result) {
+            print "FAIL $file ($scenario)\n$result\n\n";
+        }
+        $msg .= "($scenario): PASS\n" if not $result;
+        $msg .= "($scenario): FAIL\n" if $result;
+    } else {
+        $msg .= ": SKIP\n";
     }
 
-    my $msg = "$file ($scenario): ";
-    $msg .= "PASS\n" if not $result;
-    $msg .= "FAIL\n" if $result;
-
-    print $resfh $msg;
+    print $resfh "$file$msg";
 }
 
 sub getTempFile {

@@ -1,0 +1,9 @@
+
+---
+skip:
+  paths:
+    - test/annexB
+    - test/language/expressions
+  features:
+    - SharedArrayBuffer
+    - BigInt
