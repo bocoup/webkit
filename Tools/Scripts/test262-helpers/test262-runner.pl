@@ -59,7 +59,6 @@ use YAML qw(Load LoadFile);
 use Parallel::ForkManager;
 use Getopt::Long qw(GetOptions);
 use Pod::Usage;
-use Data::Printer;
 
 # Commandline args
 my $cliProcesses;
