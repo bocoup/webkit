@@ -63,14 +63,14 @@ use Pod::Usage;
 # Commandline args
 my $cliProcesses;
 my @cliTestDirs;
+my $verbose;
 my $JSC;
+my $test262Dir;
+my $harnessDir;
 
 processCLI();
 
 my $tempdir = tempdir();
-
-my $test262Dir = abs_path("$FindBin::Bin/../../../JSTests/test262");
-my $harnessDir = "$test262Dir/harness";
 
 my @default_harnesses = (
     "$harnessDir/sta.js",
@@ -94,16 +94,19 @@ my $startTime = time();
 
 main();
 
+
 sub processCLI {
     my $help = 0;
     my $debug;
 
     GetOptions(
         'j|jsc=s' => \$JSC,
-        't|t262=s@' => \@cliTestDirs,
+        't|t262=s' => \$test262Dir,
+        'o|test-only=s@' => \@cliTestDirs,
         'p|child-processes=i' => \$cliProcesses,
         'h|help' => \$help,
         'd|debug' => \$debug,
+        'v|verbose' => \$verbose,
     );
 
     if ($help) {
@@ -142,6 +145,14 @@ sub processCLI {
 
         print("Using the following jsc path: $JSC\n");
     }
+
+    if (! $test262Dir) {
+        $test262Dir = abs_path("$FindBin::Bin/../../../JSTests/test262");
+    } else {
+        $test262Dir = abs_path($test262Dir);
+    }
+
+    $harnessDir = "$test262Dir/harness";
 }
 
 
@@ -414,9 +425,13 @@ Print a brief help message and exits.
 
 Specify number of child processes.
 
+=item B<--test-only, -o>
+
+Specify one or more specific test262 directory of test to run, relative to the root test262 directory. For example, 'test/built-ins/Number/prototype'
+
 =item B<--t262, -t>
 
-Specify a specific test262 directory of test to run, relative to the root test262 directory. For example, 'test/built-ins/Number/prototype'
+Specify root test262 directory.
 
 =item B<--jsc, -j>
 
@@ -425,6 +440,10 @@ Specify JSC location. If not provided, script will attempt to look up JSC.
 =item B<--debug, -d>
 
 Use debug build of JSC. Can only use if --jsc <path> is not provided. Release build of JSC is used by default.
+
+=item B<--verbose, -v>
+
+Verbose output for test results.
 
 =back
 
