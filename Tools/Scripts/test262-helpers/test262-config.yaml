@@ -1,9 +1,15 @@
 
 ---
-skip:
-  paths:
+paths:
+  only:
+    - test/language
+  skip:
     - test/annexB
     - test/language/expressions
-  features:
+features:
+  filter:
+    - async-iteration
+    - generators
+  skip:
     - SharedArrayBuffer
     - BigInt

@@ -93,7 +93,6 @@ my $startTime = time();
 
 main();
 
-
 sub processCLI {
     my $help = 0;
     my $debug;
@@ -120,29 +119,8 @@ sub processCLI {
         if (! ($JSC && -e $JSC)) {
             die "Error: --jsc path does not exist.";
         }
-    }
-    else {
-        # Try to find JSC for user, if not supplied
-        my $cmd = abs_path("$FindBin::Bin/../webkit-build-directory");
-        if (! -e $cmd) {
-            die "Error: cannot find webkit-build-directory, specify with JSC with --jsc <path>.";
-        }
-
-        if ($debug) {
-            $cmd .= " --debug";
-        } else {
-            $cmd .= " --release";
-        }
-        $cmd .= " --executablePath";
-        my $JSCdir = qx($cmd);
-        chomp $JSCdir;
-
-        $JSC = $JSCdir . "/jsc";
-        $JSC = $JSCdir . "/JavaScriptCore.framework/Resources/jsc" if (! -e $JSC);
-        $JSC = $JSCdir . "/bin/jsc" if (! -e $JSC);
-        if (! -e $JSC) {
-            die "Error: cannot find jsc, specify with --jsc <path>.";
-        }
+    } else {
+        $JSC = getBuildPath($debug);
 
         print("Using the following jsc path: $JSC\n");
     }
@@ -172,7 +150,7 @@ sub processCLI {
 }
 
 sub main {
-    my @testsDirs = @cliTestDirs ? @cliTestDirs : ('test');
+    my @testsDirs = getFolders();
 
     my $max_process = $cliProcesses;
     my $pm = Parallel::ForkManager->new($max_process);
@@ -203,8 +181,7 @@ sub main {
     seek($resfh, 0, 0);
     my @res = <$resfh>;
 
-    open(my $logfh, '>', $tests_log)
-        or die $!;
+    open(my $logfh, '>', $tests_log) or die $!;
 
     print $logfh (sort @res);
 
@@ -214,6 +191,51 @@ sub main {
 
     close $resfh;
     close $logfh;
+}
+
+sub getBuildPath {
+    my $debug = shift;
+
+    # Try to find JSC for user, if not supplied
+    my $cmd = abs_path("$FindBin::Bin/../webkit-build-directory");
+    if (! -e $cmd) {
+        die "Error: cannot find webkit-build-directory, specify with JSC with --jsc <path>.";
+    }
+
+    if ($debug) {
+        $cmd .= " --debug";
+    } else {
+        $cmd .= " --release";
+    }
+    $cmd .= " --executablePath";
+    my $jscDir = qx($cmd);
+    chomp $jscDir;
+
+    my $jsc;
+    $jsc = $jscDir . "/jsc";
+    $jsc = $jscDir . "/JavaScriptCore.framework/Resources/jsc" if (! -e $jsc);
+    $jsc = $jscDir . "/bin/jsc" if (! -e $jsc);
+    if (! -e $jsc) {
+        die "Error: cannot find jsc, specify with --jsc <path>.";
+    }
+
+    return $jsc;
+}
+
+sub getFolders {
+    my @testsDirs = @cliTestDirs;
+
+    push(@testsDirs, @{ $config->{paths}->{only} });
+
+    if (!@testsDirs) {
+        push(@testsDirs, 'test');
+    }
+
+    foreach my $dir (@testsDirs) {
+        print qq{$dir\n};
+    }
+
+    return @testsDirs;
 }
 
 sub processFile {
@@ -249,17 +271,28 @@ sub processFile {
 sub shouldSkip {
     my ($filename, $data) = @_;
 
-    my @skipPaths = @{ $config->{skip}->{paths} };
-    my @skipFeatures = @{ $config->{skip}->{features} };
+    if (defined $config->{paths}) {
+        # Filter by paths
+        my @skipPaths = @{ $config->{paths}->{skip} };
+        return 1 if (grep {$filename =~ $_} @skipPaths);
+    }
 
-    # Filter by paths
-    return 1 if (grep {$filename =~ $_} @skipPaths);
+    if (defined $config->{features}) {
+        my @skipFeatures = @{ $config->{features}->{skip} };
+        my @filterFeatures = @{ $config->{features}->{filter} };
 
-    if (defined $data->{features}) {
-        my @features = @{ $data->{features} };
-        # Filter by features, loop over file features to for less iterations
-        foreach my $feature (@features) {
-            return 1 if (grep {$_ eq $feature} @skipFeatures);
+        if (defined $data->{features}) {
+            my @features = @{ $data->{features} };
+            # Filter by features, loop over file features to for less iterations
+            foreach my $feature (@features) {
+                return 1 if (grep {$_ eq $feature} @skipFeatures);
+            }
+
+            foreach my $feature (@filterFeatures) {
+                return 1 if (not grep {$_ eq $feature} @features);
+            }
+        } elsif (@filterFeatures) {
+            return 1;
         }
     }
  
@@ -341,7 +374,9 @@ sub processResult {
     if ($scenario ne 'skip') {
         # TODO: use verbose mode for more information or compact information otherwise
         if ($result) {
-            print "FAIL $file ($scenario)\n$result\n\n";
+            print "FAIL $file ($scenario)\n$result";
+            print "\nUsing features: " . join(', ', @{ $data->{features} }) if $data->{features};
+            print "\n\n";
         }
         $msg .= "($scenario): PASS\n" if not $result;
         $msg .= "($scenario): FAIL\n" if $result;
