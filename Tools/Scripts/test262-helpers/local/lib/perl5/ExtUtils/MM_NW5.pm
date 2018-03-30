@@ -81,8 +81,8 @@ sub init_platform {
     }
 
     $self->{'NLM_VERSION'} = $Config{'nlm_version'};
-    $self->{'MPKTOOL'}	= $Config{'mpktool'};
-    $self->{'TOOLPATH'}	= $Config{'toolpath'};
+    $self->{'MPKTOOL'}     = $Config{'mpktool'};
+    $self->{'TOOLPATH'}    = $Config{'toolpath'};
 
     (my $boot = $self->{'NAME'}) =~ s/:/_/g;
     $self->{'BOOT_SYMBOL'}=$boot;
@@ -178,24 +178,24 @@ sub xs_make_dynamic_lib {
     push @m, _sprintf562 <<'MAKE_FRAG', $to, $from, $todir, $exportlist;
 # Create xdc data for an MT safe NLM in case of mpk build
 %1$s: %2$s $(MYEXTLIB) $(BOOTSTRAP) %3$s$(DFSEP).exists
-	$(NOECHO) $(ECHO) Export boot_$(BOOT_SYMBOL) > %4$s
-	$(NOECHO) $(ECHO) $(BASE_IMPORT) >> %4$s
-	$(NOECHO) $(ECHO) Import @$(PERL_INC)\perl.imp >> %4$s
+    $(NOECHO) $(ECHO) Export boot_$(BOOT_SYMBOL) > %4$s
+    $(NOECHO) $(ECHO) $(BASE_IMPORT) >> %4$s
+    $(NOECHO) $(ECHO) Import @$(PERL_INC)\perl.imp >> %4$s
 MAKE_FRAG
     if ( $self->{CCFLAGS} =~ m/ -DMPK_ON /) {
         (my $xdc = $exportlist) =~ s#def\z#xdc#;
         $xdc = '$(BASEEXT).xdc';
         push @m, sprintf <<'MAKE_FRAG', $xdc, $exportlist;
-	$(MPKTOOL) $(XDCFLAGS) %s
-	$(NOECHO) $(ECHO) xdcdata $(BASEEXT).xdc >> %s
+    $(MPKTOOL) $(XDCFLAGS) %s
+    $(NOECHO) $(ECHO) xdcdata $(BASEEXT).xdc >> %s
 MAKE_FRAG
     }
     # Reconstruct the X.Y.Z version.
     my $version = join '.', map { sprintf "%d", $_ }
                               $] =~ /(\d)\.(\d{3})(\d{2})/;
     push @m, sprintf <<'EOF', $from, $version, $to, $exportlist;
-	$(LD) $(LDFLAGS) %s -desc "Perl %s Extension ($(BASEEXT))  XS_VERSION: $(XS_VERSION)" -nlmversion $(NLM_VERSION) -o %s $(MYEXTLIB) $(PERL_INC)\Main.lib -commandfile %s
-	$(CHMOD) 755 $@
+    $(LD) $(LDFLAGS) %s -desc "Perl %s Extension ($(BASEEXT))  XS_VERSION: $(XS_VERSION)" -nlmversion $(NLM_VERSION) -o %s $(MYEXTLIB) $(PERL_INC)\Main.lib -commandfile %s
+    $(CHMOD) 755 $@
 EOF
     join '', @m;
 }

@@ -35,13 +35,13 @@ $ENV{EMXSHELL} = 'sh'; # to run `commands`
 my ( $BORLAND, $GCC, $MSVC ) = _identify_compiler_environment( \%Config );
 
 sub _identify_compiler_environment {
-	my ( $config ) = @_;
+    my ( $config ) = @_;
 
-	my $BORLAND = $config->{cc} =~ /\bbcc/i ? 1 : 0;
-	my $GCC     = $config->{cc} =~ /\bgcc\b/i ? 1 : 0;
-	my $MSVC    = $config->{cc} =~ /\b(?:cl|icl)/i ? 1 : 0; # MSVC can come as clarm.exe, icl=Intel C
+    my $BORLAND = $config->{cc} =~ /\bbcc/i ? 1 : 0;
+    my $GCC     = $config->{cc} =~ /\bgcc\b/i ? 1 : 0;
+    my $MSVC    = $config->{cc} =~ /\b(?:cl|icl)/i ? 1 : 0; # MSVC can come as clarm.exe, icl=Intel C
 
-	return ( $BORLAND, $GCC, $MSVC );
+    return ( $BORLAND, $GCC, $MSVC );
 }
 
 
@@ -97,18 +97,18 @@ sub maybe_command {
     my($self,$file) = @_;
     my @e = exists($ENV{'PATHEXT'})
           ? split(/;/, $ENV{PATHEXT})
-	  : qw(.com .exe .bat .cmd);
+      : qw(.com .exe .bat .cmd);
     my $e = '';
     for (@e) { $e .= "\Q$_\E|" }
     chop $e;
     # see if file ends in one of the known extensions
     if ($file =~ /($e)$/i) {
-	return $file if -e $file;
+    return $file if -e $file;
     }
     else {
-	for (@e) {
-	    return "$file$_" if -e "$file$_";
-	}
+    for (@e) {
+        return "$file$_" if -e "$file$_";
+    }
     }
     return;
 }
@@ -309,7 +309,7 @@ sub xs_make_dynamic_lib {
       # uses dlltool - relies on post 2002 MinGW
       #                             1            2
       push @m, _sprintf562 <<'EOF', $exportlist, $ldfrom;
-	$(LD) %1$s -o $@ $(LDDLFLAGS) %2$s $(OTHERLDFLAGS) $(MYEXTLIB) "$(PERL_ARCHIVE)" $(LDLOADLIBS) -Wl,--enable-auto-image-base
+    $(LD) %1$s -o $@ $(LDDLFLAGS) %2$s $(OTHERLDFLAGS) $(MYEXTLIB) "$(PERL_ARCHIVE)" $(LDLOADLIBS) -Wl,--enable-auto-image-base
 EOF
     } elsif ($BORLAND) {
       my $ldargs = $self->is_make_type('dmake')
@@ -327,13 +327,13 @@ EOF
       push @m, sprintf <<'EOF', $ldfrom, $ldargs . $subbed;
         $(LD) $(LDDLFLAGS) $(OTHERLDFLAGS) %s,$@,,%s,$(RESFILES)
 EOF
-    } else {	# VC
+    } else {    # VC
       push @m, sprintf <<'EOF', $ldfrom, $exportlist;
-	$(LD) -out:$@ $(LDDLFLAGS) %s $(OTHERLDFLAGS) $(MYEXTLIB) "$(PERL_ARCHIVE)" $(LDLOADLIBS) -def:%s
+    $(LD) -out:$@ $(LDDLFLAGS) %s $(OTHERLDFLAGS) $(MYEXTLIB) "$(PERL_ARCHIVE)" $(LDLOADLIBS) -def:%s
 EOF
       # Embed the manifest file if it exists
-      push(@m, q{	if exist $@.manifest mt -nologo -manifest $@.manifest -outputresource:$@;2
-	if exist $@.manifest del $@.manifest});
+      push(@m, q{    if exist $@.manifest mt -nologo -manifest $@.manifest -outputresource:$@;2
+    if exist $@.manifest del $@.manifest});
     }
     push @m, "\n\t\$(CHMOD) \$(PERM_RWX) \$\@\n";
 
@@ -562,8 +562,8 @@ sub cd {
     # No leading tab and no trailing newline makes for easier embedding.
     my $make_frag = sprintf <<'MAKE_FRAG', $dir, $cmd, $updirs;
 cd %s
-	%s
-	cd %s
+    %s
+    cd %s
 MAKE_FRAG
 
     chomp $make_frag;

@@ -233,7 +233,7 @@ You must make sure that any paths and path components are properly
 surrounded with double-quotes if they contain spaces. For example,
 C<$potential_libs> could be (literally):
 
-	"-Lc:\Program Files\vc\lib" msvcrt.lib "la test\foo bar.lib"
+    "-Lc:\Program Files\vc\lib" msvcrt.lib "la test\foo bar.lib"
 
 Note how the first and last entries are protected by quotes in order
 to protect the spaces.

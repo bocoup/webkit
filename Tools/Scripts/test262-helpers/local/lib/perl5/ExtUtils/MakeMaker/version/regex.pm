@@ -89,8 +89,8 @@ $STRICT =
 
 my $LAX_DECIMAL_VERSION =
     qr/ $LAX_INTEGER_PART (?: \. | $FRACTION_PART $LAX_ALPHA_PART? )?
-	|
-	$FRACTION_PART $LAX_ALPHA_PART?
+    |
+    $FRACTION_PART $LAX_ALPHA_PART?
     /x;
 
 # Lax dotted-decimal version number.  Distinguished by having either
@@ -101,9 +101,9 @@ my $LAX_DECIMAL_VERSION =
 
 my $LAX_DOTTED_DECIMAL_VERSION =
     qr/
-	v $LAX_INTEGER_PART (?: $LAX_DOTTED_DECIMAL_PART+ $LAX_ALPHA_PART? )?
-	|
-	$LAX_INTEGER_PART? $LAX_DOTTED_DECIMAL_PART{2,} $LAX_ALPHA_PART?
+    v $LAX_INTEGER_PART (?: $LAX_DOTTED_DECIMAL_PART+ $LAX_ALPHA_PART? )?
+    |
+    $LAX_INTEGER_PART? $LAX_DOTTED_DECIMAL_PART{2,} $LAX_ALPHA_PART?
     /x;
 
 # Complete lax version number syntax -- should generally be used
@@ -118,7 +118,7 @@ $LAX =
 #--------------------------------------------------------------------------#
 
 # Preloaded methods go here.
-sub is_strict	{ defined $_[0] && $_[0] =~ qr/ \A $STRICT \z /x }
-sub is_lax	{ defined $_[0] && $_[0] =~ qr/ \A $LAX \z /x }
+sub is_strict    { defined $_[0] && $_[0] =~ qr/ \A $STRICT \z /x }
+sub is_lax    { defined $_[0] && $_[0] =~ qr/ \A $LAX \z /x }
 
 1;

@@ -345,19 +345,19 @@ sub dos2unix {
 
         local $\;
 
-	my $orig = $_;
-	my $temp = '.dos2unix_tmp';
-	open ORIG, $_ or do { warn "dos2unix can't open $_: $!"; return };
-	open TEMP, ">$temp" or
-	    do { warn "dos2unix can't create .dos2unix_tmp: $!"; return };
+    my $orig = $_;
+    my $temp = '.dos2unix_tmp';
+    open ORIG, $_ or do { warn "dos2unix can't open $_: $!"; return };
+    open TEMP, ">$temp" or
+        do { warn "dos2unix can't create .dos2unix_tmp: $!"; return };
         binmode ORIG; binmode TEMP;
         while (my $line = <ORIG>) {
             $line =~ s/\015\012/\012/g;
             print TEMP $line;
         }
-	close ORIG;
-	close TEMP;
-	rename $temp, $orig;
+    close ORIG;
+    close TEMP;
+    rename $temp, $orig;
 
     }, @ARGV);
 }

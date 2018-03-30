@@ -288,7 +288,7 @@ the bootstrap name you have to specify the package name in the
 DL_FUNCS hash:
 
     Mksymlists(  NAME     => $name ,
-		 FUNCLIST => [ $func1, $func2 ],
+         FUNCLIST => [ $func1, $func2 ],
                  DL_FUNCS => { $pkg => [] } );
 
 

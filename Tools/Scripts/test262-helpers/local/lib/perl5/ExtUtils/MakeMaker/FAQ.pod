@@ -105,8 +105,8 @@ Two ways.  One is to build the module normally...
 
 ...and then use L<blib> to point Perl at the built but uninstalled module:
 
-	perl -Mblib script.pl
-	perl -Mblib -e '...'
+    perl -Mblib script.pl
+    perl -Mblib -e '...'
 
 The other is to install the module in a temporary location.
 
@@ -439,8 +439,8 @@ file. First we use the following I<Makefile.PL>:
   use ExtUtils::MakeMaker;
 
   WriteMakefile(
-      NAME		=> 'Cool::Foo',
-      VERSION_FROM	=> 'Foo.pm',
+      NAME        => 'Cool::Foo',
+      VERSION_FROM    => 'Foo.pm',
       OBJECT              => q/$(O_FILES)/,
       # ... other attrs ...
   );
@@ -450,11 +450,11 @@ variables in I<Makefile>:
 
   # Handy lists of source code files:
   XS_FILES= Bar.xs \
-  	Foo.xs
+      Foo.xs
   C_FILES = Bar.c \
-  	Foo.c
+      Foo.c
   O_FILES = Bar.o \
-  	Foo.o
+      Foo.o
 
 Therefore we can use the C<O_FILES> variable to tell MakeMaker to use
 these objects into the shared library.

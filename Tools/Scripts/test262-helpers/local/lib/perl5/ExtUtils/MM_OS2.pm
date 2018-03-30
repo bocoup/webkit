@@ -51,22 +51,22 @@ MAKE_TEXT
 sub dlsyms {
     my($self,%attribs) = @_;
     if ($self->{IMPORTS} && %{$self->{IMPORTS}}) {
-	# Make import files (needed for static build)
-	-d 'tmp_imp' or mkdir 'tmp_imp', 0777 or die "Can't mkdir tmp_imp";
-	open my $imp, '>', 'tmpimp.imp' or die "Can't open tmpimp.imp";
-	foreach my $name (sort keys %{$self->{IMPORTS}}) {
-	    my $exp = $self->{IMPORTS}->{$name};
-	    my ($lib, $id) = ($exp =~ /(.*)\.(.*)/) or die "Malformed IMPORT `$exp'";
-	    print $imp "$name $lib $id ?\n";
-	}
-	close $imp or die "Can't close tmpimp.imp";
-	# print "emximp -o tmpimp$Config::Config{lib_ext} tmpimp.imp\n";
-	system "emximp -o tmpimp$Config::Config{lib_ext} tmpimp.imp"
-	    and die "Cannot make import library: $!, \$?=$?";
-	# May be running under miniperl, so have no glob...
-	eval { unlink <tmp_imp/*>; 1 } or system "rm tmp_imp/*";
-	system "cd tmp_imp; $Config::Config{ar} x ../tmpimp$Config::Config{lib_ext}"
-	    and die "Cannot extract import objects: $!, \$?=$?";
+    # Make import files (needed for static build)
+    -d 'tmp_imp' or mkdir 'tmp_imp', 0777 or die "Can't mkdir tmp_imp";
+    open my $imp, '>', 'tmpimp.imp' or die "Can't open tmpimp.imp";
+    foreach my $name (sort keys %{$self->{IMPORTS}}) {
+        my $exp = $self->{IMPORTS}->{$name};
+        my ($lib, $id) = ($exp =~ /(.*)\.(.*)/) or die "Malformed IMPORT `$exp'";
+        print $imp "$name $lib $id ?\n";
+    }
+    close $imp or die "Can't close tmpimp.imp";
+    # print "emximp -o tmpimp$Config::Config{lib_ext} tmpimp.imp\n";
+    system "emximp -o tmpimp$Config::Config{lib_ext} tmpimp.imp"
+        and die "Cannot make import library: $!, \$?=$?";
+    # May be running under miniperl, so have no glob...
+    eval { unlink <tmp_imp/*>; 1 } or system "rm tmp_imp/*";
+    system "cd tmp_imp; $Config::Config{ar} x ../tmpimp$Config::Config{lib_ext}"
+        and die "Cannot extract import objects: $!, \$?=$?";
     }
     return '' if $self->{SKIPHASH}{'dynamic'};
     $self->xs_dlsyms_iterator(\%attribs);
@@ -85,8 +85,8 @@ sub static_lib_pure_cmd {
     my $old = $self->SUPER::static_lib_pure_cmd;
     return $old unless $self->{IMPORTS} && %{$self->{IMPORTS}};
     $old . <<'EOC';
-	$(AR) $(AR_STATIC_ARGS) "$@" tmp_imp/*
-	$(RANLIB) "$@"
+    $(AR) $(AR_STATIC_ARGS) "$@" tmp_imp/*
+    $(RANLIB) "$@"
 EOC
 }
 

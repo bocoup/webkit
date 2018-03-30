@@ -8,7 +8,7 @@ ExtUtils::MM_BeOS - methods to override UN*X behaviour in ExtUtils::MakeMaker
 
 =head1 SYNOPSIS
 
- use ExtUtils::MM_BeOS;	# Done internally by ExtUtils::MakeMaker if needed
+ use ExtUtils::MM_BeOS;    # Done internally by ExtUtils::MakeMaker if needed
 
 =head1 DESCRIPTION
 
