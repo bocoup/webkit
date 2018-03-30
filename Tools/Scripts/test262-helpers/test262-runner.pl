@@ -150,6 +150,9 @@ sub processCLI {
         . "JSC: $JSC\n"
         . "Child Processes: $cliProcesses\n";
 
+    print "Features to include: " . join(', ', @filterFeatures) . "\n" if @filterFeatures;
+    print "Paths:  " . join(', ', @cliTestDirs) . "\n" if @cliTestDirs;
+
     print "Verbose mode\n" if $verbose;
 
     print "--------------------------------------------------------\n\n";
