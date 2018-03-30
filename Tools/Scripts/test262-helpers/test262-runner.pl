@@ -67,6 +67,7 @@ my $verbose;
 my $JSC;
 my $test262Dir;
 my $harnessDir;
+my @filterFeatures;
 
 processCLI();
 
@@ -107,6 +108,7 @@ sub processCLI {
         'd|debug' => \$debug,
         'v|verbose' => \$verbose,
         'c|config=s' => \$configFile,
+        'f|features=s@' => \@filterFeatures,
     );
 
     if ($help) {
@@ -133,7 +135,11 @@ sub processCLI {
 
     $harnessDir = "$test262Dir/harness";
 
-    $configFile ||= "$FindBin::Bin/test262-config.yaml";
+    if ($configFile and not -e $configFile) {
+        die "Config file $configFile does not exist!";
+    }
+
+    $configFile ||= abs_path("$FindBin::Bin/test262-config.yaml");
     $cliProcesses ||= 64;
 
     $config = LoadFile($configFile) or die $!;
@@ -150,12 +156,12 @@ sub processCLI {
 }
 
 sub main {
-    my @testsDirs = getFolders();
+    push(@cliTestDirs, 'test') if not @cliTestDirs;
 
     my $max_process = $cliProcesses;
     my $pm = Parallel::ForkManager->new($max_process);
 
-    foreach my $testsDir (@testsDirs) {
+    foreach my $testsDir (@cliTestDirs) {
         find(
             { wanted => \&wanted, bydepth => 1 },
             qq($test262Dir/$testsDir)
@@ -222,22 +228,6 @@ sub getBuildPath {
     return $jsc;
 }
 
-sub getFolders {
-    my @testsDirs = @cliTestDirs;
-
-    push(@testsDirs, @{ $config->{paths}->{only} });
-
-    if (!@testsDirs) {
-        push(@testsDirs, 'test');
-    }
-
-    foreach my $dir (@testsDirs) {
-        print qq{$dir\n};
-    }
-
-    return @testsDirs;
-}
-
 sub processFile {
     my $filename = shift;
     my $skip = 0;
@@ -271,29 +261,22 @@ sub processFile {
 sub shouldSkip {
     my ($filename, $data) = @_;
 
-    if (defined $config->{paths}) {
+    if ($config->{skip}) {
         # Filter by paths
-        my @skipPaths = @{ $config->{paths}->{skip} };
+        my @skipPaths = @{ $config->{skip}->{paths} };
         return 1 if (grep {$filename =~ $_} @skipPaths);
-    }
 
-    if (defined $config->{features}) {
-        my @skipFeatures = @{ $config->{features}->{skip} };
-        my @filterFeatures = @{ $config->{features}->{filter} };
+        my @skipFeatures = @{ $config->{skip}->{features} };
 
-        if (defined $data->{features}) {
-            my @features = @{ $data->{features} };
-            # Filter by features, loop over file features to for less iterations
-            foreach my $feature (@features) {
-                return 1 if (grep {$_ eq $feature} @skipFeatures);
-            }
-
-            foreach my $feature (@filterFeatures) {
-                return 1 if (not grep {$_ eq $feature} @features);
-            }
-        } elsif (@filterFeatures) {
-            return 1;
+        my $found = 0;
+        my @features = @{ $data->{features} } if $data->{features};
+        # Filter by features, loop over file features to for less iterations
+        foreach my $feature (@features) {
+            return 1 if (grep {$_ eq $feature} @skipFeatures);
+            $found += 1 if (grep {$_ eq $feature} @filterFeatures);
         }
+
+        return 1 if (@filterFeatures and not $found);
     }
  
     return 0;
@@ -375,7 +358,7 @@ sub processResult {
         # TODO: use verbose mode for more information or compact information otherwise
         if ($result) {
             print "FAIL $file ($scenario)\n$result";
-            print "\nUsing features: " . join(', ', @{ $data->{features} }) if $data->{features};
+            print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
             print "\n\n";
         }
         $msg .= "($scenario): PASS\n" if not $result;
