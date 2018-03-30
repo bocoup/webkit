@@ -79,8 +79,7 @@ my @default_harnesses = (
     "$FindBin::Bin/agent.js"
 );
 
-my $config = LoadFile("$FindBin::Bin/test262-config.yaml")
-    or die $!;
+my $config;
 
 my $tests_log = "$FindBin::Bin/tests.log";
 
@@ -98,6 +97,7 @@ main();
 sub processCLI {
     my $help = 0;
     my $debug;
+    my $configFile;
 
     GetOptions(
         'j|jsc=s' => \$JSC,
@@ -107,6 +107,7 @@ sub processCLI {
         'h|help' => \$help,
         'd|debug' => \$debug,
         'v|verbose' => \$verbose,
+        'c|config=s' => \$configFile,
     );
 
     if ($help) {
@@ -146,20 +147,34 @@ sub processCLI {
         print("Using the following jsc path: $JSC\n");
     }
 
-    if (! $test262Dir) {
+    if (not defined $test262Dir) {
         $test262Dir = abs_path("$FindBin::Bin/../../../JSTests/test262");
     } else {
         $test262Dir = abs_path($test262Dir);
     }
 
     $harnessDir = "$test262Dir/harness";
-}
 
+    $configFile ||= "$FindBin::Bin/test262-config.yaml";
+    $cliProcesses ||= 64;
+
+    $config = LoadFile($configFile) or die $!;
+
+    print "Settings:\n"
+        . "Config file: $configFile\n"
+        . "Test262 Dir: $test262Dir\n"
+        . "JSC: $JSC\n"
+        . "Child Processes: $cliProcesses\n";
+
+    print "Verbose mode\n" if $verbose;
+
+    print "--------------------------------------------------------\n\n";
+}
 
 sub main {
     my @testsDirs = @cliTestDirs ? @cliTestDirs : ('test');
 
-    my $max_process = $cliProcesses || 64;
+    my $max_process = $cliProcesses;
     my $pm = Parallel::ForkManager->new($max_process);
 
     foreach my $testsDir (@testsDirs) {
@@ -444,6 +459,10 @@ Use debug build of JSC. Can only use if --jsc <path> is not provided. Release bu
 =item B<--verbose, -v>
 
 Verbose output for test results.
+
+=item B<--config, -c>
+
+Specify a config file. If not provided, script will load local test262-config.yaml
 
 =back
 
