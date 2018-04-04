@@ -34,8 +34,10 @@ use 5.8.8;
 use File::Find;
 use File::Temp qw(tempfile tempdir);
 use File::Spec::Functions qw(abs2rel);
-use Cwd 'abs_path';
+use File::Basename qw(dirname);
+use Cwd qw(abs_path);
 use FindBin;
+use Env qw(DYLD_FRAMEWORK_PATH);
 
 ######
 # # Use the following code run this script directly from Perl.
@@ -121,6 +123,11 @@ sub processCLI {
         if (! ($JSC && -e $JSC)) {
             die "Error: --jsc path does not exist.";
         }
+
+        # For custom JSC paths, Sets only if not yet defined
+        if (not defined $DYLD_FRAMEWORK_PATH) {
+            $DYLD_FRAMEWORK_PATH = dirname($JSC);
+        }
     } else {
         $JSC = getBuildPath($debug);
 
@@ -148,6 +155,7 @@ sub processCLI {
         . "Config file: $configFile\n"
         . "Test262 Dir: $test262Dir\n"
         . "JSC: $JSC\n"
+        . "DYLD_FRAMEWORK_PATH: $DYLD_FRAMEWORK_PATH\n"
         . "Child Processes: $cliProcesses\n";
 
     print "Features to include: " . join(', ', @filterFeatures) . "\n" if @filterFeatures;
@@ -208,25 +216,29 @@ sub getBuildPath {
     # Try to find JSC for user, if not supplied
     my $cmd = abs_path("$FindBin::Bin/../webkit-build-directory");
     if (! -e $cmd) {
-        die "Error: cannot find webkit-build-directory, specify with JSC with --jsc <path>.";
+        die 'Error: cannot find webkit-build-directory, specify with JSC with --jsc <path>.';
     }
 
     if ($debug) {
-        $cmd .= " --debug";
+        $cmd .= ' --debug';
     } else {
-        $cmd .= " --release";
+        $cmd .= ' --release';
     }
-    $cmd .= " --executablePath";
+    $cmd .= ' --executablePath';
     my $jscDir = qx($cmd);
     chomp $jscDir;
 
     my $jsc;
-    $jsc = $jscDir . "/jsc";
-    $jsc = $jscDir . "/JavaScriptCore.framework/Resources/jsc" if (! -e $jsc);
-    $jsc = $jscDir . "/bin/jsc" if (! -e $jsc);
+    $jsc = $jscDir . '/jsc';
+
+    $jsc = $jscDir . '/JavaScriptCore.framework/Resources/jsc' if (! -e $jsc);
+    $jsc = $jscDir . '/bin/jsc' if (! -e $jsc);
     if (! -e $jsc) {
-        die "Error: cannot find jsc, specify with --jsc <path>.";
+        die 'Error: cannot find jsc, specify with --jsc <path>.';
     }
+
+    # Sets the Env DYLD_FRAMEWORK_PATH
+    $DYLD_FRAMEWORK_PATH = dirname($jsc);
 
     return $jsc;
 }
