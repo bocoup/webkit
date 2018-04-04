@@ -35,9 +35,9 @@ WIP
 
 The Test262 Runner script requires Perl 5.8.8, to install Perl 5.8.8, use [Perlbrew](https://perlbrew.pl/).
 
-As Perl 5.x.x versions released after 5.8.8 are retrocompatible, it's not necessary to install Perl 5.8.8 to execute the runner script.
+It’s not necessary to install Perl 5.8.8 to execute the runner script if you have a more recent version of Perl 5.x.x installed.
 
-The script dependencies are also stored locally, so it's not necessary to install or configure anything extra to execute the runner script.
+It's also not necessary to install or configure anything extra to execute the runner script. The script dependencies are also stored locally.
 
 ### Installing Perlbrew
 
