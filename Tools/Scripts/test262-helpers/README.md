@@ -1,72 +1,104 @@
-To install Perl 5.8.8, use [Perlbrew](https://perlbrew.pl/)
+# Test262 Tools
 
-Mac:
+## Runner script
+
+To execute the Test262 Runner script, just call it through your shell.
+
+```sh
+./Tools/Scripts/test262-helpers/test262-runner.pl
+
+# or if you're already in the Tools/Scripts/test262-helpers folder:
+
+./test262-runner.pl
+```
+
+### Custom options
+
+If you need to customize the execution, check out `test262-runner.pl --help` for extra commands.
+
+| −−help, −h | Print a brief help message and exits. |
+| −−child−processes, −p | Specify number of child processes. |
+| −−test−only, −o | Specify one or more specific test262 directory of test to run. |
+| −−t262, −t | Specify root test262 directory. |
+| −−jsc, −j | Specify a custom JSC location. |
+| −−debug, −d Use debug build of JSC. Can only use if −−jsc <path> is not provided. |
+| −−verbose, −v | Verbose output for test results. |
+| −−config, −c | Specify a config file. If not provided, script will load local `test262−config.yaml` |
+
+## Import Script
+
+WIP
+
+## Development
+
+The Test262 Runner script requires Perl 5.8.8, to install Perl 5.8.8, use [Perlbrew](https://perlbrew.pl/).
+
+As Perl 5.x.x versions released after 5.8.8 are retrocompatible, it's not necessary to install Perl 5.8.8 to execute the runner script.
+
+The script dependencies are also stored locally, so it's not necessary to install or configure anything extra to execute the runner script.
+
+### Installing Perlbrew
+
+#### Mac
 
 `\curl -L https://install.perlbrew.pl | bash`
 
-Linux (Debian derivative):
+#### Linux (Debian derivative):
 
 ```
 sudo apt-get install perlbrew
 perlbrew init
 ```
 
+### Loading Perlbrew
+
 Append the following piece of code to the end of your ~/.bash_profile and start a
 new shell, perlbrew should be up and fully functional from there:
 
 `source ~/perl5/perlbrew/etc/bashrc`
 
-Install Perl 5.8.8 through Perlbrew
+### Installing Perl 5.8.8 through Perlbrew
 
-Mac:
+#### Mac
 
 `perlbrew install perl-5.8.8`
 
-Linux:
+#### Linux
 
 `perlbrew --notest install perl-5.8.8   # Perl 5.8.8 has some known compilation errors`
 
----
+### Switching to Perl versions
 
-Switch to Perl 5.8.8
+```sh
+perlbrew switch perl-5.8.8
+perlbrew switch perl-5.27.6
+...
+```
 
-`perlbrew switch perl-5.8.8`
+### Install cpanminus and Carton
 
----
+Install cpanminus and Carton to set and manage dependencies.
 
-Install cpanminus
+```
+perlbrew install-cpanm
+cpanm install Carton
+```
 
-`perlbrew install-cpanm`
+### Installing dependencies through Carton
 
----
-
-Install Carton
-
-`cpanm install Carton`
-
----
-
-If you don't have a cpanfile yet, create one (`touch cpanfile`) in this directory and run `carton install`. This will create a `cpanfile.snapshot` file and a `./local/` folder. **This folder should be ignored in the version control**.
-
-If you need to save the installed dependencies, search for the use of `carton bundle` and `carton install --cached`, but do not export the created `local` folder.
-
-You can specify a required Perl version in the cpanfile by adding the following line:
-
-`requires 'perl', '5.8.8';`
-
----
-
-Run `carton install` to install dependencies from a `cpanfile`.
+From the `Tools/Scripts/test262-helpes/` folder, run `carton install` to install dependencies from the `cpanfile`.
 
 More documentation on the cpanfile [here](https://metacpan.org/pod/distribution/Module-CPANfile/lib/cpanfile.pod).
 
----
+### Executing the script using Carton:
 
-Execute the code using Carton:
+```
+carton exec test262-runner.pl
+```
 
-`carton exec test262-runner.pl`
+### Loading dependencies without Carton
 
-Otherwise, to use Perl, prepend the script file with the following code:
+To run the script without Carton, prepend your script file with the following code:
 
 ```perl
 use FindBin;
