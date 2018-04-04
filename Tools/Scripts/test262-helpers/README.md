@@ -6,9 +6,11 @@ To execute the Test262 Runner script, just call it through your shell.
 
 ```sh
 ./Tools/Scripts/test262-helpers/test262-runner.pl
+```
 
-# or if you're already in the Tools/Scripts/test262-helpers folder:
+If you're already in the `Tools/Scripts/test262-helpers` folder:
 
+```
 ./test262-runner.pl
 ```
 
