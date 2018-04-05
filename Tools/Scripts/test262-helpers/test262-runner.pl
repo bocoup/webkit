@@ -57,7 +57,7 @@ BEGIN {
 }
 ######
 
-use YAML qw(Load LoadFile);
+use YAML qw(Load LoadFile Dump DumpFile Bless);
 use Parallel::ForkManager;
 use Getopt::Long qw(GetOptions);
 use Pod::Usage;
@@ -70,6 +70,7 @@ my $JSC;
 my $test262Dir;
 my $harnessDir;
 my @filterFeatures;
+my $ignoreConfig;
 
 processCLI();
 
@@ -113,6 +114,7 @@ sub processCLI {
         'v|verbose' => \$verbose,
         'c|config=s' => \$configFile,
         'f|features=s@' => \@filterFeatures,
+        'a|run-all' => \$ignoreConfig,
     );
 
     if ($help) {
@@ -144,17 +146,18 @@ sub processCLI {
 
     $harnessDir = "$test262Dir/harness";
 
-    if ($configFile and not -e $configFile) {
-        die "Config file $configFile does not exist!";
+    if (! $ignoreConfig) {
+        if ($configFile and not -e $configFile) {
+            die "Config file $configFile does not exist!";
+        }
+
+        $configFile ||= abs_path("$FindBin::Bin/test262-config.yaml");
+        $config = LoadFile($configFile) or die $!;
     }
 
-    $configFile ||= abs_path("$FindBin::Bin/test262-config.yaml");
     $cliProcesses ||= 64;
 
-    $config = LoadFile($configFile) or die $!;
-
     print "Settings:\n"
-        . "Config file: $configFile\n"
         . "Test262 Dir: $test262Dir\n"
         . "JSC: $JSC\n"
         . "DYLD_FRAMEWORK_PATH: $DYLD_FRAMEWORK_PATH\n"
@@ -162,6 +165,7 @@ sub processCLI {
 
     print "Features to include: " . join(', ', @filterFeatures) . "\n" if @filterFeatures;
     print "Paths:  " . join(', ', @cliTestDirs) . "\n" if @cliTestDirs;
+    print "Config file: $configFile\n" if $configFile;
 
     print "Verbose mode\n" if $verbose;
 
@@ -198,14 +202,41 @@ sub main {
     close $deffh;
 
     seek($resfh, 0, 0);
-    my @res = <$resfh>;
+    my @res = LoadFile($resfh);
+    my %failed;
+    my $failedcount = 0;
+    my $skipped = 0;
+    foreach my $test (@res) {
+        if ($test->{result} eq 'FAIL') {
+            $failedcount++;
+            if (exists $failed{$test->{test}}) {
+                push(@{$failed{$test->{test}}}, {
+                    'mode' => $test->{mode},
+                    'error' => $test->{error}
+                });
+            }
+            else {
+                $failed{$test->{test}} = [{
+                    'mode' => $test->{mode},
+                    'error' => $test->{error}
+                }];
+            }
+        }
+        elsif ($test->{result} eq 'FAIL') {
+            $skipped++;
+        }
+    }
 
     open(my $logfh, '>', $tests_log) or die $!;
 
-    print $logfh (sort @res);
+    DumpFile($logfh, \%failed);
 
     my $endTime = time();
     my $totalTime = $endTime - $startTime;
+    my $total = scalar @res - $skipped;
+    print "\n" . $total . " tests ran\n";
+    print $failedcount . " tests failed\n";
+    print $skipped . " tests skipped\n";
     print "Done in $totalTime seconds! Log saved in $tests_log\n";
 
     close $resfh;
@@ -278,7 +309,7 @@ sub processFile {
 sub shouldSkip {
     my ($filename, $data) = @_;
 
-    if ($config->{skip}) {
+    if (exists $config->{skip}) {
         # Filter by paths
         my @skipPaths = @{ $config->{skip}->{paths} };
         return 1 if (grep {$filename =~ $_} @skipPaths);
@@ -295,7 +326,7 @@ sub shouldSkip {
 
         return 1 if (@filterFeatures and not $found);
     }
- 
+
     return 0;
 }
 
@@ -369,22 +400,25 @@ sub processResult {
 
     # Report a relative path
     my $file = abs2rel( $path, $test262Dir );
-    my $msg;
+    my %resultdata;
+    $resultdata{'test'} = $file;
+    $resultdata{'mode'} = $scenario;
 
     if ($scenario ne 'skip') {
-        # TODO: use verbose mode for more information or compact information otherwise
         if ($result) {
-            print "FAIL $file ($scenario)\n$result";
-            print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
-            print "\n\n";
+            print "FAIL $file ($scenario)\n";
+            if ($verbose) {
+                print $result;
+                print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
+                print "\n\n";
+            }
         }
-        $msg .= "($scenario): PASS\n" if not $result;
-        $msg .= "($scenario): FAIL\n" if $result;
-    } else {
-        $msg .= ": SKIP\n";
+        $resultdata{result} = 'PASS' if not $result;
+        $resultdata{result} = 'FAIL' if $result;
+        $resultdata{error} = $result if $result;
     }
 
-    print $resfh "$file$msg";
+    DumpFile($resfh, \%resultdata);
 }
 
 sub getTempFile {
@@ -502,6 +536,10 @@ Specify a config file. If not provided, script will load local test262-config.ya
 =item B<--features, -f>
 
 Filter test base on list of features (only runs tests in feature list).
+
+=item B<--run-all, -i>
+
+Run all tests. Ignores config file if supplied or findable in directory.
 
 =back
 
