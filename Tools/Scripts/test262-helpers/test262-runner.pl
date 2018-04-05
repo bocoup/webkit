@@ -101,6 +101,8 @@ sub processCLI {
     my $debug;
     my $configFile;
 
+    # If adding a new commandline argument, you must update the POD
+    # documentation at the end of the file.
     GetOptions(
         'j|jsc=s' => \$JSC,
         't|t262=s' => \$test262Dir,
@@ -496,6 +498,10 @@ Verbose output for test results.
 =item B<--config, -c>
 
 Specify a config file. If not provided, script will load local test262-config.yaml
+
+=item B<--features, -f>
+
+Filter test base on list of features (only runs tests in feature list).
 
 =back
 

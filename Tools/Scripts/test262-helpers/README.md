@@ -25,6 +25,7 @@ If you need to customize the execution, check out `test262-runner.pl --help` for
 | −−jsc, −j | Specify a custom JSC location. |
 | −−debug, −d Use debug build of JSC. Can only use if −−jsc <path> is not provided. |
 | −−verbose, −v | Verbose output for test results. |
+| −−features, −f | Specify one or more features to test. |
 | −−config, −c | Specify a config file. If not provided, script will load local `test262−config.yaml` |
 
 ## Import Script
