@@ -30,40 +30,19 @@
 use strict;
 use warnings;
 
-use File::Find;
-use File::Basename qw(dirname);
-use Cwd qw(abs_path);
+use Cwd qw/abs_path/;
+use File::Path qw/rmtree/;
+use File::Temp qw/tempdir/;
 use FindBin;
-
-######
-# # Use the following code run this script directly from Perl.
-# # Otherwise, just use carton.
-use Config;
-use Encode;
-
-BEGIN {
-    $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK} = 1;
-
-    unshift @INC, ".";
-    unshift @INC, "$FindBin::Bin/lib";
-    unshift @INC, "$FindBin::Bin/local/lib/perl5";
-    unshift @INC, "$FindBin::Bin/local/lib/perl5/$Config{archname}";
-
-    $ENV{LOAD_ROUTES} = 1;
-}
-######
-
-use YAML qw(Load LoadFile);
-use Getopt::Long qw(GetOptions);
+use Getopt::Long qw/GetOptions/;
 use Pod::Usage;
 
-# Commandline args
 my $test262Dir = abs_path("$FindBin::Bin/../../../JSTests/test262");
-my $sourceDir;
 my $revisionFile = abs_path("$FindBin::Bin/../../../JSTests/test262/test262-Revision.txt");
 my $summaryFile = abs_path("$FindBin::Bin/../../../JSTests/test262/latest-changes-summary.txt");
-
-processCLI();
+my $sourceDir;
+my $remoteUrl;
+my $branch;
 
 main();
 
@@ -72,68 +51,108 @@ sub processCLI {
 
     GetOptions(
         's|src=s' => \$sourceDir,
+        'r|remote=s' => \$remoteUrl,
+        'b|branch=s' => \$branch,
         'h|help' => \$help,
     );
 
-    my $exitstatus = $sourceDir ? 1 : 0;
+    my $source;
 
     if ($help) {
         pod2usage(-exitstatus => 0, -verbose => 1);
     }
 
-    if (not $sourceDir) {
-        print "Please specify the Test262 repository source folder.\n\n";
+    if (not $sourceDir and not $remoteUrl) {
+        print "Please specify a location for the Test262 repository.\n\n";
         pod2usage(-exitstatus => 1, -verbose => 1);
     };
 
-    if (not -d $sourceDir
-        or not -d "$sourceDir/.git"
-        or not -d "$sourceDir/test"
-        or not -d "$sourceDir/harness") {
-        print "$sourceDir does not exist or is not a valid Test262 folder.\n\n";
+    if ($sourceDir and $remoteUrl) {
+        print "Please specify only a single location for the Test262 repository.\n\n";
         pod2usage(-exitstatus => 2, -verbose => 1);
     };
 
-    if (abs_path($sourceDir) eq $test262Dir) {
-        print "$sourceDir cannot be the same as the current Test262 folder.\n\n";
-        pod2usage(-exitstatus => 3, -verbose => 1);
+    if ($sourceDir) {
+        if (not -d $sourceDir
+            or not -d "$sourceDir/.git"
+            or not -d "$sourceDir/test"
+            or not -d "$sourceDir/harness") {
+            print "$sourceDir does not exist or is not a valid Test262 folder.\n\n";
+            pod2usage(-exitstatus => 3, -verbose => 1);
+        };
+
+        if (abs_path($sourceDir) eq $test262Dir) {
+            print "$sourceDir cannot be the same as the current Test262 folder.\n\n";
+            pod2usage(-exitstatus => 4, -verbose => 1);
+        }
+
+        $source = $sourceDir;
+    }
+    
+    if ($remoteUrl) {
+        $source = $remoteUrl;
+        $branch ||= 'master';
     }
 
-    print "Settings:\n"
-        . "Source: $sourceDir\n";
-
+    print "Settings:\n";
+    print "Source: $sourceDir\n" if $sourceDir;
+    print "Remote: $remoteUrl\n" if $remoteUrl;
+    print "Branch: $branch\n" if $remoteUrl;
     print "--------------------------------------------------------\n\n";
 }
 
 sub main {
     my $startTime = time();
 
+    processCLI();
+
     # Get last imported revision
     my ($revision, $tracking) = getRevision();
+    if ($remoteUrl) {
+        processRemote($revision);
+    }
     my ($newRevision, $newTracking, $newBranch) = getNewRevision();
     my ($summary, $stats) = compareRevisions($revision, $newRevision);
 
     transfer();
+
     saveRevision($newRevision, $newTracking, $stats);
-    saveSummary($summary);
+    saveSummary($summary) if $summary;
+
+    if ($remoteUrl) {
+        rmtree($sourceDir);
+    }
 
     my $endTime = time();
     my $totalTime = $endTime - $startTime;
     print "\nDone in $totalTime seconds!\n";
 }
 
+sub printAndRun {
+    my ($command) = @_;
+
+    print "> $command\n\n";
+    return qx/$command/;
+}
+
+sub processRemote {
+    my ($revision) = @_;
+
+    $sourceDir = tempdir( CLEANUP => 1 );
+    print "Importing Test262 from git\n";
+
+    # Depth is not used in order to fetch revisions diff
+    printAndRun("git clone -b $branch $remoteUrl $sourceDir");
+}
+
 sub transfer {
     # Remove previous Test262 folders
-    print qq/rm -rf $test262Dir\/harness\n/ if -e "$test262Dir/harness";
-    qx/rm -rf $test262Dir\/harness/ if -e "$test262Dir/harness";
-    print qq/rm -rf $test262Dir\/test\n/ if -e "$test262Dir/test";
-    qx/rm -rf $test262Dir\/test/ if -e "$test262Dir/test";
+    printAndRun("rm -rf $test262Dir\/harness") if -e "$test262Dir/harness";
+    printAndRun("rm -rf $test262Dir\/test") if -e "$test262Dir/test";
 
     # Copy from source
-    print qq/cp -r $sourceDir\/harness $test262Dir\n/;
-    qx/cp -r $sourceDir\/harness $test262Dir/;
-    print qq/cp -r $sourceDir\/test $test262Dir\n/;
-    qx/cp -r $sourceDir\/test $test262Dir/;
+    printAndRun("cp -r $sourceDir\/harness $test262Dir");
+    printAndRun("cp -r $sourceDir\/test $test262Dir");
 }
 
 sub getRevision {
@@ -156,9 +175,6 @@ sub getRevision {
         die 'No remote url found in the current JSTests/test262 folder.';
     }
 
-    print "Current Test262 revision: $revision\n";
-    print "Tracking from the following remote: $tracking\n";
-
     close($revfh);
 
     return $revision, $tracking;
@@ -174,7 +190,7 @@ sub getNewRevision {
 
     print "New tracking: $tracking\n";
     print "From branch: $branch\n";
-    print "New revision: $revision\n";
+    print "New revision: $revision\n\n";
 
     if (!$revision or !$tracking or !$branch) {
         die 'Something is wrong in the source git.';
@@ -186,16 +202,15 @@ sub getNewRevision {
 sub compareRevisions {
     my ($old, $new) = @_;
 
-    my $summary = qx/git -C $sourceDir diff --summary $old/;
-    chomp $summary;
-
+    my $summary = '';
     my $stats = qx/git -C $sourceDir diff --shortstat $old/;
     chomp $stats;
 
-    # Might use a patch file as well for diff
-    # my $patch = qx/git -C $sourceDir diff $old/;
-
-    print "$stats\n";
+    if ($stats) {
+        $summary = qx/git -C $sourceDir diff --summary $old/;
+        chomp $summary;
+        print "$stats\n\n";
+    }
 
     return $summary, $stats;
 }
@@ -207,7 +222,7 @@ sub saveRevision {
 
     print $fh "test262 remote url: $tracking\n";
     print $fh "test262 revision: $revision\n";
-    print $fh "test262 stats: $stats\n";
+    print $fh "test262 stats: $stats\n" if $stats;
 
     close $fh;
 }
@@ -235,6 +250,8 @@ Run using native Perl:
 =over 8
 
 ./test262-import.pl -s $source
+./test262-import.pl -r https://github.com/tc39/test262
+./test262-import.pl -r https://github.com/tc39/test262 -b es6
 
 =back
 
@@ -246,9 +263,17 @@ Run using native Perl:
 
 Print a brief help message.
 
-=item B<--t262, -t>
+=item B<--src, -s>
 
 Specify the folder for Test262's repository.
+
+=item B<--remote, -r>
+
+Specify a remote Test262's repository.
+
+=item B<--branch, -b>
+
+Specify a branch to be used for a remote Test262. Defaults to `master`.
 
 =back
 =cut
