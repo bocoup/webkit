@@ -106,18 +106,34 @@ sub main {
 
     processCLI();
 
-    # Get last imported revision
-    my ($revision, $tracking) = getRevision();
     if ($remoteUrl) {
-        processRemote($revision);
+        processRemote();
     }
-    my ($newRevision, $newTracking, $newBranch) = getNewRevision();
-    my ($summary, $stats) = compareRevisions($revision, $newRevision);
 
-    transfer();
+    # Get last imported revision
+    my $revision = getRevision();
 
-    saveRevision($newRevision, $newTracking, $stats);
-    saveSummary($summary) if $summary;
+    if (!$remoteUrl) {
+        # Verify if the $sourceDir folder is clean
+        my $dirty = qx(git -C $sourceDir status --porcelain);
+        chomp $dirty;
+        if ($dirty) {
+            die "Test262 at $sourceDir has unstaged/uncommited changes.";
+        }
+    }
+
+    my ($newRevision, $newTracking) = getNewRevision();
+    if (defined $revision and $newRevision eq $revision) {
+        print 'Same revision, no need to import.';
+        exit 0;
+    }
+
+    my $summary = getSummary();
+
+    transferFiles();
+
+    reportNewRevision($newRevision, $newTracking);
+    saveSummary($summary);
 
     if ($remoteUrl) {
         rmtree($sourceDir);
@@ -136,16 +152,13 @@ sub printAndRun {
 }
 
 sub processRemote {
-    my ($revision) = @_;
-
     $sourceDir = tempdir( CLEANUP => 1 );
     print "Importing Test262 from git\n";
 
-    # Depth is not used in order to fetch revisions diff
-    printAndRun("git clone -b $branch $remoteUrl $sourceDir");
+    printAndRun("git clone -b $branch --depth=1 $remoteUrl $sourceDir");
 }
 
-sub transfer {
+sub transferFiles {
     # Remove previous Test262 folders
     printAndRun("rm -rf $test262Dir\/harness") if -e "$test262Dir/harness";
     printAndRun("rm -rf $test262Dir\/test") if -e "$test262Dir/test";
@@ -159,25 +172,16 @@ sub getRevision {
     open(my $revfh, '<', $revisionFile) or die $!;
 
     my $revision;
-    my $tracking;
     my $contents = join("\n", <$revfh>);
 
     # Some cheap yaml parsing, the YAML module is a possible alternative
     if ($contents =~ /test262 revision\: (\w*)/) {
         $revision = $1;
-    } else {
-        die 'No revision found in the current JSTests/test262 folder.';
-    }
-
-    if ($contents =~ /test262 remote url\: (.*)/) {
-        $tracking = $1;
-    } else {
-        die 'No remote url found in the current JSTests/test262 folder.';
     }
 
     close($revfh);
 
-    return $revision, $tracking;
+    return $revision;
 }
 
 sub getNewRevision {
@@ -196,33 +200,26 @@ sub getNewRevision {
         die 'Something is wrong in the source git.';
     }
 
-    return $revision, $tracking, $branch;
+    return $revision, $tracking;
 }
 
-sub compareRevisions {
-    my ($old, $new) = @_;
-
+sub getSummary {
     my $summary = '';
-    my $stats = qx/git -C $sourceDir diff --shortstat $old/;
-    chomp $stats;
 
-    if ($stats) {
-        $summary = qx/git -C $sourceDir diff --summary $old/;
-        chomp $summary;
-        print "$stats\n\n";
-    }
+    $summary = qx(git diff --no-index --name-status --relative=$test262Dir/harness --diff-filter=ACDM -- $sourceDir/harness $test262Dir/harness);
+    $summary .= qx(git diff --no-index --name-status --relative=$test262Dir/test --diff-filter=ACDM -- $sourceDir/test $test262Dir/test);
+    chomp $summary;
 
-    return $summary, $stats;
+    return $summary;
 }
 
-sub saveRevision {
-    my ($revision, $tracking, $stats) = @_;
+sub reportNewRevision {
+    my ($revision, $tracking) = @_;
 
     open(my $fh, '>', $revisionFile) or die $!;
 
     print $fh "test262 remote url: $tracking\n";
     print $fh "test262 revision: $revision\n";
-    print $fh "test262 stats: $stats\n" if $stats;
 
     close $fh;
 }
