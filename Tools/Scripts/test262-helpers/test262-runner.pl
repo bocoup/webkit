@@ -71,6 +71,10 @@ my $test262Dir;
 my $harnessDir;
 my @filterFeatures;
 my $ignoreConfig;
+my $config;
+my $expect;
+
+my $failures_log = "$FindBin::Bin/test262-expectations.yaml";
 
 processCLI();
 
@@ -82,10 +86,6 @@ my @default_harnesses = (
     "$harnessDir/doneprintHandle.js",
     "$FindBin::Bin/agent.js"
 );
-
-my $config;
-
-my $tests_log = "$FindBin::Bin/tests.log";
 
 my @files;
 my ($resfh, $resfilename) = getTempFile();
@@ -101,6 +101,8 @@ sub processCLI {
     my $help = 0;
     my $debug;
     my $configFile;
+    my $expectationFile;
+    my $ignoreExpectation;
 
     # If adding a new commandline argument, you must update the POD
     # documentation at the end of the file.
@@ -112,9 +114,11 @@ sub processCLI {
         'h|help' => \$help,
         'd|debug' => \$debug,
         'v|verbose' => \$verbose,
-        'c|config=s' => \$configFile,
         'f|features=s@' => \@filterFeatures,
+        'c|config=s' => \$configFile,
         'i|ignore-config' => \$ignoreConfig,
+        'e|expectation=s' => \$expectationFile,
+        'x|ignore-expectation' => \$ignoreExpectation,
     );
 
     if ($help) {
@@ -143,7 +147,6 @@ sub processCLI {
     } else {
         $test262Dir = abs_path($test262Dir);
     }
-
     $harnessDir = "$test262Dir/harness";
 
     if (! $ignoreConfig) {
@@ -153,6 +156,21 @@ sub processCLI {
 
         $configFile ||= abs_path("$FindBin::Bin/test262-config.yaml");
         $config = LoadFile($configFile) or die $!;
+    }
+
+    if ($expectationFile){
+        $expectationFile = abs_path($expectationFile);
+        if ( -e $expectationFile ) {
+            die "Error: specified expectation file does not exist.";
+        }
+    }
+    if (! $ignoreExpectation) {
+        $expectationFile ||= $failures_log;
+
+        # If expectation file doesn't exist yet, just run tests.
+        if (-e $expectationFile) {
+            $expect = LoadFile($expectationFile) or die $!;
+        }
     }
 
     $cliProcesses ||= 64;
@@ -203,44 +221,71 @@ sub main {
 
     seek($resfh, 0, 0);
     my @res = LoadFile($resfh);
+
     my %failed;
-    my $failedcount = 0;
-    my $skipped = 0;
+    my $failcount = 0;
+    my $newfailcount = 0;
+    my $newpasscount = 0;
+    my $skipfilecount = 0;
+
+    # Create expectation file and calculate results
     foreach my $test (@res) {
+
+        my $expectFailure = 0;
+        if ($expect) {
+            $expectFailure = $expect->{$test->{test}}
+                             && $expect->{$test->{test}}->{$test->{mode}}
+        }
+
         if ($test->{result} eq 'FAIL') {
-            $failedcount++;
-            if (exists $failed{$test->{test}}) {
-                push(@{$failed{$test->{test}}}, {
-                    'mode' => $test->{mode},
+
+            # Record this round of failures
+            $failcount++;
+            if ( $failed{$test->{test}} ) {
+                $failed{$test->{test}}->{$test->{mode}} = {
                     'error' => $test->{error}
-                });
+                };
             }
             else {
-                $failed{$test->{test}} = [{
-                    'mode' => $test->{mode},
-                    'error' => $test->{error}
-                }];
+                $failed{$test->{test}} = {
+                    $test->{mode} => {
+                        'error' => $test->{error}
+                    }
+                };
             }
+
+            # If an unexpected failure
+            $newfailcount++ if !$expectFailure;
+
         }
-        elsif ($test->{result} eq 'FAIL') {
-            $skipped++;
+        elsif ($test->{result} eq 'PASS') {
+            # If this is an newly passing test
+            $newpasscount++ if $expectFailure;
         }
+        elsif ($test->{result} eq 'SKIP') {
+            $skipfilecount++;
+        }
+
     }
-
-    open(my $logfh, '>', $tests_log) or die $!;
-
-    DumpFile($logfh, \%failed);
+    open(my $failuresfh, '>', $failures_log) or die $!;
+    DumpFile($failuresfh, \%failed);
+    close $failuresfh;
 
     my $endTime = time();
     my $totalTime = $endTime - $startTime;
-    my $total = scalar @res - $skipped;
+    my $total = scalar @res - $skipfilecount;
     print "\n" . $total . " tests ran\n";
-    print $failedcount . " tests failed\n";
-    print $skipped . " tests skipped\n";
-    print "Done in $totalTime seconds! Log saved in $tests_log\n";
+    print $failcount . " tests failed\n";
+
+    if ( $expect ) {
+        print $newfailcount . " tests newly fail\n";
+        print $newpasscount . " tests newly pass\n";
+    }
+
+    print $skipfilecount . " test files skipped\n";
+    print "Done in $totalTime seconds! Log saved in $failures_log\n";
 
     close $resfh;
-    close $logfh;
 }
 
 sub getBuildPath {
@@ -278,7 +323,6 @@ sub getBuildPath {
 
 sub processFile {
     my $filename = shift;
-    my $skip = 0;
 
     my $contents = getContents($filename);
     # TODO: should skip from path?
@@ -401,11 +445,22 @@ sub processResult {
     # Report a relative path
     my $file = abs2rel( $path, $test262Dir );
     my %resultdata;
-    $resultdata{'test'} = $file;
-    $resultdata{'mode'} = $scenario;
+    $resultdata{test} = $file;
+    $resultdata{mode} = $scenario;
 
     if ($scenario ne 'skip') {
-        if ($result) {
+        my $printfailure;
+
+        # Print failure if no expectation file or if not in expectation file
+        if (!$expect) {
+            $printfailure = $result ? 1 : 0;
+        } else {
+            $printfailure = $result
+                            && ! ($expect->{$file}
+                            && $expect->{$file}->{$scenario})
+        }
+
+        if ($printfailure) {
             print "FAIL $file ($scenario)\n";
             if ($verbose) {
                 print $result;
@@ -413,9 +468,13 @@ sub processResult {
                 print "\n\n";
             }
         }
+
         $resultdata{result} = 'PASS' if not $result;
         $resultdata{result} = 'FAIL' if $result;
         $resultdata{error} = $result if $result;
+    }
+    else {
+        $resultdata{result} = 'SKIP';
     }
 
     DumpFile($resfh, \%resultdata);
