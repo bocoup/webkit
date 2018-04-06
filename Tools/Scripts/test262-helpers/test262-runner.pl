@@ -114,7 +114,7 @@ sub processCLI {
         'v|verbose' => \$verbose,
         'c|config=s' => \$configFile,
         'f|features=s@' => \@filterFeatures,
-        'a|run-all' => \$ignoreConfig,
+        'i|ignore-config' => \$ignoreConfig,
     );
 
     if ($help) {
@@ -537,9 +537,9 @@ Specify a config file. If not provided, script will load local test262-config.ya
 
 Filter test base on list of features (only runs tests in feature list).
 
-=item B<--run-all, -i>
+=item B<--ignore-config, -i>
 
-Run all tests. Ignores config file if supplied or findable in directory.
+Ignores config file if supplied or findable in directory. Will still filters based on commandline arguments.
 
 =back
 
