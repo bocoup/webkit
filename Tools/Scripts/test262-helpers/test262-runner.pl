@@ -72,6 +72,7 @@ my $harnessDir;
 my @filterFeatures;
 my $ignoreConfig;
 my $config;
+my %configSkipHash;
 my $expect;
 
 my $failures_log = "$FindBin::Bin/test262-expectations.yaml";
@@ -156,6 +157,9 @@ sub processCLI {
 
         $configFile ||= abs_path("$FindBin::Bin/test262-config.yaml");
         $config = LoadFile($configFile) or die $!;
+        if ($config->{skip} && $config->{skip}->{files}) {
+            %configSkipHash = map { $_ => 1 } @{$config->{skip}->{files}};
+        }
     }
 
     if ($expectationFile){
@@ -330,7 +334,8 @@ sub processFile {
     my $data = parseData($contents, $filename);
     # TODO: should skip from features?
 
-    if (shouldSkip($filename, $data)) {
+    my $file = abs2rel( $filename, $test262Dir );
+    if (shouldSkip($file, $data)) {
         processResult($filename, $data, "skip");
         return;
     }
@@ -354,6 +359,11 @@ sub shouldSkip {
     my ($filename, $data) = @_;
 
     if (exists $config->{skip}) {
+        # Filter by file
+        if( $configSkipHash{$filename} ) {
+            return 1;
+        }
+
         # Filter by paths
         my @skipPaths = @{ $config->{skip}->{paths} };
         return 1 if (grep {$filename =~ $_} @skipPaths);
