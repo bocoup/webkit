@@ -1,0 +1,39 @@
+---
+test/language/module-code/instn-resolve-order-depth.js:
+  module:
+    error: |-
+      Expected uncaught exception with name 'ReferenceError' but exception value is not instance of this exception class
+      Exception: SyntaxError: 'break' is only valid inside a switch or loop statement.
+      at /home/spectranaut/bocoup/webkit/JSTests/test262/test/language/module-code/instn-resolve-order-depth-syntax_FIXTURE.js:5
+      parseModule@[native code]
+      [native code]
+      promiseReactionJob@[native code]
+test/language/module-code/instn-resolve-order-src.js:
+  module:
+    error: |-
+      Expected uncaught exception with name 'ReferenceError' but exception value is not instance of this exception class
+      Exception: SyntaxError: 'break' is only valid inside a switch or loop statement.
+      at /home/spectranaut/bocoup/webkit/JSTests/test262/test/language/module-code/instn-resolve-order-src-syntax_FIXTURE.js:5
+      parseModule@[native code]
+      [native code]
+      promiseReactionJob@[native code]
+test/language/module-code/namespace/internals/define-own-property.js:
+  module:
+    error: 'Exception: Test262Error: Reflect.defineProperty: local1 Expected SameValue(Â«falseÂ», Â«trueÂ») to be true'
+test/language/module-code/namespace/internals/object-keys-binding-uninit.js:
+  module:
+    error: 'Exception: Test262Error: Expected a ReferenceError to be thrown but no exception was thrown at all'
+test/language/module-code/namespace/internals/set.js:
+  module:
+    error: 'Exception: Test262Error: Reflect.defineProperty: local1 Expected SameValue(Â«falseÂ», Â«trueÂ») to be true'
+test/language/module-code/parse-err-hoist-lex-fun.js:
+  module:
+    error: |-
+      Expected uncaught exception with name 'SyntaxError' but exception value is not instance of this exception class
+      Exception: Test262: This statement should not be evaluated.	
+test/language/module-code/comment-single-line-html-open.js:
+  module:
+    error: blablabla
+test/language/module-code/comment-single-line-html-close.js:
+  module:
+    error: blablabla

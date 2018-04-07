@@ -164,7 +164,7 @@ sub processCLI {
 
     if ($expectationFile){
         $expectationFile = abs_path($expectationFile);
-        if ( -e $expectationFile ) {
+        if ( ! -e $expectationFile ) {
             die "Error: specified expectation file does not exist.";
         }
     }
@@ -179,7 +179,7 @@ sub processCLI {
 
     $cliProcesses ||= 64;
 
-    print "Settings:\n"
+    print "\n-------------------------Settings------------------------\n"
         . "Test262 Dir: $test262Dir\n"
         . "JSC: $JSC\n"
         . "DYLD_FRAMEWORK_PATH: $DYLD_FRAMEWORK_PATH\n"
@@ -188,6 +188,7 @@ sub processCLI {
     print "Features to include: " . join(', ', @filterFeatures) . "\n" if @filterFeatures;
     print "Paths:  " . join(', ', @cliTestDirs) . "\n" if @cliTestDirs;
     print "Config file: $configFile\n" if $configFile;
+    print "Expectation file: $expectationFile\n" if $expectationFile;
 
     print "Verbose mode\n" if $verbose;
 
@@ -279,9 +280,12 @@ sub main {
     my $totalTime = $endTime - $startTime;
     my $total = scalar @res - $skipfilecount;
     print "\n" . $total . " tests ran\n";
-    print $failcount . " tests failed\n";
 
-    if ( $expect ) {
+    if ( !$expect ) {
+        print $failcount . " tests failed\n";
+    }
+    else {
+        print $failcount . " expected tests failed\n";
         print $newfailcount . " tests newly fail\n";
         print $newpasscount . " tests newly pass\n";
     }
@@ -327,13 +331,10 @@ sub getBuildPath {
 
 sub processFile {
     my $filename = shift;
-
     my $contents = getContents($filename);
-    # TODO: should skip from path?
-
     my $data = parseData($contents, $filename);
-    # TODO: should skip from features?
 
+    # Check test against filters in config file
     my $file = abs2rel( $filename, $test262Dir );
     if (shouldSkip($file, $data)) {
         processResult($filename, $data, "skip");
@@ -459,24 +460,23 @@ sub processResult {
     $resultdata{mode} = $scenario;
 
     if ($scenario ne 'skip') {
-        my $printfailure;
 
         # Print failure if no expectation file or if not in expectation file
-        if (!$expect) {
-            $printfailure = $result ? 1 : 0;
-        } else {
-            $printfailure = $result
-                            && ! ($expect->{$file}
-                            && $expect->{$file}->{$scenario})
-        }
+        my $expectfailure = $expect
+            && $expect->{$file}
+            && $expect->{$file}->{$scenario};
 
-        if ($printfailure) {
+        if ($result && !$expectfailure) {
+            print "! NEW " if $expect;
             print "FAIL $file ($scenario)\n";
             if ($verbose) {
                 print $result;
                 print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
                 print "\n\n";
             }
+        }
+        if ((!$result) && $expectfailure) {
+            print "NEW PASS $file ($scenario)\n";
         }
 
         $resultdata{result} = 'PASS' if not $result;
