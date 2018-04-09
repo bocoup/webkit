@@ -130,6 +130,8 @@ sub main {
 
     my $summary = getSummary();
 
+    print "Summary of changes:\n$summary\n\n" if $summary;
+
     transferFiles();
 
     reportNewRevision($newRevision, $newTracking);
@@ -206,9 +208,12 @@ sub getNewRevision {
 sub getSummary {
     my $summary = '';
 
-    $summary = qx(git diff --no-index --name-status --relative=$test262Dir/harness --diff-filter=ACDM -- $sourceDir/harness $test262Dir/harness);
-    $summary .= qx(git diff --no-index --name-status --relative=$test262Dir/test --diff-filter=ACDM -- $sourceDir/test $test262Dir/test);
+    $summary = qx(git diff --no-index --name-status --diff-filter=ACDM -- $test262Dir/harness $sourceDir/harness);
+    $summary .= qx(git diff --no-index --name-status --diff-filter=ACDM -- $test262Dir/test $sourceDir/test);
     chomp $summary;
+
+    $summary =~ s/\s+$test262Dir\// /g;
+    $summary =~ s/\s+$sourceDir\// /g;
 
     return $summary;
 }
