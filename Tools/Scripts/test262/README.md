@@ -18,6 +18,35 @@ If you're already in the `Tools/Scripts/test262` folder:
 
 If you need to customize the execution, check out `runner.pl --help` for extra commands.
 
+### test262-config.yaml
+
+This yaml file can be used to skip tests. An example file:
+```
+---
+skip:
+  paths:
+    - test/built-ins/Atomics
+  features:
+    - SharedArrayBuffer
+    - BigInt
+  files:
+    - test/built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-object.js
+    - test/built-ins/Array/prototype/unshift/length-near-integer-limit.js
+```
+
+### test262-expectation.yaml
+
+This file contains all exected failures. If JSC or Test262 is updated, this file should be updated with the new set of expected tests in order for developers to only see errors they introduce.
+
+To update this file, run:
+```
+runner.pl --save-expectations
+```
+
+### test262-results.yaml
+
+This file contains results for all tests. It is updated on every run.
+
 ## Import Script
 
 To execute the Test262 Import script, just call it through your shell. The script will update the JSTests/test262 folder.
