@@ -168,7 +168,7 @@ sub processCLI {
         }
     }
 
-    $cliProcesses ||= 64;
+    $cliProcesses ||= 32;
 
     print "\n-------------------------Settings------------------------\n"
         . "Test262 Dir: $test262Dir\n"
@@ -178,7 +178,7 @@ sub processCLI {
 
     print "Features to include: " . join(', ', @filterFeatures) . "\n" if @filterFeatures;
     print "Paths:  " . join(', ', @cliTestDirs) . "\n" if @cliTestDirs;
-    print "Config file: $configFile\n" if $configFile;
+    print "Config file: $configFile\n" if $config;
     print "Expectations file: $expectationsFile\n" if $expect;
 
     print "Verbose mode\n" if $verbose;
@@ -238,15 +238,11 @@ sub main {
             # Record this round of failures
             $failcount++;
             if ( $failed{$test->{test}} ) {
-                $failed{$test->{test}}->{$test->{mode}} = {
-                    'error' => $test->{error}
-                };
+                $failed{$test->{test}}->{$test->{mode}} = 'FAIL';
             }
             else {
                 $failed{$test->{test}} = {
-                    $test->{mode} => {
-                        'error' => $test->{error}
-                    }
+                    $test->{mode} => 'FAIL'
                 };
             }
 
