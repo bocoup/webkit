@@ -74,8 +74,10 @@ my $ignoreConfig;
 my $config;
 my %configSkipHash;
 my $expect;
+my $saveNewExpectations;
 
-my $failures_log = "$FindBin::Bin/test262-expectations.yaml";
+my $expectationsFile = abs_path("$FindBin::Bin/test262-expectations.yaml");
+my $configFile = abs_path("$FindBin::Bin/test262-expectations.yaml");
 
 processCLI();
 
@@ -101,9 +103,7 @@ main();
 sub processCLI {
     my $help = 0;
     my $debug;
-    my $configFile;
-    my $expectationFile;
-    my $ignoreExpectation;
+    my $ignoreExpectations;
 
     # If adding a new commandline argument, you must update the POD
     # documentation at the end of the file.
@@ -118,8 +118,8 @@ sub processCLI {
         'f|features=s@' => \@filterFeatures,
         'c|config=s' => \$configFile,
         'i|ignore-config' => \$ignoreConfig,
-        'e|expectation=s' => \$expectationFile,
-        'x|ignore-expectation' => \$ignoreExpectation,
+        's|save-expectations' => \$saveNewExpectations,
+        'x|ignore-expectations' => \$ignoreExpectations,
     );
 
     if ($help) {
@@ -155,25 +155,16 @@ sub processCLI {
             die "Config file $configFile does not exist!";
         }
 
-        $configFile ||= abs_path("$FindBin::Bin/test262-config.yaml");
         $config = LoadFile($configFile) or die $!;
         if ($config->{skip} && $config->{skip}->{files}) {
             %configSkipHash = map { $_ => 1 } @{$config->{skip}->{files}};
         }
     }
 
-    if ($expectationFile){
-        $expectationFile = abs_path($expectationFile);
-        if ( ! -e $expectationFile ) {
-            die "Error: specified expectation file does not exist.";
-        }
-    }
-    if (! $ignoreExpectation) {
-        $expectationFile ||= $failures_log;
-
-        # If expectation file doesn't exist yet, just run tests.
-        if (-e $expectationFile) {
-            $expect = LoadFile($expectationFile) or die $!;
+    if (! $ignoreExpectations) {
+        # If expectations file doesn't exist yet, just run tests.
+        if (-e $expectationsFile) {
+            $expect = LoadFile($expectationsFile) or die $!;
         }
     }
 
@@ -188,7 +179,7 @@ sub processCLI {
     print "Features to include: " . join(', ', @filterFeatures) . "\n" if @filterFeatures;
     print "Paths:  " . join(', ', @cliTestDirs) . "\n" if @cliTestDirs;
     print "Config file: $configFile\n" if $configFile;
-    print "Expectation file: $expectationFile\n" if $expectationFile;
+    print "Expectations file: $expectationsFile\n" if $expect;
 
     print "Verbose mode\n" if $verbose;
 
@@ -272,9 +263,12 @@ sub main {
         }
 
     }
-    open(my $failuresfh, '>', $failures_log) or die $!;
-    DumpFile($failuresfh, \%failed);
-    close $failuresfh;
+
+    if ($saveNewExpectations) {
+        open(my $failuresfh, '>', $expectationsFile) or die $!;
+        DumpFile($failuresfh, \%failed);
+        close $failuresfh;
+    }
 
     my $endTime = time();
     my $totalTime = $endTime - $startTime;
@@ -291,7 +285,13 @@ sub main {
     }
 
     print $skipfilecount . " test files skipped\n";
-    print "Done in $totalTime seconds! Log saved in $failures_log\n";
+    print "Done in $totalTime seconds!\n";
+    if ($saveNewExpectations) {
+        print "Saved results in $expectationsFile\n";
+    }
+    else {
+        print "Run with --save-expectations to saved results in $expectationsFile\n";
+    }
 
     close $resfh;
 }
@@ -461,7 +461,7 @@ sub processResult {
 
     if ($scenario ne 'skip') {
 
-        # Print failure if no expectation file or if not in expectation file
+        # Print failure if no expectations file or if not in expectations file
         my $expectfailure = $expect
             && $expect->{$file}
             && $expect->{$file}->{$scenario};
@@ -477,6 +477,7 @@ sub processResult {
         }
         if ((!$result) && $expectfailure) {
             print "NEW PASS $file ($scenario)\n";
+            print "\n" if $verbose;
         }
 
         $resultdata{result} = 'PASS' if not $result;
@@ -578,10 +579,6 @@ Print a brief help message and exits.
 
 Specify number of child processes.
 
-=item B<--test-only, -o>
-
-Specify one or more specific test262 directory of test to run, relative to the root test262 directory. For example, 'test/built-ins/Number/prototype'
-
 =item B<--t262, -t>
 
 Specify root test262 directory.
@@ -596,19 +593,31 @@ Use debug build of JSC. Can only use if --jsc <path> is not provided. Release bu
 
 =item B<--verbose, -v>
 
-Verbose output for test results.
+Verbose output for test results. Includes error message for test.
 
 =item B<--config, -c>
 
 Specify a config file. If not provided, script will load local test262-config.yaml
 
-=item B<--features, -f>
-
-Filter test base on list of features (only runs tests in feature list).
-
 =item B<--ignore-config, -i>
 
 Ignores config file if supplied or findable in directory. Will still filters based on commandline arguments.
+
+=item B<--features, -f>
+
+Filter test on list of features (only runs tests in feature list).
+
+=item B<--test-only, -o>
+
+Specify one or more specific test262 directory of test to run, relative to the root test262 directory. For example, 'test/built-ins/Number/prototype'
+
+=item B<--save-expectations, -s>
+
+Overwrites the test262-expectations.yaml file with the current list of test262 files.
+
+=item B<--ignore-expectations, -x>
+
+Ignores the test262-expectations.yaml file and outputs all failures, instead of only unexpected failures.
 
 =back
 
