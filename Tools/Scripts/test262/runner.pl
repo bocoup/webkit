@@ -78,6 +78,7 @@ my $saveNewExpectations;
 
 my $expectationsFile = abs_path("$FindBin::Bin/test262-expectations.yaml");
 my $configFile = abs_path("$FindBin::Bin/test262-config.yaml");
+my $resultsFile = abs_path("$FindBin::Bin/test262-results.yaml");
 
 processCLI();
 
@@ -217,6 +218,12 @@ sub main {
 
     seek($resfh, 0, 0);
     my @res = LoadFile($resfh);
+    close $resfh;
+
+    # Save raw results in to file for later processing
+    open(my $resultsfh, '>', $resultsFile) or die $!;
+    DumpFile($resultsfh, \@res);
+    close $resultsfh;
 
     my %failed;
     my $failcount = 0;
@@ -235,14 +242,17 @@ sub main {
 
         if ($test->{result} eq 'FAIL') {
 
+            # TODO: better error cleaning
+            my @error = split("\n", $test->{error});
+
             # Record this round of failures
             $failcount++;
             if ( $failed{$test->{test}} ) {
-                $failed{$test->{test}}->{$test->{mode}} = 'FAIL';
+                $failed{$test->{test}}->{$test->{mode}} =  $error[0];
             }
             else {
                 $failed{$test->{test}} = {
-                    $test->{mode} => 'FAIL'
+                    $test->{mode} => $error[0]
                 };
             }
 
@@ -288,8 +298,6 @@ sub main {
     else {
         print "Run with --save-expectations to saved results in $expectationsFile\n";
     }
-
-    close $resfh;
 }
 
 sub getBuildPath {
@@ -460,11 +468,12 @@ sub processResult {
     if ($scenario ne 'skip') {
 
         # Print failure if no expectations file or if not in expectations file
+        # or in verbose mode
         my $expectfailure = $expect
             && $expect->{$file}
             && $expect->{$file}->{$scenario};
 
-        if ($result && !$expectfailure) {
+        if ($result && ($verbose || !$expectfailure)) {
             print "! NEW " if $expect;
             print "FAIL $file ($scenario)\n";
             if ($verbose) {
@@ -485,6 +494,8 @@ sub processResult {
     else {
         $resultdata{result} = 'SKIP';
     }
+
+    $resultdata{features} = $data->{features} if $data->{features};
 
     DumpFile($resfh, \%resultdata);
 }
