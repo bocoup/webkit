@@ -77,7 +77,7 @@ my $expect;
 my $saveNewExpectations;
 
 my $expectationsFile = abs_path("$FindBin::Bin/test262-expectations.yaml");
-my $configFile = abs_path("$FindBin::Bin/test262-expectations.yaml");
+my $configFile = abs_path("$FindBin::Bin/test262-config.yaml");
 
 processCLI();
 
@@ -366,10 +366,12 @@ sub shouldSkip {
         }
 
         # Filter by paths
-        my @skipPaths = @{ $config->{skip}->{paths} };
+        my @skipPaths;
+        @skipPaths = @{ $config->{skip}->{paths} } if defined $config->{skip}->{paths};
         return 1 if (grep {$filename =~ $_} @skipPaths);
 
-        my @skipFeatures = @{ $config->{skip}->{features} };
+        my @skipFeatures;
+        @skipFeatures = @{ $config->{skip}->{features} } if defined $config->{skip}->{features};
 
         my $found = 0;
         my @features = @{ $data->{features} } if $data->{features};
