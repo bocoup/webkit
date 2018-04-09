@@ -603,7 +603,7 @@ Specify a config file. If not provided, script will load local test262-config.ya
 
 =item B<--ignore-config, -i>
 
-Ignores config file if supplied or findable in directory. Will still filters based on commandline arguments.
+Ignores config file if supplied or findable in directory. Will still filter based on commandline arguments.
 
 =item B<--features, -f>
 
@@ -611,7 +611,7 @@ Filter test on list of features (only runs tests in feature list).
 
 =item B<--test-only, -o>
 
-Specify one or more specific test262 directory of test to run, relative to the root test262 directory. For example, 'test/built-ins/Number/prototype'
+Specify one or more specific test262 directory of test to run, relative to the root test262 directory. For example, --test-only 'test/built-ins/Number/prototype'
 
 =item B<--save-expectations, -s>
 
