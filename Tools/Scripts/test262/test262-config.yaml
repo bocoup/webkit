@@ -1,18 +1,12 @@
 
 ---
 skip:
+  # (uncomment to skip tests based on path)
   # paths:
-    # - test/annexB
-    # - test/language/expressions
+  #   - test/built-ins/Atomics
   features:
     - SharedArrayBuffer
     - BigInt
-  # files:
-  #   - test/language/module-code/privatename-not-valid-earlyerr-module-1.js
-  #   - test/language/module-code/privatename-not-valid-earlyerr-module-2.js
-  #   - test/language/module-code/privatename-not-valid-earlyerr-module-3.js
-  #   - test/language/module-code/privatename-not-valid-earlyerr-module-4.js
-  #   - test/language/module-code/privatename-not-valid-earlyerr-module-5.js
-  #   - test/language/module-code/privatename-not-valid-earlyerr-module-6.js
-  #   - test/language/module-code/privatename-not-valid-earlyerr-module-7.js
-  #   - test/language/module-code/privatename-not-valid-earlyerr-module-8.js
+  files:
+    - test/built-ins/Array/prototype/reverse/length-exceeding-integer-limit-with-object.js
+    - test/built-ins/Array/prototype/unshift/length-near-integer-limit.js
