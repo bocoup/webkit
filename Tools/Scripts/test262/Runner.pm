@@ -76,6 +76,7 @@ my $config;
 my %configSkipHash;
 my $expect;
 my $saveNewExpectations;
+my $failingOnly;
 
 my $expectationsFile = abs_path("$FindBin::Bin/Test262/test262-expectations.yaml");
 my $configFile = abs_path("$FindBin::Bin/Test262/test262-config.yaml");
@@ -122,6 +123,7 @@ sub processCLI {
         'i|ignore-config' => \$ignoreConfig,
         's|save-expectations' => \$saveNewExpectations,
         'x|ignore-expectations' => \$ignoreExpectations,
+        'failing-files' => \$failingOnly,
     );
 
     if ($help) {
@@ -164,8 +166,13 @@ sub processCLI {
     }
 
     if (! $ignoreExpectations) {
-        # If expectations file doesn't exist yet, just run tests.
-        if (-e $expectationsFile) {
+        # If expectations file doesn't exist yet, just run tests, UNLESS
+        # --failures-only option supplied.
+        if ( $failingOnly && ! -e $expectationsFile ) {
+            print "Error: Cannot run failing tests if test262-expectation.yaml file does not exist.\n";
+            die;
+        }
+        elsif (-e $expectationsFile) {
             $expect = LoadFile($expectationsFile) or die $!;
         }
     }
@@ -194,13 +201,21 @@ sub main {
     my $max_process = $cliProcesses;
     my $pm = Parallel::ForkManager->new($max_process);
 
-    foreach my $testsDir (@cliTestDirs) {
-        find(
-            { wanted => \&wanted, bydepth => 1 },
-            qq($test262Dir/$testsDir)
-        );
-        sub wanted {
-            /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
+    # If we only want to re-run failure, only run tests in expectation file
+    if ($failingOnly) {
+        @files = map { qq($test262Dir/$_) } keys %{$expect};
+    }
+
+    # Otherwise, get all files from directory
+    else {
+        foreach my $testsDir (@cliTestDirs) {
+            find(
+                { wanted => \&wanted, bydepth => 1 },
+                qq($test262Dir/$testsDir)
+                );
+            sub wanted {
+                /(?<!_FIXTURE)\.[jJ][sS]$/s && push(@files, $File::Find::name);
+            }
         }
     }
 
@@ -242,12 +257,12 @@ sub main {
         }
 
         if ($test->{result} eq 'FAIL') {
+            $failcount++;
 
             # TODO: better error cleaning
             my @error = split("\n", $test->{error});
 
             # Record this round of failures
-            $failcount++;
             if ( $failed{$test->{test}} ) {
                 $failed{$test->{test}}->{$test->{mode}} =  $error[0];
             }
@@ -268,7 +283,6 @@ sub main {
         elsif ($test->{result} eq 'SKIP') {
             $skipfilecount++;
         }
-
     }
 
     if ($saveNewExpectations) {
@@ -646,6 +660,10 @@ Overwrites the test262-expectations.yaml file with the current list of test262 f
 =item B<--ignore-expectations, -x>
 
 Ignores the test262-expectations.yaml file and outputs all failures, instead of only unexpected failures.
+
+=item B<--failing-files, -x>
+
+Runs all test files that expect to fail according to the expectation file. This option will run the rests in both strict and non-strict modes, even if the test only fails in one of the two modes.
 
 =back
 
