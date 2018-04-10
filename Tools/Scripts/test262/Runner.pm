@@ -498,7 +498,7 @@ sub processResult {
             && $expect->{$file}
             && $expect->{$file}->{$scenario};
 
-        if ($result && ($verbose || !$expectfailure)) {
+        if ($result && !$expectfailure) {
             print "! NEW " if $expect;
             print "FAIL $file ($scenario)\n";
             if ($verbose) {
