@@ -29,6 +29,7 @@
 
 use strict;
 use warnings;
+package Test262::Import;
 
 use Cwd qw/abs_path/;
 use File::Path qw/rmtree/;
@@ -88,7 +89,7 @@ sub processCLI {
 
         $source = $sourceDir;
     }
-    
+
     if ($remoteUrl) {
         $source = $remoteUrl;
         $branch ||= 'master';
@@ -251,9 +252,9 @@ Run using native Perl:
 
 =over 8
 
-./test262-import.pl -s $source
-./test262-import.pl -r https://github.com/tc39/test262
-./test262-import.pl -r https://github.com/tc39/test262 -b es6
+test262-import -s $source
+test262-import -r https://github.com/tc39/test262
+test262-import -r https://github.com/tc39/test262 -b es6
 
 =back
 

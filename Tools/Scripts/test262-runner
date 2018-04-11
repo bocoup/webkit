@@ -38,7 +38,6 @@ use Encode;
 BEGIN {
     $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK} = 1;
 
-    # unshift @INC, ".";
     unshift @INC, "$FindBin::Bin/test262";
 
     $ENV{LOAD_ROUTES} = 1;
@@ -46,4 +45,4 @@ BEGIN {
 
 use Runner;
 
-exit 1;
+exit 0;

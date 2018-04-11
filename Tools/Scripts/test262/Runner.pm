@@ -589,7 +589,9 @@ Run using native Perl:
 
 =over 8
 
-./Tools/Scripts/test262-runner.pl
+test262-runner
+test262-runner -o test/language/module-code
+test262-runner --jsc `which jsc`
 
 =back
 
