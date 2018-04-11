@@ -30,6 +30,7 @@
 use strict;
 use warnings;
 use 5.8.8;
+package Test262::Runner;
 
 use File::Find;
 use File::Temp qw(tempfile tempdir);
@@ -48,10 +49,10 @@ use Encode;
 BEGIN {
     $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK} = 1;
 
-    unshift @INC, ".";
-    unshift @INC, "$FindBin::Bin/lib";
-    unshift @INC, "$FindBin::Bin/local/lib/perl5";
-    unshift @INC, "$FindBin::Bin/local/lib/perl5/$Config{archname}";
+    unshift @INC, "$FindBin::Bin/Test262";
+    unshift @INC, "$FindBin::Bin/Test262/lib";
+    unshift @INC, "$FindBin::Bin/Test262/local/lib/perl5";
+    unshift @INC, "$FindBin::Bin/Test262/local/lib/perl5/$Config{archname}";
 
     $ENV{LOAD_ROUTES} = 1;
 }
@@ -76,9 +77,9 @@ my %configSkipHash;
 my $expect;
 my $saveNewExpectations;
 
-my $expectationsFile = abs_path("$FindBin::Bin/test262-expectations.yaml");
-my $configFile = abs_path("$FindBin::Bin/test262-config.yaml");
-my $resultsFile = abs_path("$FindBin::Bin/test262-results.yaml");
+my $expectationsFile = abs_path("$FindBin::Bin/Test262/test262-expectations.yaml");
+my $configFile = abs_path("$FindBin::Bin/Test262/test262-config.yaml");
+my $resultsFile = abs_path("$FindBin::Bin/Test262/test262-results.yaml");
 
 processCLI();
 
@@ -88,7 +89,7 @@ my @default_harnesses = (
     "$harnessDir/sta.js",
     "$harnessDir/assert.js",
     "$harnessDir/doneprintHandle.js",
-    "$FindBin::Bin/agent.js"
+    "$FindBin::Bin/Test262/agent.js"
 );
 
 my @files;
@@ -145,7 +146,7 @@ sub processCLI {
     }
 
     if (not defined $test262Dir) {
-        $test262Dir = abs_path("$FindBin::Bin/../../../JSTests/test262");
+        $test262Dir = abs_path("$FindBin::Bin/Test262/../../../JSTests/test262");
     } else {
         $test262Dir = abs_path($test262Dir);
     }
@@ -169,7 +170,7 @@ sub processCLI {
         }
     }
 
-    $cliProcesses ||= 32;
+    $cliProcesses ||= getProcesses();
 
     print "\n-------------------------Settings------------------------\n"
         . "Test262 Dir: $test262Dir\n"
@@ -300,11 +301,35 @@ sub main {
     }
 }
 
+sub getProcesses {
+    my $cores;
+    my $uname = qx(which uname >> /dev/null && uname);
+    chomp $uname;
+
+    if ($uname eq 'Darwin') {
+        # sysctl should be available
+        $cores = qx/sysctl -n hw.ncpu/;
+    } elsif ($uname eq 'Linux') {
+        $cores = qx(which getconf >> /dev/null && getconf _NPROCESSORS_ONLN);
+        if (!$cores) {
+            $cores = qx(which lscpu >> /dev/null && lscpu -p | egrep -v '^#' | wc -l);
+        }
+    }
+
+    chomp $cores;
+
+    if (!$cores) {
+        $cores = 1;
+    }
+
+    return $cores * 8;
+}
+
 sub getBuildPath {
     my $debug = shift;
 
     # Try to find JSC for user, if not supplied
-    my $cmd = abs_path("$FindBin::Bin/../webkit-build-directory");
+    my $cmd = abs_path("$FindBin::Bin/Test262/../webkit-build-directory");
     if (! -e $cmd) {
         die 'Error: cannot find webkit-build-directory, specify with JSC with --jsc <path>.';
     }
@@ -556,7 +581,7 @@ __END__
 
 =head1 DESCRIPTION
 
-This program will run all test262 tests. If you edit, make sure your changes are Perl 5.8.8 compatible.
+This program will run all Test262 tests. If you edit, make sure your changes are Perl 5.8.8 compatible.
 
 =head1 SYNOPSIS
 
@@ -564,15 +589,7 @@ Run using native Perl:
 
 =over 8
 
-./test262-runner.pl -j $jsc-dir
-
-=back
-
-Run using carton (recommended for testing on Perl 5.8.8):
-
-=over 8
-
-carton exec './test262-runner.pl -j $jsc-dir'
+./Tools/Scripts/test262-runner.pl
 
 =back
 
