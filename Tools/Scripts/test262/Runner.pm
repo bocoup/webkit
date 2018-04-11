@@ -70,7 +70,7 @@ my $verbose;
 my $JSC;
 my $test262Dir;
 my $harnessDir;
-my @filterFeatures;
+my %filterFeatures;
 my $ignoreConfig;
 my $config;
 my %configSkipHash;
@@ -107,6 +107,7 @@ sub processCLI {
     my $help = 0;
     my $debug;
     my $ignoreExpectations;
+    my @ffeatures;
 
     # If adding a new commandline argument, you must update the POD
     # documentation at the end of the file.
@@ -118,7 +119,7 @@ sub processCLI {
         'h|help' => \$help,
         'd|debug' => \$debug,
         'v|verbose' => \$verbose,
-        'f|features=s@' => \@filterFeatures,
+        'f|features=s@' => \@ffeatures,
         'c|config=s' => \$configFile,
         'i|ignore-config' => \$ignoreConfig,
         's|save-expectations' => \$saveNewExpectations,
@@ -177,6 +178,10 @@ sub processCLI {
         }
     }
 
+    if (@ffeatures) {
+        %filterFeatures = map { $_ => 1 } @ffeatures;
+    }
+
     $cliProcesses ||= getProcesses();
 
     print "\n-------------------------Settings------------------------\n"
@@ -185,7 +190,7 @@ sub processCLI {
         . "DYLD_FRAMEWORK_PATH: $DYLD_FRAMEWORK_PATH\n"
         . "Child Processes: $cliProcesses\n";
 
-    print "Features to include: " . join(', ', @filterFeatures) . "\n" if @filterFeatures;
+    print "Features to include: " . join(', ', @ffeatures) . "\n" if @ffeatures;
     print "Paths:  " . join(', ', @cliTestDirs) . "\n" if @cliTestDirs;
     print "Config file: $configFile\n" if $config;
     print "Expectations file: $expectationsFile\n" if $expect;
@@ -237,9 +242,7 @@ sub main {
     close $resfh;
 
     # Save raw results in to file for later processing
-    open(my $resultsfh, '>', $resultsFile) or die $!;
-    DumpFile($resultsfh, \@res);
-    close $resultsfh;
+    DumpFile($resultsFile, \@res);
 
     my %failed;
     my $failcount = 0;
@@ -250,35 +253,31 @@ sub main {
     # Create expectation file and calculate results
     foreach my $test (@res) {
 
-        my $expectFailure = 0;
-        if ($expect) {
-            $expectFailure = $expect->{$test->{test}}
-                             && $expect->{$test->{test}}->{$test->{mode}}
+        my $expectedFailure = 0;
+        if ($expect && $expect->{$test->{test}}) {
+            $expectedFailure = $expect->{$test->{test}}->{$test->{mode}}
         }
 
         if ($test->{result} eq 'FAIL') {
             $failcount++;
 
-            # TODO: better error cleaning
-            my @error = split("\n", $test->{error});
-
             # Record this round of failures
             if ( $failed{$test->{test}} ) {
-                $failed{$test->{test}}->{$test->{mode}} =  $error[0];
+                $failed{$test->{test}}->{$test->{mode}} =  $test->{error};
             }
             else {
                 $failed{$test->{test}} = {
-                    $test->{mode} => $error[0]
+                    $test->{mode} => $test->{error}
                 };
             }
 
             # If an unexpected failure
-            $newfailcount++ if !$expectFailure;
+            $newfailcount++ if !$expectedFailure || ($expectedFailure ne $test->{error});
 
         }
         elsif ($test->{result} eq 'PASS') {
             # If this is an newly passing test
-            $newpasscount++ if $expectFailure;
+            $newpasscount++ if $expectedFailure;
         }
         elsif ($test->{result} eq 'SKIP') {
             $skipfilecount++;
@@ -286,9 +285,7 @@ sub main {
     }
 
     if ($saveNewExpectations) {
-        open(my $failuresfh, '>', $expectationsFile) or die $!;
-        DumpFile($failuresfh, \%failed);
-        close $failuresfh;
+        DumpFile($expectationsFile, \%failed);
     }
 
     my $endTime = time();
@@ -337,6 +334,19 @@ sub getProcesses {
     }
 
     return $cores * 8;
+}
+
+sub parseError {
+    my $error = shift;
+
+    if ($error =~ /^Exception: ([\w\d]+: .*)/m) {
+        return $1;
+    }
+    else {
+        # Unusual error format. Save the first line instead.
+        my @errors = split("\n", $error);
+        return @errors[0];
+    }
 }
 
 sub getBuildPath {
@@ -416,15 +426,22 @@ sub shouldSkip {
         my @skipFeatures;
         @skipFeatures = @{ $config->{skip}->{features} } if defined $config->{skip}->{features};
 
-        my $found = 0;
+        my $skip = 0;
+        my $keep = 0;
         my @features = @{ $data->{features} } if $data->{features};
         # Filter by features, loop over file features to for less iterations
         foreach my $feature (@features) {
-            return 1 if (grep {$_ eq $feature} @skipFeatures);
-            $found += 1 if (grep {$_ eq $feature} @filterFeatures);
+            $skip = (grep {$_ eq $feature} @skipFeatures) ? 1 : 0;
+
+            # keep the test if the config skips the feature but it was also request
+            # through the CLI --features
+            return 1 if $skip && !$filterFeatures{$feature};
+
+            $keep = 1 if $filterFeatures{$feature};
         }
 
-        return 1 if (@filterFeatures and not $found);
+        # filter tests that do not contain the --features features
+        return 1 if (%filterFeatures and not $keep);
     }
 
     return 0;
@@ -504,31 +521,40 @@ sub processResult {
     $resultdata{test} = $file;
     $resultdata{mode} = $scenario;
 
-    if ($scenario ne 'skip') {
+    my $currentfailure = parseError($result) if $result;
+    my $expectedfailure = $expect
+        && $expect->{$file}
+        && $expect->{$file}->{$scenario};
 
-        # Print failure if no expectations file or if not in expectations file
-        # or in verbose mode
-        my $expectfailure = $expect
-            && $expect->{$file}
-            && $expect->{$file}->{$scenario};
+    if ($scenario ne 'skip' && $currentfailure) {
 
-        if ($result && !$expectfailure) {
-            print "! NEW " if $expect;
-            print "FAIL $file ($scenario)\n";
-            if ($verbose) {
-                print $result;
-                print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
-                print "\n\n";
-            }
+        # We have a new failure if we have loaded an expectation file
+        # AND (there is no expected failure OR the failure has changed).
+        my $isnewfailure = $expect
+            && (!$expectedfailure || $expectedfailure ne $currentfailure);
+
+        # Print the failure if we haven't loaded an expectation file
+        # or the failure is new.
+        my $printfailure = !$expect || $isnewfailure;
+
+        print "! NEW " if $isnewfailure;
+        print "FAIL $file ($scenario)\n" if $printfailure;
+        if ($verbose) {
+            print $result;
+            print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
+            print "\n\n";
         }
-        if ((!$result) && $expectfailure) {
+
+        $resultdata{result} = 'FAIL';
+        $resultdata{error} = $currentfailure;
+    }
+    elsif ($scenario ne 'skip' && !$currentfailure) {
+        if ($expectedfailure) {
             print "NEW PASS $file ($scenario)\n";
             print "\n" if $verbose;
         }
 
-        $resultdata{result} = 'PASS' if not $result;
-        $resultdata{result} = 'FAIL' if $result;
-        $resultdata{error} = $result if $result;
+        $resultdata{result} = 'PASS';
     }
     else {
         $resultdata{result} = 'SKIP';
@@ -603,9 +629,15 @@ Run using native Perl:
 
 =over 8
 
-test262-runner
-test262-runner -o test/language/module-code
-test262-runner --jsc `which jsc`
+test262-runner -j $jsc-dir
+
+=back
+
+Run using carton (recommended for testing on Perl 5.8.8):
+
+=over 8
+
+carton exec 'test262-runner -j $jsc-dir'
 
 =back
 
