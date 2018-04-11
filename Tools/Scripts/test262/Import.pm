@@ -57,16 +57,9 @@ sub processCLI {
         'h|help' => \$help,
     );
 
-    my $source;
-
     if ($help) {
         pod2usage(-exitstatus => 0, -verbose => 1);
     }
-
-    if (not $sourceDir and not $remoteUrl) {
-        print "Please specify a location for the Test262 repository.\n\n";
-        pod2usage(-exitstatus => 1, -verbose => 1);
-    };
 
     if ($sourceDir and $remoteUrl) {
         print "Please specify only a single location for the Test262 repository.\n\n";
@@ -86,12 +79,8 @@ sub processCLI {
             print "$sourceDir cannot be the same as the current Test262 folder.\n\n";
             pod2usage(-exitstatus => 4, -verbose => 1);
         }
-
-        $source = $sourceDir;
-    }
-
-    if ($remoteUrl) {
-        $source = $remoteUrl;
+    } else {
+        $remoteUrl ||= 'git@github.com:tc39/test262.git';
         $branch ||= 'master';
     }
 
@@ -252,6 +241,7 @@ Run using native Perl:
 
 =over 8
 
+test262-import
 test262-import -s $source
 test262-import -r https://github.com/tc39/test262
 test262-import -r https://github.com/tc39/test262 -b es6
@@ -272,7 +262,7 @@ Specify the folder for Test262's repository.
 
 =item B<--remote, -r>
 
-Specify a remote Test262's repository.
+Specify a remote Test262's repository. Defaults to 'git@github.com:tc39/test262.git'.
 
 =item B<--branch, -b>
 
