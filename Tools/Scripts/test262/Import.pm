@@ -38,9 +38,9 @@ use FindBin;
 use Getopt::Long qw/GetOptions/;
 use Pod::Usage;
 
-my $test262Dir = abs_path("$FindBin::Bin/../../../JSTests/test262");
-my $revisionFile = abs_path("$FindBin::Bin/../../../JSTests/test262/test262-Revision.txt");
-my $summaryFile = abs_path("$FindBin::Bin/../../../JSTests/test262/latest-changes-summary.txt");
+my $test262Dir = abs_path("$FindBin::Bin/../../JSTests/test262");
+my $revisionFile = abs_path("$FindBin::Bin/../../JSTests/test262/test262-Revision.txt");
+my $summaryFile = abs_path("$FindBin::Bin/../../JSTests/test262/latest-changes-summary.txt");
 my $sourceDir;
 my $remoteUrl;
 my $branch;
