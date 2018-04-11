@@ -5,13 +5,7 @@
 To execute the Test262 Runner script, just call it through your shell.
 
 ```sh
-./Tools/Scripts/test262/runner.pl
-```
-
-If you're already in the `Tools/Scripts/test262` folder:
-
-```sh
-./runner.pl
+./Tools/Scripts/test262-runner
 ```
 
 ### Custom options
@@ -52,13 +46,7 @@ This file contains results for all tests. It is updated on every run.
 To execute the Test262 Import script, just call it through your shell. The script will update the JSTests/test262 folder.
 
 ```sh
-./Tools/Scripts/test262/import.pl
-```
-
-If you're already in the `Tools/Scripts/test262` folder:
-
-```sh
-./import.pl
+./Tools/Scripts/test262-import
 ```
 
 ### Custom options
