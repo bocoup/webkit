@@ -74,7 +74,7 @@ my $ignoreConfig;
 my $config;
 my %configSkipHash;
 my $expect;
-my $saveNewExpectations;
+my $saveCurrentResults;
 my $failingOnly;
 my $latestImport;
 
@@ -122,7 +122,7 @@ sub processCLI {
         'f|features=s@' => \@features,
         'c|config=s' => \$configFile,
         'i|ignore-config' => \$ignoreConfig,
-        's|save-expectations' => \$saveNewExpectations,
+        's|save' => \$saveCurrentResults,
         'x|ignore-expectations' => \$ignoreExpectations,
         'failing-files' => \$failingOnly,
         'l|latest-import' => \$latestImport,
@@ -248,8 +248,7 @@ sub main {
     my @res = LoadFile($resfh);
     close $resfh;
 
-    # Save raw results in to file for later processing
-    DumpFile($resultsFile, \@res);
+    @res = sort { "$a->{path} . $a->{mode}" cmp "$b->{path} . $b->{mode}" } @res;
 
     my %failed;
     my $failcount = 0;
@@ -261,19 +260,19 @@ sub main {
     foreach my $test (@res) {
 
         my $expectedFailure = 0;
-        if ($expect && $expect->{$test->{test}}) {
-            $expectedFailure = $expect->{$test->{test}}->{$test->{mode}}
+        if ($expect && $expect->{$test->{path}}) {
+            $expectedFailure = $expect->{$test->{path}}->{$test->{mode}}
         }
 
         if ($test->{result} eq 'FAIL') {
             $failcount++;
 
             # Record this round of failures
-            if ( $failed{$test->{test}} ) {
-                $failed{$test->{test}}->{$test->{mode}} =  $test->{error};
+            if ( $failed{$test->{path}} ) {
+                $failed{$test->{path}}->{$test->{mode}} =  $test->{error};
             }
             else {
-                $failed{$test->{test}} = {
+                $failed{$test->{path}} = {
                     $test->{mode} => $test->{error}
                 };
             }
@@ -291,7 +290,8 @@ sub main {
         }
     }
 
-    if ($saveNewExpectations) {
+    if ($saveCurrentResults) {
+        DumpFile($resultsFile, \@res);
         DumpFile($expectationsFile, \%failed);
     }
 
@@ -311,11 +311,11 @@ sub main {
 
     print $skipfilecount . " test files skipped\n";
     print "Done in $totalTime seconds!\n";
-    if ($saveNewExpectations) {
-        print "Saved results in $expectationsFile\n";
+    if ($saveCurrentResults) {
+        print "Saved results in:\n$expectationsFile\n\$resultsFile\n";
     }
     else {
-        print "Run with --save-expectations to saved results in $expectationsFile\n";
+        print "Run with --save to saved new test262-expectation.yaml and test262-results.yaml files\n";
     }
 }
 
@@ -542,7 +542,7 @@ sub processResult {
     # Report a relative path
     my $file = abs2rel( $path, $test262Dir );
     my %resultdata;
-    $resultdata{test} = $file;
+    $resultdata{path} = $file;
     $resultdata{mode} = $scenario;
 
     my $currentfailure = parseError($result) if $result;
@@ -709,9 +709,9 @@ Filter test on list of features (only runs tests in feature list).
 
 Specify one or more specific test262 directory of test to run, relative to the root test262 directory. For example, --test-only 'test/built-ins/Number/prototype'
 
-=item B<--save-expectations, -s>
+=item B<--save, -s>
 
-Overwrites the test262-expectations.yaml file with the current list of test262 files.
+Overwrites the test262-expectations.yaml and test262-results.yaml file with the current list of test262 files and test results.
 
 =item B<--ignore-expectations, -x>
 
