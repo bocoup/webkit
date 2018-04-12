@@ -37,10 +37,13 @@ use File::Temp qw/tempdir/;
 use FindBin;
 use Getopt::Long qw/GetOptions/;
 use Pod::Usage;
+use Env qw(T262_EXEC_BIN);
 
-my $test262Dir = abs_path("$FindBin::Bin/../../JSTests/test262");
-my $revisionFile = abs_path("$FindBin::Bin/../../JSTests/test262/test262-Revision.txt");
-my $summaryFile = abs_path("$FindBin::Bin/../../JSTests/test262/latest-changes-summary.txt");
+my $Bin = $T262_EXEC_BIN || $FindBin::Bin;
+
+my $test262Dir = abs_path("$Bin/../../../JSTests/test262");
+my $revisionFile = abs_path("$Bin/../../../JSTests/test262/test262-Revision.txt");
+my $summaryFile = abs_path("$Bin/../../../JSTests/test262/latest-changes-summary.txt");
 my $sourceDir;
 my $remoteUrl;
 my $branch;
