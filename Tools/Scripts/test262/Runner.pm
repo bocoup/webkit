@@ -416,6 +416,7 @@ sub processFile {
 
     my $includes = $data->{includes};
     my ($includesfh, $includesfile);
+
     ($includesfh, $includesfile) = compileTest($includes) if defined $includes;
 
     foreach my $scenario (@scenarios) {
@@ -470,9 +471,10 @@ sub getScenarios {
     my @scenarios;
     my $nonStrict = 'default';
     my $strictMode = 'strict mode';
-    my $moduleCode = 'module code';
 
-    if (grep $_ eq 'noStrict', @flags) {
+    if (grep $_ eq 'raw', @flags) {
+        push @scenarios, 'raw';
+    } elsif (grep $_ eq 'noStrict', @flags) {
         push @scenarios, $nonStrict;
     } elsif (grep $_ eq 'onlyStrict', @flags) {
         push @scenarios, $strictMode;
@@ -523,7 +525,11 @@ sub runTest {
         $prefixFile='--strict-file=';
     }
 
-    my $result = qx/$JSC $args $deffile $includesfile $prefixFile$filename/;
+    # Raw tests should not include the default harness
+    my $defaultHarness = '';
+    $defaultHarness = $deffile if $scenario ne 'raw';
+
+    my $result = qx/$JSC $args $defaultHarness $includesfile $prefixFile$filename/;
 
     chomp $result;
 
