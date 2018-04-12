@@ -39,6 +39,7 @@ use File::Basename qw(dirname);
 use Cwd qw(abs_path);
 use FindBin;
 use Env qw(DYLD_FRAMEWORK_PATH);
+my $Bin;
 
 ######
 # # Use the following code run this script directly from Perl.
@@ -49,10 +50,12 @@ use Encode;
 BEGIN {
     $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK} = 1;
 
-    unshift @INC, "$FindBin::Bin/Test262";
-    unshift @INC, "$FindBin::Bin/Test262/lib";
-    unshift @INC, "$FindBin::Bin/Test262/local/lib/perl5";
-    unshift @INC, "$FindBin::Bin/Test262/local/lib/perl5/$Config{archname}";
+    $Bin = $ENV{T262_EXEC_BIN} || $FindBin::Bin;
+
+    unshift @INC, "$Bin";
+    unshift @INC, "$Bin/lib";
+    unshift @INC, "$Bin/local/lib/perl5";
+    unshift @INC, "$Bin/local/lib/perl5/$Config{archname}";
 
     $ENV{LOAD_ROUTES} = 1;
 }
@@ -78,9 +81,9 @@ my $expect;
 my $saveNewExpectations;
 my $failingOnly;
 
-my $expectationsFile = abs_path("$FindBin::Bin/Test262/test262-expectations.yaml");
-my $configFile = abs_path("$FindBin::Bin/Test262/test262-config.yaml");
-my $resultsFile = abs_path("$FindBin::Bin/Test262/test262-results.yaml");
+my $expectationsFile = abs_path("$Bin/test262-expectations.yaml");
+my $configFile = abs_path("$Bin/test262-config.yaml");
+my $resultsFile = abs_path("$Bin/test262-results.yaml");
 
 processCLI();
 
@@ -90,7 +93,7 @@ my @default_harnesses = (
     "$harnessDir/sta.js",
     "$harnessDir/assert.js",
     "$harnessDir/doneprintHandle.js",
-    "$FindBin::Bin/Test262/agent.js"
+    "$Bin/agent.js"
 );
 
 my @files;
@@ -149,7 +152,7 @@ sub processCLI {
     }
 
     if (not defined $test262Dir) {
-        $test262Dir = abs_path("$FindBin::Bin/Test262/../../../JSTests/test262");
+        $test262Dir = abs_path("$Bin/../../../JSTests/test262");
     } else {
         $test262Dir = abs_path($test262Dir);
     }
@@ -353,7 +356,7 @@ sub getBuildPath {
     my $debug = shift;
 
     # Try to find JSC for user, if not supplied
-    my $cmd = abs_path("$FindBin::Bin/Test262/../webkit-build-directory");
+    my $cmd = abs_path("$Bin/../webkit-build-directory");
     if (! -e $cmd) {
         die 'Error: cannot find webkit-build-directory, specify with JSC with --jsc <path>.';
     }
