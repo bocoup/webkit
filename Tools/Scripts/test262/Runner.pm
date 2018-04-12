@@ -41,9 +41,6 @@ use FindBin;
 use Env qw(DYLD_FRAMEWORK_PATH);
 my $Bin;
 
-######
-# # Use the following code run this script directly from Perl.
-# # Otherwise, just use carton.
 use Config;
 use Encode;
 
@@ -59,7 +56,6 @@ BEGIN {
 
     $ENV{LOAD_ROUTES} = 1;
 }
-######
 
 use YAML qw(Load LoadFile Dump DumpFile Bless);
 use Parallel::ForkManager;
@@ -80,6 +76,7 @@ my %configSkipHash;
 my $expect;
 my $saveNewExpectations;
 my $failingOnly;
+my $latestImport;
 
 my $expectationsFile = abs_path("$Bin/test262-expectations.yaml");
 my $configFile = abs_path("$Bin/test262-config.yaml");
@@ -110,7 +107,7 @@ sub processCLI {
     my $help = 0;
     my $debug;
     my $ignoreExpectations;
-    my @ffeatures;
+    my @features;
 
     # If adding a new commandline argument, you must update the POD
     # documentation at the end of the file.
@@ -122,12 +119,13 @@ sub processCLI {
         'h|help' => \$help,
         'd|debug' => \$debug,
         'v|verbose' => \$verbose,
-        'f|features=s@' => \@ffeatures,
+        'f|features=s@' => \@features,
         'c|config=s' => \$configFile,
         'i|ignore-config' => \$ignoreConfig,
         's|save-expectations' => \$saveNewExpectations,
         'x|ignore-expectations' => \$ignoreExpectations,
         'failing-files' => \$failingOnly,
+        'l|latest-import' => \$latestImport,
     );
 
     if ($help) {
@@ -151,7 +149,12 @@ sub processCLI {
         print("Using the following jsc path: $JSC\n");
     }
 
-    if (not defined $test262Dir) {
+    if ($latestImport) {
+        # Does not allow custom $test262Dir
+        $test262Dir = '';
+    }
+
+    if (! $test262Dir) {
         $test262Dir = abs_path("$Bin/../../../JSTests/test262");
     } else {
         $test262Dir = abs_path($test262Dir);
@@ -175,14 +178,13 @@ sub processCLI {
         if ( $failingOnly && ! -e $expectationsFile ) {
             print "Error: Cannot run failing tests if test262-expectation.yaml file does not exist.\n";
             die;
-        }
-        elsif (-e $expectationsFile) {
+        } elsif (-e $expectationsFile) {
             $expect = LoadFile($expectationsFile) or die $!;
         }
     }
 
-    if (@ffeatures) {
-        %filterFeatures = map { $_ => 1 } @ffeatures;
+    if (@features) {
+        %filterFeatures = map { $_ => 1 } @features;
     }
 
     $cliProcesses ||= getProcesses();
@@ -193,10 +195,12 @@ sub processCLI {
         . "DYLD_FRAMEWORK_PATH: $DYLD_FRAMEWORK_PATH\n"
         . "Child Processes: $cliProcesses\n";
 
-    print "Features to include: " . join(', ', @ffeatures) . "\n" if @ffeatures;
+    print "Features to include: " . join(', ', @features) . "\n" if @features;
     print "Paths:  " . join(', ', @cliTestDirs) . "\n" if @cliTestDirs;
     print "Config file: $configFile\n" if $config;
     print "Expectations file: $expectationsFile\n" if $expect;
+
+    print "Running only the latest imported files\n" if $latestImport;
 
     print "Verbose mode\n" if $verbose;
 
@@ -209,13 +213,13 @@ sub main {
     my $max_process = $cliProcesses;
     my $pm = Parallel::ForkManager->new($max_process);
 
-    # If we only want to re-run failure, only run tests in expectation file
-    if ($failingOnly) {
+    if ($latestImport) {
+        @files = loadImportFile();
+    } elsif ($failingOnly) {
+        # If we only want to re-run failure, only run tests in expectation file
         @files = map { qq($test262Dir/$_) } keys %{$expect};
-    }
-
-    # Otherwise, get all files from directory
-    else {
+    } else {
+        # Otherwise, get all files from directory
         foreach my $testsDir (@cliTestDirs) {
             find(
                 { wanted => \&wanted, bydepth => 1 },
@@ -313,6 +317,17 @@ sub main {
     else {
         print "Run with --save-expectations to saved results in $expectationsFile\n";
     }
+}
+
+sub loadImportFile {
+    my $importFile = abs_path("$Bin/../../../JSTests/test262/latest-changes-summary.txt");
+    die "Import file not found at $importFile.\n" if ! -e $importFile;
+
+    open(my $fh, "<", $importFile) or die $!;
+
+    my @files = grep { $_ =~ /^\w\stest\// } <$fh>;
+
+    return map { $_ =~ s/^\w\s(\w*)/$test262Dir\/$1/; chomp $_; $_ } @files;
 }
 
 sub getProcesses {
@@ -696,9 +711,13 @@ Overwrites the test262-expectations.yaml file with the current list of test262 f
 
 Ignores the test262-expectations.yaml file and outputs all failures, instead of only unexpected failures.
 
-=item B<--failing-files, -x>
+=item B<--failing-files>
 
 Runs all test files that expect to fail according to the expectation file. This option will run the rests in both strict and non-strict modes, even if the test only fails in one of the two modes.
+
+=item B<--latest-import, -l>
+
+Runs the test files listed in the last import (./JSTests/test262/latest-changes-summary.txt).
 
 =back
 

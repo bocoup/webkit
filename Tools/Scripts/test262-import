@@ -37,6 +37,7 @@ use Encode;
 
 BEGIN {
     $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK} = 1;
+    $ENV{T262_EXEC_BIN} = "$FindBin::Bin/test262";
 
     unshift @INC, "$FindBin::Bin/test262";
 
