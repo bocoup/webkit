@@ -345,7 +345,7 @@ sub parseError {
     else {
         # Unusual error format. Save the first line instead.
         my @errors = split("\n", $error);
-        return @errors[0];
+        return $errors[0];
     }
 }
 
