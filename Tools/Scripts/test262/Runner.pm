@@ -325,7 +325,7 @@ sub loadImportFile {
 
     open(my $fh, "<", $importFile) or die $!;
 
-    my @files = grep { $_ =~ /^\w\stest\// } <$fh>;
+    my @files = grep { $_ =~ /^[AM]\s*test\// } <$fh>;
 
     return map { $_ =~ s/^\w\s(\w*)/$test262Dir\/$1/; chomp $_; $_ } @files;
 }

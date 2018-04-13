@@ -201,8 +201,8 @@ sub getNewRevision {
 sub getSummary {
     my $summary = '';
 
-    $summary = qx(git diff --no-index --name-status --diff-filter=ACDM -- $test262Dir/harness $sourceDir/harness);
-    $summary .= qx(git diff --no-index --name-status --diff-filter=ACDM -- $test262Dir/test $sourceDir/test);
+    $summary = qx(git diff --no-index --name-status --diff-filter=ADRM -- $test262Dir/harness $sourceDir/harness);
+    $summary .= qx(git diff --no-index --name-status --diff-filter=ADRM -- $test262Dir/test $sourceDir/test);
     chomp $summary;
 
     $summary =~ s/\s+$test262Dir\// /g;
