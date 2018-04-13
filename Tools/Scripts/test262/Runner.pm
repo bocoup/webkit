@@ -132,7 +132,7 @@ sub processCLI {
     );
 
     if ($help) {
-        pod2usage(-exitstatus => 0, -verbose => 2);
+        pod2usage(-exitstatus => 0, -verbose => 2, -input => __FILE__);
     }
 
     if ($stats) {
