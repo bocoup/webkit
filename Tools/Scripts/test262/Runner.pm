@@ -61,6 +61,7 @@ use YAML qw(Load LoadFile Dump DumpFile Bless);
 use Parallel::ForkManager;
 use Getopt::Long qw(GetOptions);
 use Pod::Usage;
+use Term::ANSIColor;
 
 # Commandline args
 my $cliProcesses;
@@ -108,6 +109,7 @@ sub processCLI {
     my $debug;
     my $ignoreExpectations;
     my @features;
+    my $stats;
 
     # If adding a new commandline argument, you must update the POD
     # documentation at the end of the file.
@@ -126,10 +128,17 @@ sub processCLI {
         'x|ignore-expectations' => \$ignoreExpectations,
         'failing-files' => \$failingOnly,
         'l|latest-import' => \$latestImport,
+        'stats' => \$stats,
     );
 
     if ($help) {
         pod2usage(-exitstatus => 0, -verbose => 2);
+    }
+
+    if ($stats) {
+        print "Summarizing results...\n\n";
+        summarizeResults();
+        exit;
     }
 
     if ($JSC) {
@@ -312,10 +321,10 @@ sub main {
     print $skipfilecount . " test files skipped\n";
     print "Done in $totalTime seconds!\n";
     if ($saveCurrentResults) {
-        print "Saved results in:\n$expectationsFile\n\$resultsFile\n";
+        print "\nSaved results in:\n$expectationsFile\n$resultsFile\n";
     }
     else {
-        print "Run with --save to saved new test262-expectation.yaml and test262-results.yaml files\n";
+        print "\nRun with --save to saved new test262-expectation.yaml and test262-results.yaml files\n";
     }
 }
 
@@ -641,6 +650,101 @@ sub getHarness {
     return $content;
 }
 
+
+sub summarizeResults {
+    my @rawresults = LoadFile($resultsFile) or die $!;
+
+    my %byfeature;
+    my %bypath;
+
+    use Data::Dumper;
+
+    foreach my $test (@{$rawresults[0]}) {
+
+        my $result = $test->{result};
+
+        if ($test->{features}) {
+            foreach my $feature (@{$test->{features}}) {
+
+                if (not exists $byfeature{$feature}) {
+                    $byfeature{$feature} = [0, 0, 0]
+                }
+
+                if ($result eq 'PASS') {
+                    $byfeature{$feature}->[0]++;
+                }
+                if ($result eq 'FAIL') {
+                    $byfeature{$feature}->[1]++;
+                }
+                if ($result eq 'SKIP') {
+                    $byfeature{$feature}->[2]++;
+                }
+            }
+        }
+        my @paths = split('/', $test->{path});
+        @paths = @paths[ 1 ... scalar @paths-2 ];
+        foreach my $i (0..scalar @paths-1) {
+            my $partialpath = join("/", @paths[0...$i]);
+
+            if (not exists $bypath{$partialpath}) {
+                $bypath{$partialpath} = [0, 0, 0];
+            }
+
+            if ($result eq 'PASS') {
+                $bypath{$partialpath}->[0]++;
+            }
+            if ($result eq 'FAIL') {
+                $bypath{$partialpath}->[1]++;
+            }
+            if ($result eq 'SKIP') {
+                $bypath{$partialpath}->[2]++;
+            }
+        }
+
+    }
+
+
+    print sprintf("%-6s %-6s %-6s %-6s %s\n", '% PASS', 'PASS', 'FAIL', 'SKIP', 'FOLDER');
+    foreach my $key (sort keys %bypath) {
+        my $c = 'black';
+        $c = 'red' if $bypath{$key}->[1];
+
+        my $per = ($bypath{$key}->[0] / (
+            $bypath{$key}->[0]
+            + $bypath{$key}->[1]
+            + $bypath{$key}->[2])) * 100;
+
+        $per = sprintf("%.0f", $per) . "%";
+
+        print colored([$c], sprintf("%-6s %-6d %-6d %-6d %s \n", $per,
+                      $bypath{$key}->[0],
+                      $bypath{$key}->[1],
+                      $bypath{$key}->[2], $key,));
+    }
+
+    print "\n\n";
+    print sprintf("%-6s %-6s %-6s %-6s %s\n", '% PASS', 'PASS', 'FAIL', 'SKIP', 'FEATURE');
+
+    foreach my $key (sort keys %byfeature) {
+        my $c = 'black';
+        $c = 'red' if $byfeature{$key}->[1];
+
+        my $per = ($byfeature{$key}->[0] / (
+            $byfeature{$key}->[0]
+            + $byfeature{$key}->[1]
+            + $byfeature{$key}->[2])) * 100;
+
+        $per = sprintf("%.0f", $per) . "%";
+
+        print colored([$c], sprintf("%-6s %-6d %-6d %-6d %s\n", $per,
+                      $byfeature{$key}->[0],
+                      $byfeature{$key}->[1],
+                      $byfeature{$key}->[2], $key));
+    }
+
+
+}
+
 __END__
 
 =head1 DESCRIPTION
@@ -724,6 +828,10 @@ Runs all test files that expect to fail according to the expectation file. This 
 =item B<--latest-import, -l>
 
 Runs the test files listed in the last import (./JSTests/test262/latest-changes-summary.txt).
+
+=item B<--stats>
+
+Calculate conformance statistics from test262-results.yaml file.
 
 =back
 
