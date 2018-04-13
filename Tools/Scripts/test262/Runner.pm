@@ -657,8 +657,6 @@ sub summarizeResults {
     my %byfeature;
     my %bypath;
 
-    use Data::Dumper;
-
     foreach my $test (@{$rawresults[0]}) {
 
         my $result = $test->{result};
