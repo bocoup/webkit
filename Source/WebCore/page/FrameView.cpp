@@ -42,6 +42,7 @@
 #include "EventNames.h"
 #include "FloatRect.h"
 #include "FocusController.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameSelection.h"
@@ -62,7 +63,6 @@
 #include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "MemoryCache.h"
 #include "OverflowEvent.h"
 #include "Page.h"
@@ -84,6 +84,7 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "RuntimeEnabledFeatures.h"
 #include "SVGDocument.h"
 #include "SVGSVGElement.h"
 #include "ScriptedAnimationController.h"
@@ -98,7 +99,6 @@
 #include "WheelEventTestTrigger.h"
 #include <wtf/text/TextStream.h>
 
-#include <wtf/CurrentTime.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/Ref.h>
@@ -124,7 +124,7 @@ using namespace HTMLNames;
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(FrameView);
 
-double FrameView::sCurrentPaintTimeStamp = 0.0;
+MonotonicTime FrameView::sCurrentPaintTimeStamp { };
 
 // The maximum number of updateEmbeddedObjects iterations that should be done before returning.
 static const unsigned maxUpdateEmbeddedObjectsIterations = 2;
@@ -272,7 +272,7 @@ void FrameView::reset()
     m_lastZoomFactor = 1.0f;
     m_isTrackingRepaints = false;
     m_trackedRepaintRects.clear();
-    m_lastPaintTime = 0;
+    m_lastPaintTime = MonotonicTime();
     m_paintBehavior = PaintBehaviorNormal;
     m_isPainting = false;
     m_visuallyNonEmptyCharacterCount = 0;
@@ -460,8 +460,8 @@ void FrameView::setFrameRect(const IntRect& newRect)
             renderView->compositor().frameViewDidChangeSize();
     }
 
-    if (frame().isMainFrame())
-        frame().mainFrame().pageOverlayController().didChangeViewSize();
+    if (frame().isMainFrame() && frame().page())
+        frame().page()->pageOverlayController().didChangeViewSize();
 
     viewportContentsChanged();
 }
@@ -591,7 +591,8 @@ void FrameView::didDestroyRenderTree()
     ASSERT(!m_viewportConstrainedObjects || m_viewportConstrainedObjects->isEmpty());
     ASSERT(!m_slowRepaintObjects || m_slowRepaintObjects->isEmpty());
 
-    ASSERT(!frame().animation().hasAnimations());
+    if (!RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled())
+        ASSERT(!frame().animation().hasAnimations());
 }
 
 void FrameView::setContentsSize(const IntSize& size)
@@ -613,7 +614,7 @@ void FrameView::setContentsSize(const IntSize& size)
     page->chrome().contentsSizeChanged(frame(), size); // Notify only.
 
     if (frame().isMainFrame()) {
-        frame().mainFrame().pageOverlayController().didChangeDocumentSize();
+        page->pageOverlayController().didChangeDocumentSize();
         PageCache::singleton().markPagesForContentsSizeChanged(*page);
     }
     layoutContext().enableSetNeedsLayout();
@@ -1528,6 +1529,19 @@ void FrameView::removeViewportConstrainedObject(RenderElement* object)
     }
 }
 
+LayoutSize FrameView::expandedLayoutViewportSize(const LayoutSize& baseLayoutViewportSize, const LayoutSize& documentSize, double heightExpansionFactor)
+{
+    if (!heightExpansionFactor)
+        return baseLayoutViewportSize;
+
+    auto documentHeight = documentSize.height();
+    auto layoutViewportHeight = baseLayoutViewportSize.height();
+    if (layoutViewportHeight > documentHeight)
+        return baseLayoutViewportSize;
+
+    return { baseLayoutViewportSize.width(), std::min<LayoutUnit>(documentHeight, (1 + heightExpansionFactor) * layoutViewportHeight) };
+}
+
 LayoutRect FrameView::computeUpdatedLayoutViewportRect(const LayoutRect& layoutViewport, const LayoutRect& documentRect, const LayoutSize& unobscuredContentSize, const LayoutRect& unobscuredContentRect, const LayoutSize& baseLayoutViewportSize, const LayoutPoint& stableLayoutViewportOriginMin, const LayoutPoint& stableLayoutViewportOriginMax, LayoutViewportConstraint constraint)
 {
     LayoutRect layoutViewportRect = layoutViewport;
@@ -2362,7 +2376,8 @@ void FrameView::setViewportConstrainedObjectsNeedLayout()
 
 void FrameView::didChangeScrollOffset()
 {
-    frame().mainFrame().pageOverlayController().didScrollFrame(frame());
+    if (auto* page = frame().page())
+        page->pageOverlayController().didScrollFrame(frame());
     frame().loader().client().didChangeScrollOffset();
 }
 
@@ -4015,7 +4030,7 @@ void FrameView::willPaintContents(GraphicsContext& context, const IntRect&, Pain
     paintingState.isTopLevelPainter = !sCurrentPaintTimeStamp;
 
     if (paintingState.isTopLevelPainter)
-        sCurrentPaintTimeStamp = monotonicallyIncreasingTime();
+        sCurrentPaintTimeStamp = MonotonicTime::now();
 
     paintingState.paintBehavior = m_paintBehavior;
     
@@ -4049,7 +4064,7 @@ void FrameView::didPaintContents(GraphicsContext& context, const IntRect& dirtyR
         notifyWidgetsInAllFrames(DidPaintFlattened);
 
     m_paintBehavior = paintingState.paintBehavior;
-    m_lastPaintTime = monotonicallyIncreasingTime();
+    m_lastPaintTime = MonotonicTime::now();
 
     // Regions may have changed as a result of the visibility/z-index of element changing.
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -4058,7 +4073,7 @@ void FrameView::didPaintContents(GraphicsContext& context, const IntRect& dirtyR
 #endif
 
     if (paintingState.isTopLevelPainter)
-        sCurrentPaintTimeStamp = 0;
+        sCurrentPaintTimeStamp = MonotonicTime();
 
     if (!context.paintingDisabled()) {
         InspectorInstrumentation::didPaint(*renderView(), dirtyRect);
@@ -5044,7 +5059,8 @@ void FrameView::setViewExposedRect(std::optional<FloatRect> viewExposedRect)
     if (auto* view = renderView())
         view->compositor().scheduleLayerFlush(false /* canThrottle */);
 
-    frame().mainFrame().pageOverlayController().didChangeViewExposedRect();
+    if (auto* page = frame().page())
+        page->pageOverlayController().didChangeViewExposedRect();
 }
     
 void FrameView::setViewportSizeForCSSViewportUnits(IntSize size)

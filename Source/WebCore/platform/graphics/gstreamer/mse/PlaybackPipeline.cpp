@@ -25,9 +25,8 @@
 #if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(MEDIA_SOURCE)
 
 #include "AudioTrackPrivateGStreamer.h"
+#include "GStreamerCommon.h"
 #include "MediaSampleGStreamer.h"
-#include "GStreamerUtilities.h"
-#include "GUniquePtrGStreamer.h"
 #include "MediaSample.h"
 #include "SourceBufferPrivateGStreamer.h"
 #include "VideoTrackPrivateGStreamer.h"
@@ -36,7 +35,6 @@
 #include <gst/gst.h>
 #include <wtf/MainThread.h>
 #include <wtf/RefCounted.h>
-#include <wtf/glib/GMutexLocker.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/AtomicString.h>
@@ -513,6 +511,12 @@ void PlaybackPipeline::enqueueSample(Ref<MediaSample>&& mediaSample)
 
         stream->lastEnqueuedTime = lastEnqueuedTime;
     }
+}
+
+void PlaybackPipeline::allSamplesInTrackEnqueued(const AtomicString& trackId)
+{
+    Stream* stream = getStreamByTrackId(m_webKitMediaSrc.get(), trackId);
+    gst_app_src_end_of_stream(GST_APP_SRC(stream->appsrc));
 }
 
 GstElement* PlaybackPipeline::pipeline()

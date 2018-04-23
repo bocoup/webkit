@@ -72,6 +72,7 @@
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
+#import <WebCore/Frame.h>
 #import <WebCore/FrameLoadRequest.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderStateMachine.h>
@@ -84,7 +85,6 @@
 #import <WebCore/JSNode.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/MIMETypeRegistry.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/PluginData.h>
@@ -102,7 +102,6 @@
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/markup.h>
-#import <wtf/CurrentTime.h>
 
 #if PLATFORM(IOS)
 #import "WebMailDelegate.h"
@@ -361,15 +360,15 @@ static NSURL *createUniqueWebDataURL();
 
 - (void)_attachScriptDebugger
 {
-    ScriptController& scriptController = _private->coreFrame->script();
+    auto& windowProxy = _private->coreFrame->windowProxy();
 
     // Calling ScriptController::globalObject() would create a window proxy, and dispatch corresponding callbacks, which may be premature
     // if the script debugger is attached before a document is created.  These calls use the debuggerWorld(), we will need to pass a world
     // to be able to debug isolated worlds.
-    if (!scriptController.existingWindowProxy(debuggerWorld()))
+    if (!windowProxy.existingJSWindowProxy(debuggerWorld()))
         return;
 
-    JSGlobalObject* globalObject = scriptController.globalObject(debuggerWorld());
+    auto* globalObject = windowProxy.globalObject(debuggerWorld());
     if (!globalObject)
         return;
 
@@ -2093,8 +2092,11 @@ static WebFrameLoadType toWebFrameLoadType(FrameLoadType frameLoadType)
     // The global object is probably a proxy object? - if so, we know how to use this!
     JSC::JSObject* globalObjectObj = toJS(globalObjectRef);
     JSC::VM& vm = *globalObjectObj->vm();
-    if (!strcmp(globalObjectObj->classInfo(vm)->className, "JSDOMWindowProxy"))
-        anyWorldGlobalObject = static_cast<JSDOMWindowProxy*>(globalObjectObj)->window();
+    if (!strcmp(globalObjectObj->classInfo(vm)->className, "JSWindowProxy"))
+        anyWorldGlobalObject = JSC::jsDynamicCast<JSDOMWindow*>(vm, static_cast<JSWindowProxy*>(globalObjectObj)->window());
+
+    if (!anyWorldGlobalObject)
+        return @"";
 
     // Get the frame frome the global object we've settled on.
     Frame* frame = anyWorldGlobalObject->wrapped().frame();

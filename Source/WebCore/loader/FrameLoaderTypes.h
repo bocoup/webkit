@@ -41,7 +41,8 @@ enum FrameState {
 enum class PolicyAction {
     Use,
     Download,
-    Ignore
+    Ignore,
+    Suspend,
 };
 
 enum class ReloadOption {
@@ -158,7 +159,24 @@ template<> struct EnumTraits<WebCore::PolicyAction> {
         WebCore::PolicyAction,
         WebCore::PolicyAction::Use,
         WebCore::PolicyAction::Download,
-        WebCore::PolicyAction::Ignore
+        WebCore::PolicyAction::Ignore,
+        WebCore::PolicyAction::Suspend
+    >;
+};
+
+template<> struct EnumTraits<WebCore::FrameLoadType> {
+    using values = EnumValues<
+        WebCore::FrameLoadType,
+        WebCore::FrameLoadType::Standard,
+        WebCore::FrameLoadType::Back,
+        WebCore::FrameLoadType::Forward,
+        WebCore::FrameLoadType::IndexedBackForward,
+        WebCore::FrameLoadType::Reload,
+        WebCore::FrameLoadType::Same,
+        WebCore::FrameLoadType::RedirectWithLockedBackForwardList,
+        WebCore::FrameLoadType::Replace,
+        WebCore::FrameLoadType::ReloadFromOrigin,
+        WebCore::FrameLoadType::ReloadExpiredOnly
     >;
 };
 

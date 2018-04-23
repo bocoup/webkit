@@ -325,8 +325,8 @@ class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
 
 class EmptyPluginInfoProvider final : public PluginInfoProvider {
     void refreshPlugins() final { };
-    void getPluginInfo(Page&, Vector<PluginInfo>&, std::optional<SupportedPluginNames>&) final { }
-    void getWebVisiblePluginInfo(Page&, Vector<PluginInfo>&) final { }
+    Vector<PluginInfo> pluginInfo(Page&, std::optional<Vector<SupportedPluginName>>&) final { return { }; }
+    Vector<PluginInfo> webVisiblePluginInfo(Page&, const URL&) final { return { }; }
 };
 
 class EmptyPopupMenu : public PopupMenu {
@@ -374,7 +374,7 @@ class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
         bool contains(const String&) final { return false; }
         StorageType storageType() const final { return StorageType::Local; }
         size_t memoryBytesUsedByCache() final { return 0; }
-        SecurityOriginData securityOrigin() const final { return { }; }
+        const SecurityOriginData& securityOrigin() const final { static NeverDestroyed<SecurityOriginData> origin; return origin.get(); }
     };
 
     struct EmptyStorageNamespace final : public StorageNamespace {
@@ -436,7 +436,7 @@ void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Naviga
 {
 }
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, bool, FormState*, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, bool, FormState*, PolicyDecisionMode, FramePolicyFunction&&)
 {
 }
 

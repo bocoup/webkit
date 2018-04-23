@@ -53,6 +53,7 @@
 #include "Settings.h"
 #include "SimpleLineLayoutFunctions.h"
 #include "SimpleLineLayoutPagination.h"
+#include "SimpleLineLayoutResolver.h"
 #include "TextAutoSizing.h"
 #include "VerticalPositionCache.h"
 #include "VisiblePosition.h"
@@ -2020,10 +2021,6 @@ void RenderBlockFlow::styleDidChange(StyleDifference diff, const RenderStyle* ol
         parentBlock->markAllDescendantsWithFloatsForLayout();
         parentBlock->markSiblingsWithFloatsForLayout();
     }
-    // Fresh floats need to be reparented if they actually belong to the previous anonymous block.
-    // It copies the logic of RenderBlock::addChildIgnoringContinuation
-    if (noLongerAffectsParentBlock() && style().isFloating() && previousSibling() && previousSibling()->isAnonymousBlock())
-        RenderTreeBuilder::current()->move(downcast<RenderBoxModelObject>(*parent()), downcast<RenderBoxModelObject>(*previousSibling()), *this, RenderTreeBuilder::NormalizeAfterInsertion::No);
 
     if (diff >= StyleDifferenceRepaint) {
         // FIXME: This could use a cheaper style-only test instead of SimpleLineLayout::canUseFor.
@@ -3624,6 +3621,12 @@ void RenderBlockFlow::ensureLineBoxes()
     setLineLayoutPath(ForceLineBoxesPath);
     if (!m_simpleLineLayout)
         return;
+
+    if (SimpleLineLayout::canUseForLineBoxTree(*this, *m_simpleLineLayout)) {
+        SimpleLineLayout::generateLineBoxTree(*this, *m_simpleLineLayout);
+        m_simpleLineLayout = nullptr;
+        return;
+    }
     bool isPaginated = m_simpleLineLayout->isPaginated();
     m_simpleLineLayout = nullptr;
 

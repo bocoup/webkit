@@ -25,6 +25,7 @@ Modules/mediasession/WebMediaSessionManager.cpp
 
 Modules/plugins/QuickTimePluginReplacement.mm
 Modules/plugins/YouTubePluginReplacement.cpp
+Modules/webauthn/cocoa/LocalAuthenticator.mm
 
 accessibility/ios/AccessibilityObjectIOS.mm
 accessibility/ios/AXObjectCacheIOS.mm
@@ -194,7 +195,7 @@ platform/cocoa/FileMonitorCocoa.mm
 platform/cocoa/FileSystemCocoa.mm
 platform/cocoa/KeyEventCocoa.mm
 platform/cocoa/LocalizedStringsCocoa.mm
-platform/cocoa/MachSendRight.cpp
+platform/cocoa/LocalAuthenticationSoftLink.mm
 platform/cocoa/MIMETypeRegistryCocoa.mm
 platform/cocoa/NetworkExtensionContentFilter.mm
 platform/cocoa/ParentalControlsContentFilter.mm
@@ -482,7 +483,7 @@ platform/mediastream/mac/MockRealtimeVideoSourceMac.mm
 platform/mock/MediaPlaybackTargetPickerMock.cpp
 platform/mock/MediaPlaybackTargetMock.cpp
 
-platform/network/cf/DNSCFNet.cpp
+platform/network/cf/DNSResolveQueueCFNet.cpp
 platform/network/cf/FormDataStreamCFNet.cpp
 platform/network/cf/NetworkStorageSessionCFNet.cpp
 platform/network/cf/ProxyServerCFNet.cpp
@@ -540,7 +541,7 @@ platform/mediastream/mac/CoreAudioCaptureSource.cpp
 platform/mediastream/mac/DisplayCaptureManagerCocoa.cpp
 platform/mediastream/mac/DisplayCaptureSourceCocoa.cpp
 platform/mediastream/mac/RealtimeIncomingAudioSourceCocoa.cpp
-platform/mediastream/mac/RealtimeIncomingVideoSourceCocoa.cpp
+platform/mediastream/mac/RealtimeIncomingVideoSourceCocoa.mm
 platform/mediastream/mac/RealtimeMediaSourceCenterMac.cpp
 platform/mediastream/mac/RealtimeOutgoingAudioSourceCocoa.cpp
 platform/mediastream/mac/RealtimeOutgoingVideoSourceCocoa.cpp

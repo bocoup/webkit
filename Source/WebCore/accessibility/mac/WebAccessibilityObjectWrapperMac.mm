@@ -52,6 +52,7 @@
 #import "Editor.h"
 #import "Font.h"
 #import "FontCascade.h"
+#import "Frame.h"
 #import "FrameLoaderClient.h"
 #import "FrameSelection.h"
 #import "HTMLAnchorElement.h"
@@ -61,7 +62,6 @@
 #import "HTMLInputElement.h"
 #import "HTMLNames.h"
 #import "LocalizedStrings.h"
-#import "MainFrame.h"
 #import "Page.h"
 #import "PluginDocument.h"
 #import "PluginViewBase.h"
@@ -793,44 +793,16 @@ static void AXAttributeStringSetFont(NSMutableAttributedString *attrString, NSSt
     
 }
 
-static CGColorRef CreateCGColorIfDifferent(NSColor *nsColor, CGColorRef existingColor)
-{
-    // get color information assuming NSDeviceRGBColorSpace
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    NSColor *rgbColor = [nsColor colorUsingColorSpaceName:NSDeviceRGBColorSpace];
-#pragma clang diagnostic pop
-    if (rgbColor == nil)
-        rgbColor = [NSColor blackColor];
-    CGFloat components[4];
-    [rgbColor getRed:&components[0] green:&components[1] blue:&components[2] alpha:&components[3]];
-    
-    // create a new CGColorRef to return
-    CGColorSpaceRef cgColorSpace = CGColorSpaceCreateDeviceRGB();
-    CGColorRef cgColor = CGColorCreate(cgColorSpace, components);
-    CGColorSpaceRelease(cgColorSpace);
-    
-    // check for match with existing color
-    if (existingColor && CGColorEqualToColor(cgColor, existingColor)) {
-        CGColorRelease(cgColor);
-        cgColor = nullptr;
-    }
-    
-    return cgColor;
-}
-
 static void AXAttributeStringSetColor(NSMutableAttributedString* attrString, NSString* attribute, NSColor* color, NSRange range)
 {
     if (!AXAttributedStringRangeIsValid(attrString, range))
         return;
-    
+
     if (color) {
-        CGColorRef existingColor = (CGColorRef) [attrString attribute:attribute atIndex:range.location effectiveRange:nil];
-        CGColorRef cgColor = CreateCGColorIfDifferent(color, existingColor);
-        if (cgColor) {
+        CGColorRef cgColor = color.CGColor;
+        CGColorRef existingColor = (CGColorRef)[attrString attribute:attribute atIndex:range.location effectiveRange:nil];
+        if (!existingColor || !CGColorEqualToColor(existingColor, cgColor))
             [attrString addAttribute:attribute value:(id)cgColor range:range];
-            CGColorRelease(cgColor);
-        }
     } else
         [attrString removeAttribute:attribute range:range];
 }
@@ -922,6 +894,12 @@ static void AXAttributeStringSetBlockquoteLevel(NSMutableAttributedString* attrS
 
 static void AXAttributeStringSetSpelling(NSMutableAttributedString* attrString, Node* node, StringView text, NSRange range)
 {
+    ASSERT(node);
+    
+    // If this node is not inside editable content, do not run the spell checker on the text.
+    if (!node->document().axObjectCache()->rootAXEditableElement(node))
+        return;
+
     if (unifiedTextCheckerEnabled(node->document().frame())) {
         // Check the spelling directly since document->markersForNode() does not store the misspelled marking when the cursor is in a word.
         TextCheckerClient* checker = node->document().frame()->editor().textChecker();
@@ -1009,7 +987,11 @@ static void AXAttributeStringSetElement(NSMutableAttributedString* attrString, N
         if (!cache)
             return;
         
-        AXUIElementRef axElement = NSAccessibilityCreateAXUIElementRef(object->wrapper());
+        id objectWrapper = object->wrapper();
+        if ([attribute isEqualToString:NSAccessibilityAttachmentTextAttribute] && object->isAttachment() && [objectWrapper attachmentView])
+            objectWrapper = [objectWrapper attachmentView];
+        
+        AXUIElementRef axElement = NSAccessibilityCreateAXUIElementRef(objectWrapper);
         if (axElement) {
             [attrString addAttribute:attribute value:(id)axElement range:range];
             CFRelease(axElement);
@@ -1018,7 +1000,7 @@ static void AXAttributeStringSetElement(NSMutableAttributedString* attrString, N
         [attrString removeAttribute:attribute range:range];
 }
 
-static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, Node* node, StringView text)
+static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, Node* node, StringView text, bool spellCheck)
 {
     // skip invisible text
     RenderObject* renderer = node->renderer();
@@ -1038,10 +1020,12 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     
     // remove inherited attachment from prior AXAttributedStringAppendReplaced
     [attrString removeAttribute:NSAccessibilityAttachmentTextAttribute range:attrStringRange];
+    if (spellCheck) {
 #if PLATFORM(MAC)
-    [attrString removeAttribute:NSAccessibilityMarkedMisspelledTextAttribute range:attrStringRange];
+        [attrString removeAttribute:NSAccessibilityMarkedMisspelledTextAttribute range:attrStringRange];
 #endif
-    [attrString removeAttribute:NSAccessibilityMisspelledTextAttribute range:attrStringRange];
+        [attrString removeAttribute:NSAccessibilityMisspelledTextAttribute range:attrStringRange];
+    }
     
     // set new attributes
     AXAttributeStringSetStyle(attrString, renderer, attrStringRange);
@@ -1051,7 +1035,8 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     AXAttributeStringSetElement(attrString, NSAccessibilityLinkTextAttribute, AccessibilityObject::anchorElementForNode(node), attrStringRange);
     
     // do spelling last because it tends to break up the range
-    AXAttributeStringSetSpelling(attrString, node, text, attrStringRange);
+    if (spellCheck)
+        AXAttributeStringSetSpelling(attrString, node, text, attrStringRange);
 }
 
 static NSString* nsStringForReplacedNode(Node* replacedNode)
@@ -1073,7 +1058,7 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
     return [NSString stringWithCharacters:&attachmentChar length:1];
 }
 
-- (NSAttributedString*)doAXAttributedStringForTextMarkerRange:(id)textMarkerRange
+- (NSAttributedString*)doAXAttributedStringForTextMarkerRange:(id)textMarkerRange spellCheck:(BOOL)spellCheck
 {
     if (!m_object)
         return nil;
@@ -1092,8 +1077,8 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
             // Add the text of the list marker item if necessary.
             String listMarkerText = m_object->listMarkerTextForNodeAndPosition(&node, VisiblePosition(it.range()->startPosition()));
             if (!listMarkerText.isEmpty())
-                AXAttributedStringAppendText(attrString, &node, listMarkerText);
-            AXAttributedStringAppendText(attrString, &node, it.text());
+                AXAttributedStringAppendText(attrString, &node, listMarkerText, spellCheck);
+            AXAttributedStringAppendText(attrString, &node, it.text(), spellCheck);
         } else {
             Node* replacedNode = node.traverseToChildAt(offset);
             NSString *attachmentString = nsStringForReplacedNode(replacedNode);
@@ -1113,7 +1098,7 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
         }
         it.advance();
     }
-    
+
     return [attrString autorelease];
 }
 
@@ -3298,8 +3283,11 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     
     m_object->updateChildrenIfNecessary();
     RefPtr<AccessibilityObject> axObject = m_object->accessibilityHitTest(IntPoint(point));
-    if (axObject)
+    if (axObject) {
+        if (axObject->isAttachment() && [axObject->wrapper() attachmentView])
+            return [axObject->wrapper() attachmentView];
         return NSAccessibilityUnignoredAncestor(axObject->wrapper());
+    }
     return NSAccessibilityUnignoredAncestor(self);
 }
 
@@ -3380,42 +3368,43 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     static NSArray* webAreaParamAttrs = nil;
     if (paramAttrs == nil) {
         paramAttrs = [[NSArray alloc] initWithObjects:
-                      @"AXUIElementForTextMarker",
-                      @"AXTextMarkerRangeForUIElement",
-                      @"AXLineForTextMarker",
-                      @"AXTextMarkerRangeForLine",
-                      @"AXStringForTextMarkerRange",
-                      @"AXTextMarkerForPosition",
-                      @"AXBoundsForTextMarkerRange",
-                      @"AXAttributedStringForTextMarkerRange",
-                      @"AXTextMarkerRangeForUnorderedTextMarkers",
-                      @"AXNextTextMarkerForTextMarker",
-                      @"AXPreviousTextMarkerForTextMarker",
-                      @"AXLeftWordTextMarkerRangeForTextMarker",
-                      @"AXRightWordTextMarkerRangeForTextMarker",
-                      @"AXLeftLineTextMarkerRangeForTextMarker",
-                      @"AXRightLineTextMarkerRangeForTextMarker",
-                      @"AXSentenceTextMarkerRangeForTextMarker",
-                      @"AXParagraphTextMarkerRangeForTextMarker",
-                      @"AXNextWordEndTextMarkerForTextMarker",
-                      @"AXPreviousWordStartTextMarkerForTextMarker",
-                      @"AXNextLineEndTextMarkerForTextMarker",
-                      @"AXPreviousLineStartTextMarkerForTextMarker",
-                      @"AXNextSentenceEndTextMarkerForTextMarker",
-                      @"AXPreviousSentenceStartTextMarkerForTextMarker",
-                      @"AXNextParagraphEndTextMarkerForTextMarker",
-                      @"AXPreviousParagraphStartTextMarkerForTextMarker",
-                      @"AXStyleTextMarkerRangeForTextMarker",
-                      @"AXLengthForTextMarkerRange",
-                      NSAccessibilityBoundsForRangeParameterizedAttribute,
-                      NSAccessibilityStringForRangeParameterizedAttribute,
-                      NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute,
-                      NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute,
-                      NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute,
-                      NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute,
-                      NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute,
-                      NSAccessibilitySelectTextWithCriteriaParameterizedAttribute,
-                      nil];
+            @"AXUIElementForTextMarker",
+            @"AXTextMarkerRangeForUIElement",
+            @"AXLineForTextMarker",
+            @"AXTextMarkerRangeForLine",
+            @"AXStringForTextMarkerRange",
+            @"AXTextMarkerForPosition",
+            @"AXBoundsForTextMarkerRange",
+            @"AXAttributedStringForTextMarkerRange",
+            @"AXAttributedStringForTextMarkerRangeWithOptions",
+            @"AXTextMarkerRangeForUnorderedTextMarkers",
+            @"AXNextTextMarkerForTextMarker",
+            @"AXPreviousTextMarkerForTextMarker",
+            @"AXLeftWordTextMarkerRangeForTextMarker",
+            @"AXRightWordTextMarkerRangeForTextMarker",
+            @"AXLeftLineTextMarkerRangeForTextMarker",
+            @"AXRightLineTextMarkerRangeForTextMarker",
+            @"AXSentenceTextMarkerRangeForTextMarker",
+            @"AXParagraphTextMarkerRangeForTextMarker",
+            @"AXNextWordEndTextMarkerForTextMarker",
+            @"AXPreviousWordStartTextMarkerForTextMarker",
+            @"AXNextLineEndTextMarkerForTextMarker",
+            @"AXPreviousLineStartTextMarkerForTextMarker",
+            @"AXNextSentenceEndTextMarkerForTextMarker",
+            @"AXPreviousSentenceStartTextMarkerForTextMarker",
+            @"AXNextParagraphEndTextMarkerForTextMarker",
+            @"AXPreviousParagraphStartTextMarkerForTextMarker",
+            @"AXStyleTextMarkerRangeForTextMarker",
+            @"AXLengthForTextMarkerRange",
+            NSAccessibilityBoundsForRangeParameterizedAttribute,
+            NSAccessibilityStringForRangeParameterizedAttribute,
+            NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute,
+            NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute,
+            NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute,
+            NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute,
+            NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute,
+            NSAccessibilitySelectTextWithCriteriaParameterizedAttribute,
+            nil];
     }
     
     if (textParamAttrs == nil) {
@@ -3493,6 +3482,13 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (void)accessibilityPerformIncrementAction
 {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self _accessibilityPerformIncrementAction];
+    });
+}
+
+- (void)_accessibilityPerformIncrementAction
+{
     if (![self updateObjectBackingStore])
         return;
     
@@ -3503,6 +3499,13 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 }
 
 - (void)accessibilityPerformDecrementAction
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self _accessibilityPerformDecrementAction];
+    });
+}
+
+- (void)_accessibilityPerformDecrementAction
 {
     if (![self updateObjectBackingStore])
         return;
@@ -3517,6 +3520,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (void)accessibilityPerformShowMenuAction
 {
+    if (m_object && m_object->dispatchAccessibilityEventWithType(AccessibilityEventType::ContextMenu))
+        return;
+    
     if (m_object->roleValue() == AccessibilityRole::ComboBox)
         m_object->setIsExpanded(true);
     else {
@@ -3580,6 +3586,12 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     // Used in layout tests, so that we don't have to wait for the async press action.
     else if ([action isEqualToString:@"AXSyncPressAction"])
         [self _accessibilityPerformPressAction];
+    
+    else if ([action isEqualToString:@"AXSyncIncrementAction"])
+        [self _accessibilityPerformIncrementAction];
+    
+    else if ([action isEqualToString:@"AXSyncDecrementAction"])
+        [self _accessibilityPerformDecrementAction];
     
     else if ([action isEqualToString:NSAccessibilityShowMenuAction])
         [self accessibilityPerformShowMenuAction];
@@ -3749,7 +3761,7 @@ static RenderObject* rendererForView(NSView* view)
 {
     PlainTextRange textRange = PlainTextRange(range.location, range.length);
     RefPtr<Range> webRange = m_object->rangeForPlainTextRange(textRange);
-    return [self doAXAttributedStringForTextMarkerRange:[self textMarkerRangeFromRange:webRange]];
+    return [self doAXAttributedStringForTextMarkerRange:[self textMarkerRangeFromRange:webRange] spellCheck:YES];
 }
 
 - (NSRange)_convertToNSRange:(Range*)range
@@ -3978,6 +3990,8 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
         AccessibilityObject* axObject = [self accessibilityObjectForTextMarker:textMarker];
         if (!axObject)
             return nil;
+        if (axObject->isAttachment() && [axObject->wrapper() attachmentView])
+            return [axObject->wrapper() attachmentView];
         return axObject->wrapper();
     }
     
@@ -4038,10 +4052,27 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
         RefPtr<Range> range = cache->rangeForUnorderedCharacterOffsets(start, end);
         return m_object->stringForRange(range);
     }
-    
+
     if ([attribute isEqualToString:@"AXAttributedStringForTextMarkerRange"])
-        return [self doAXAttributedStringForTextMarkerRange:textMarkerRange];
-    
+        return [self doAXAttributedStringForTextMarkerRange:textMarkerRange spellCheck:YES];
+
+    if ([attribute isEqualToString:@"AXAttributedStringForTextMarkerRangeWithOptions"]) {
+        if (textMarkerRange)
+            return [self doAXAttributedStringForTextMarkerRange:textMarkerRange spellCheck:NO];
+        if (dictionary) {
+            id textMarkerRange = nil;
+            id parameter = [dictionary objectForKey:@"AXTextMarkerRange"];
+            if (AXObjectIsTextMarkerRange(parameter))
+                textMarkerRange = parameter;
+            BOOL spellCheck = NO;
+            parameter = [dictionary objectForKey:@"AXSpellCheck"];
+            if ([parameter isKindOfClass:[NSNumber class]])
+                spellCheck = [parameter boolValue];
+            return [self doAXAttributedStringForTextMarkerRange:textMarkerRange spellCheck:spellCheck];
+        }
+        return nil;
+    }
+
     if ([attribute isEqualToString:@"AXTextMarkerRangeForUnorderedTextMarkers"]) {
         if ([array count] < 2)
             return nil;

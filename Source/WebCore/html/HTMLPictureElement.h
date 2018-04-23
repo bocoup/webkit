@@ -31,6 +31,7 @@
 namespace WebCore {
 
 class HTMLPictureElement final : public HTMLElement {
+    WTF_MAKE_ISO_ALLOCATED(HTMLPictureElement);
 public:
     static Ref<HTMLPictureElement> create(const QualifiedName&, Document&);
     virtual ~HTMLPictureElement();
@@ -44,6 +45,8 @@ public:
     bool viewportChangeAffectedPicture() const;
 
     WeakPtr<HTMLPictureElement> createWeakPtr() { return m_weakFactory.createWeakPtr(*this); }
+
+    WEBCORE_EXPORT bool isSystemPreviewImage() const;
 
 private:
     HTMLPictureElement(const QualifiedName&, Document&);

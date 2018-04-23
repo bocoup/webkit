@@ -31,8 +31,8 @@
 #include "EventTargetHeaders.h"
 #include "EventTargetInterfaces.h"
 #include "JSDOMWindow.h"
-#include "JSDOMWindowProxy.h"
 #include "JSEventListener.h"
+#include "JSWindowProxy.h"
 #include "JSWorkerGlobalScope.h"
 #include "OffscreenCanvas.h"
 #include "WorkerGlobalScope.h"
@@ -57,12 +57,12 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, EventTarget& targ
 #undef TRY_TO_WRAP_WITH_INTERFACE
 
 #define TRY_TO_UNWRAP_WITH_INTERFACE(interfaceName) \
-    if (value.inherits(vm, JS##interfaceName::info()))                      \
+    if (value.inherits<JS##interfaceName>(vm)) \
         return &jsCast<JS##interfaceName*>(asObject(value))->wrapped();
 
 EventTarget* JSEventTarget::toWrapped(VM& vm, JSValue value)
 {
-    TRY_TO_UNWRAP_WITH_INTERFACE(DOMWindowProxy)
+    TRY_TO_UNWRAP_WITH_INTERFACE(WindowProxy)
     TRY_TO_UNWRAP_WITH_INTERFACE(DOMWindow)
     TRY_TO_UNWRAP_WITH_INTERFACE(WorkerGlobalScope)
     TRY_TO_UNWRAP_WITH_INTERFACE(EventTarget)
@@ -73,7 +73,7 @@ EventTarget* JSEventTarget::toWrapped(VM& vm, JSValue value)
 
 std::unique_ptr<JSEventTargetWrapper> jsEventTargetCast(VM& vm, JSValue thisValue)
 {
-    if (auto* target = jsDynamicDowncast<JSEventTarget*>(vm, thisValue))
+    if (auto* target = jsDynamicCast<JSEventTarget*>(vm, thisValue))
         return std::make_unique<JSEventTargetWrapper>(target->wrapped(), *target);
     if (auto* window = toJSDOMWindow(vm, thisValue))
         return std::make_unique<JSEventTargetWrapper>(window->wrapped(), *window);

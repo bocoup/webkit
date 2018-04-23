@@ -105,6 +105,8 @@ allowCrossOriginSubresourcesToAskForCredentials:
   initial: false
 needsStorageAccessFromFileURLsQuirk:
   initial: true
+useAnonymousModeWhenFetchingMaskImages:
+  initial: true
 javaScriptCanOpenWindowsAutomatically:
   initial: false
 javaScriptCanAccessClipboard:
@@ -328,7 +330,7 @@ requestAnimationFrameEnabled:
 cookieEnabled:
   initial: true
 mediaEnabled:
-  initial: true
+  initial: defaultMediaEnabled
 DOMPasteAllowed:
   initial: false
 
@@ -356,8 +358,10 @@ maximumPlugInSnapshotAttempts:
 frameFlattening:
   type: FrameFlattening
   initial: FrameFlattening::Disabled
+  onChange: setNeedsRelayoutAllFrames
 asyncFrameScrollingEnabled:
   initial: false
+  onChange: setNeedsRelayoutAllFrames
 
 webSecurityEnabled:
   initial: true
@@ -524,6 +528,11 @@ treatIPAddressAsDomain:
 
 mediaPreloadingEnabled:
   initial: false
+
+layoutViewportHeightExpansionFactor:
+  type: double
+  initial: 0
+  onChange: setNeedsRecalcStyleInAllFrames
 
 # Runtime-enabled features
 visualViewportEnabled:
@@ -711,20 +720,11 @@ touchEventEmulationEnabled:
   getter: isTouchEventEmulationEnabled
   conditional: TOUCH_EVENTS
 
-oneLineTextMultiplierCoefficient:
-  type: float
-  initial: defaultOneLineTextMultiplierCoefficient()
+shouldEnableTextAutosizingBoost:
+  type: bool
+  initial: false
   conditional: TEXT_AUTOSIZING
-
-multiLineTextMultiplierCoefficient:
-  type: float
-  initial: defaultMultiLineTextMultiplierCoefficient()
-  conditional: TEXT_AUTOSIZING
-
-maxTextAutosizingScaleIncrease:
-  type: float
-  initial: defaultMaxTextAutosizingScaleIncrease()
-  conditional: TEXT_AUTOSIZING
+  onChange: shouldEnableTextAutosizingBoostChanged
 
 mediaCapabilitiesEnabled:
   initial: false
@@ -735,3 +735,7 @@ resourceLoadStatisticsDebugMode:
 clientCoordinatesRelativeToLayoutViewport:
   initial: false
   onChange: setNeedsRecalcStyleInAllFrames
+
+accessibilityEventsEnabled:
+  initial: true
+  conditional: ACCESSIBILITY_EVENTS

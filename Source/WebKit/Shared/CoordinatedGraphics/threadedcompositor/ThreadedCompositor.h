@@ -56,7 +56,6 @@ public:
     class Client {
     public:
         virtual void renderNextFrame() = 0;
-        virtual void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset) = 0;
 
         virtual uint64_t nativeSurfaceHandleForCompositing() = 0;
         virtual void didDestroyGLContext() = 0;
@@ -77,7 +76,6 @@ public:
     void setDrawsBackground(bool);
 
     void updateSceneState(const WebCore::CoordinatedGraphicsState&);
-    void releaseUpdateAtlases(const Vector<uint32_t>&);
 
     void invalidate();
 
@@ -95,9 +93,7 @@ private:
     ThreadedCompositor(Client&, WebPage&, const WebCore::IntSize&, float scaleFactor, ShouldDoFrameSync, WebCore::TextureMapper::PaintFlags);
 
     // CoordinatedGraphicsSceneClient
-    void renderNextFrame() override;
     void updateViewport() override;
-    void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset) override;
 
     void renderLayerTree();
     void sceneUpdateFinished();
@@ -124,7 +120,6 @@ private:
         bool needsResize { false };
 
         Vector<WebCore::CoordinatedGraphicsState> states;
-        Vector<uint32_t> atlasesToRemove;
 
         bool clientRendersNextFrame { false };
         bool coordinateUpdateCompletionWithClient { false };

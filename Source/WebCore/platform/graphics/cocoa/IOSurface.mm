@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,15 +28,16 @@
 
 #if HAVE(IOSURFACE)
 
+#import "GraphicsContext3D.h"
 #import "GraphicsContextCG.h"
 #import "IOSurfacePool.h"
 #import "ImageBuffer.h"
 #import "ImageBufferDataCG.h"
 #import "Logging.h"
-#import "MachSendRight.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/IOSurfaceSPI.h>
 #import <wtf/Assertions.h>
+#import <wtf/MachSendRight.h>
 #import <wtf/MathExtras.h>
 #import <wtf/text/TextStream.h>
 
@@ -107,10 +108,12 @@ void IOSurface::moveToPool(std::unique_ptr<IOSurface>&& surface)
     IOSurfacePool::sharedPool().addSurface(WTFMove(surface));
 }
 
+#if USE(IOSURFACE_CANVAS_BACKING_STORE)
 std::unique_ptr<IOSurface> IOSurface::createFromImageBuffer(std::unique_ptr<ImageBuffer> imageBuffer)
 {
     return WTFMove(imageBuffer->m_data.surface);
 }
+#endif
 
 static NSDictionary *optionsForBiplanarSurface(IntSize size, unsigned pixelFormat, size_t firstPlaneBytesPerPixel, size_t secondPlaneBytesPerPixel)
 {
@@ -296,6 +299,11 @@ CGContextRef IOSurface::ensurePlatformContext()
     }
     
     m_cgContext = adoptCF(CGIOSurfaceContextCreate(m_surface.get(), m_contextSize.width(), m_contextSize.height(), bitsPerComponent, bitsPerPixel, m_colorSpace.get(), bitmapInfo));
+
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    if (uint32_t mask = GraphicsContext3D::getOpenGLDisplayMask())
+        CGIOSurfaceContextSetDisplayMask(m_cgContext.get(), mask);
+#endif
 
     return m_cgContext.get();
 }

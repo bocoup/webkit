@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,8 @@
 #include "MachineContext.h"
 #include "MachineStackMarker.h"
 #include "MacroAssembler.h"
+#include "MacroAssemblerCodeRef.h"
+#include "PtrTag.h"
 #include "VM.h"
 #include "VMInspector.h"
 #include "Watchdog.h"
@@ -58,11 +60,10 @@ struct SignalContext {
         , trapPC(MachineContext::instructionPointer(registers))
         , stackPointer(MachineContext::stackPointer(registers))
         , framePointer(MachineContext::framePointer(registers))
-    {
-    }
+    { }
 
     PlatformRegisters& registers;
-    void* trapPC;
+    MacroAssemblerCodePtr<CFunctionPtrTag> trapPC;
     void* stackPointer;
     void* framePointer;
 };
@@ -86,7 +87,7 @@ void VMTraps::tryInstallTrapBreakpoints(SignalContext& context, StackBounds stac
     // This must be the initial signal to get the mutator thread's attention.
     // Let's get the thread to break at invalidation points if needed.
     VM& vm = this->vm();
-    void* trapPC = context.trapPC;
+    void* trapPC = context.trapPC.untaggedExecutableAddress();
     // We must ensure we're in JIT/LLint code. If we are, we know a few things:
     // - The JS thread isn't holding the malloc lock. Therefore, it's safe to malloc below.
     // - The JS thread isn't holding the CodeBlockSet lock.
@@ -187,10 +188,11 @@ public:
             installSignalHandler(Signal::BadAccess, [] (Signal, SigInfo&, PlatformRegisters& registers) -> SignalAction {
                 SignalContext context(registers);
 
-                if (!isJITPC(context.trapPC))
+                void* trapPC = context.trapPC.untaggedExecutableAddress();
+                if (!isJITPC(trapPC))
                     return SignalAction::NotHandled;
 
-                CodeBlock* currentCodeBlock = DFG::codeBlockForVMTrapPC(context.trapPC);
+                CodeBlock* currentCodeBlock = DFG::codeBlockForVMTrapPC(trapPC);
                 if (!currentCodeBlock) {
                     // Either we trapped for some other reason, e.g. Wasm OOB, or we didn't properly monitor the PC. Regardless, we can't do much now...
                     return SignalAction::NotHandled;

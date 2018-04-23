@@ -253,7 +253,7 @@ void CodeBlock::dumpBytecode(
     PrintStream& out, unsigned bytecodeOffset,
     const StubInfoMap& stubInfos, const CallLinkInfoMap& callLinkInfos)
 {
-    const Instruction* it = instructions().begin() + bytecodeOffset;
+    const Instruction* it = &instructions()[bytecodeOffset];
     dumpBytecode(out, instructions().begin(), it, stubInfos, callLinkInfos);
 }
 
@@ -467,7 +467,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
                 const UnlinkedHandlerInfo& unlinkedHandler = unlinkedCodeBlock->exceptionHandler(i);
                 HandlerInfo& handler = m_rareData->m_exceptionHandlers[i];
 #if ENABLE(JIT)
-                handler.initialize(unlinkedHandler, CodeLocationLabel(MacroAssemblerCodePtr::createFromExecutableAddress(LLInt::getCodePtr(op_catch))));
+                handler.initialize(unlinkedHandler, CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::getCodePtr<BytecodePtrTag>(op_catch).retagged<ExceptionHandlerPtrTag>()));
 #else
                 handler.initialize(unlinkedHandler);
 #endif
@@ -566,6 +566,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
         case op_get_by_id:
         case op_get_by_id_with_this:
         case op_try_get_by_id:
+        case op_get_by_id_direct:
         case op_get_by_val_with_this:
         case op_get_from_arguments:
         case op_to_number:
@@ -931,22 +932,24 @@ void CodeBlock::setConstantRegisters(const Vector<WriteBarrier<Unknown>>& consta
         JSValue constant = constants[i].get();
 
         if (!constant.isEmpty()) {
-            if (SymbolTable* symbolTable = jsDynamicCast<SymbolTable*>(vm, constant)) {
-                if (hasTypeProfiler) {
-                    ConcurrentJSLocker locker(symbolTable->m_lock);
-                    symbolTable->prepareForTypeProfiling(locker);
+            if (constant.isCell()) {
+                JSCell* cell = constant.asCell();
+                if (SymbolTable* symbolTable = jsDynamicCast<SymbolTable*>(vm, cell)) {
+                    if (hasTypeProfiler) {
+                        ConcurrentJSLocker locker(symbolTable->m_lock);
+                        symbolTable->prepareForTypeProfiling(locker);
+                    }
+
+                    SymbolTable* clone = symbolTable->cloneScopePart(vm);
+                    if (wasCompiledWithDebuggingOpcodes())
+                        clone->setRareDataCodeBlock(this);
+
+                    constant = clone;
+                } else if (auto* descriptor = jsDynamicCast<JSTemplateObjectDescriptor*>(vm, cell)) {
+                    auto* templateObject = descriptor->createTemplateObject(exec);
+                    RETURN_IF_EXCEPTION(scope, void());
+                    constant = templateObject;
                 }
-
-                SymbolTable* clone = symbolTable->cloneScopePart(vm);
-                if (wasCompiledWithDebuggingOpcodes())
-                    clone->setRareDataCodeBlock(this);
-
-                constant = clone;
-            } else if (isTemplateObjectDescriptor(vm, constant)) {
-                auto descriptor = jsCast<JSTemplateObjectDescriptor*>(constant);
-                auto* templateObject = descriptor->createTemplateObject(exec);
-                RETURN_IF_EXCEPTION(scope, void());
-                constant = templateObject;
             }
         }
 
@@ -1251,6 +1254,16 @@ void CodeBlock::finalizeLLIntInlineCaches()
             clearLLIntGetByIdCache(curInstruction);
             break;
         }
+        case op_get_by_id_direct: {
+            StructureID oldStructureID = curInstruction[4].u.structureID;
+            if (!oldStructureID || Heap::isMarked(vm.heap.structureIDTable().get(oldStructureID)))
+                break;
+            if (Options::verboseOSR())
+                dataLogF("Clearing LLInt property access.\n");
+            curInstruction[4].u.pointer = nullptr;
+            curInstruction[5].u.pointer = nullptr;
+            break;
+        }
         case op_put_by_id: {
             StructureID oldStructureID = curInstruction[4].u.structureID;
             StructureID newStructureID = curInstruction[6].u.structureID;
@@ -1428,24 +1441,24 @@ StructureStubInfo* CodeBlock::addStubInfo(AccessType accessType)
     return m_stubInfos.add(accessType);
 }
 
-JITAddIC* CodeBlock::addJITAddIC(ArithProfile* arithProfile)
+JITAddIC* CodeBlock::addJITAddIC(ArithProfile* arithProfile, Instruction* instruction)
 {
-    return m_addICs.add(arithProfile);
+    return m_addICs.add(arithProfile, instruction);
 }
 
-JITMulIC* CodeBlock::addJITMulIC(ArithProfile* arithProfile)
+JITMulIC* CodeBlock::addJITMulIC(ArithProfile* arithProfile, Instruction* instruction)
 {
-    return m_mulICs.add(arithProfile);
+    return m_mulICs.add(arithProfile, instruction);
 }
 
-JITSubIC* CodeBlock::addJITSubIC(ArithProfile* arithProfile)
+JITSubIC* CodeBlock::addJITSubIC(ArithProfile* arithProfile, Instruction* instruction)
 {
-    return m_subICs.add(arithProfile);
+    return m_subICs.add(arithProfile, instruction);
 }
 
-JITNegIC* CodeBlock::addJITNegIC(ArithProfile* arithProfile)
+JITNegIC* CodeBlock::addJITNegIC(ArithProfile* arithProfile, Instruction* instruction)
 {
-    return m_negICs.add(arithProfile);
+    return m_negICs.add(arithProfile, instruction);
 }
 
 StructureStubInfo* CodeBlock::findStubInfo(CodeOrigin codeOrigin)
@@ -2872,7 +2885,7 @@ unsigned CodeBlock::rareCaseProfileCountForBytecodeOffset(int bytecodeOffset)
 
 ArithProfile* CodeBlock::arithProfileForBytecodeOffset(int bytecodeOffset)
 {
-    return arithProfileForPC(instructions().begin() + bytecodeOffset);
+    return arithProfileForPC(&instructions()[bytecodeOffset]);
 }
 
 ArithProfile* CodeBlock::arithProfileForPC(Instruction* pc)
@@ -3019,7 +3032,7 @@ std::optional<unsigned> CodeBlock::bytecodeOffsetFromCallSiteIndex(CallSiteIndex
         bytecodeOffset = callSiteIndex.bits();
 #else
         Instruction* instruction = bitwise_cast<Instruction*>(callSiteIndex.bits());
-        bytecodeOffset = instruction - instructions().begin();
+        bytecodeOffset = this->bytecodeOffset(instruction);
 #endif
     } else if (jitType == JITCode::DFGJIT || jitType == JITCode::FTLJIT) {
 #if ENABLE(DFG_JIT)

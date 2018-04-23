@@ -84,6 +84,7 @@ public:
 
     void sendEventStream(JSStringRef eventsJSON, JSValueRef callback);
 
+    void enterText(JSStringRef);
     void typeCharacterUsingHardwareKeyboard(JSStringRef character, JSValueRef callback);
     void keyDownUsingHardwareKeyboard(JSStringRef character, JSValueRef callback);
     void keyUpUsingHardwareKeyboard(JSStringRef character, JSValueRef callback);
@@ -97,6 +98,7 @@ public:
     
     void dismissFormAccessoryView();
     void selectFormAccessoryPickerRow(long);
+    JSRetainPtr<JSStringRef> selectFormPopoverTitle() const;
     
     JSObjectRef contentsOfUserInterfaceItem(JSStringRef) const;
     void overridePreference(JSStringRef preference, JSStringRef value);

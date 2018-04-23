@@ -99,6 +99,11 @@ CSSAnimationTriggersEnabled:
   webcoreName: animationTriggersEnabled
   condition: ENABLE(CSS_ANIMATIONS_LEVEL_2)
 
+CSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled:
+  type: bool
+  defaultValue: false
+  webcoreBinding: RuntimeEnabledFeatures
+
 ForceFTPDirectoryListings:
   type: bool
   defaultValue: false
@@ -160,8 +165,12 @@ LinkPreconnect:
 
 FullScreenEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: DEFAULT_ENABLE_FULLSCREEN_API
   condition: ENABLE(FULLSCREEN_API)
+  visibleCondition: PLATFORM(IOS)
+  humanReadableName: "Fullscreen API"
+  humanReadableDescription: "Fullscreen API"
+  category: experimental
 
 AsynchronousSpellCheckingEnabled:
   type: bool
@@ -189,7 +198,7 @@ AllowCrossOriginSubresourcesToAskForCredentials:
 
 AVFoundationEnabled:
   type: bool
-  defaultValue: true
+  defaultValue: DEFAULT_AVFOUNDATION_ENABLED
   getter: isAVFoundationEnabled
   webcoreBinding: DeprecatedGlobalSettings
   condition: USE(AVFOUNDATION)
@@ -629,6 +638,10 @@ VisualViewportEnabled:
   type: bool
   defaultValue: true
 
+LayoutViewportHeightExpansionFactor:
+  type: double
+  defaultValue: DEFAULT_VISUAL_VIEWPORT_HEIGHT_EXPANSION_FACTOR
+
 NeedsStorageAccessFromFileURLsQuirk:
   type: bool
   defaultValue: true
@@ -681,14 +694,6 @@ ShouldSuppressTextInputFromEditingDuringProvisionalNavigation:
   type: bool
   defaultValue: false
 
-CSSGridLayoutEnabled:
-  type: bool
-  defaultValue: true
-  humanReadableName: "CSS Grid"
-  humanReadableDescription: "CSS Grid Layout Module support"
-  binding: RuntimeEnabledFeatures
-  webcoreBinding: RuntimeEnabledFeatures
-
 GamepadsEnabled:
   type: bool
   defaultValue: true
@@ -740,7 +745,7 @@ BeaconAPIEnabled:
 
 LegacyEncryptedMediaAPIEnabled:
   type: bool
-  defaultValue: DEFAULT_LEGACY_ENCRYPTED_MEDIA_API_ENABLED
+  defaultValue: true
   humanReadableName: "Enable Legacy EME API"
   humanReadableDescription: "Enable legacy EME API"
   webcoreBinding: RuntimeEnabledFeatures
@@ -949,7 +954,7 @@ InspectorWindowFrame:
 
 InactiveMediaCaptureSteamRepromptIntervalInMinutes:
   type: double
-  defaultValue: DEFAULT_INTERACTIVE_MNEDIA_CAPTURE_STREAM_REPROMPT_INTERVAL_IN_MINUTES
+  defaultValue: DEFAULT_INTERACTIVE_MEDIA_CAPTURE_STREAM_REPROMPT_INTERVAL_IN_MINUTES
   webcoreBinding: none
 
 LongRunningMediaCaptureStreamRepromptIntervalInHours:
@@ -1037,6 +1042,11 @@ VisibleDebugOverlayRegions:
   defaultValue: 0
   category: debug
 
+ShouldEnableTextAutosizingBoost:
+  type: bool
+  defaultValue: false
+  condition: ENABLE(TEXT_AUTOSIZING)
+
 ShouldAllowUserInstalledFonts:
   type: bool
   defaultValue: true
@@ -1108,6 +1118,15 @@ WebRTCLegacyAPIEnabled:
   webcoreBinding: RuntimeEnabledFeatures
   condition: ENABLE(WEB_RTC)
 
+MDNSICECandidatesEnabled:
+  type: bool
+  defaultValue: false
+  humanReadableName: "Enable MDNS ICE candidates"
+  humanReadableDescription: "Enable MDNS ICE candidates"
+  webcoreBinding: RuntimeEnabledFeatures
+  category: experimental
+  condition: ENABLE(WEB_RTC)
+
 IsSecureContextAttributeEnabled:
   type: bool
   defaultValue: DEFAULT_EXPERIMENTAL_FEATURES_ENABLED
@@ -1158,7 +1177,7 @@ VisualViewportAPIEnabled:
 
 WebAnimationsEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: true
   humanReadableName: "Web Animations"
   humanReadableDescription: "Web Animations prototype"
   category: experimental
@@ -1206,3 +1225,11 @@ ResourceLoadStatisticsDebugMode:
   humanReadableDescription: "Intelligent Tracking Prevention Debug Mode"
   category: experimental
   webcoreBinding: RuntimeEnabledFeatures
+
+RestrictedHTTPResponseAccess:
+    type: bool
+    defaultValue: true
+    humanReadableName: "Restricted HTTP Response Access to Web Process"
+    humanReadableDescription: "Restricted HTTP Response Access to Web Process"
+    category: experimental
+    webcoreBinding: RuntimeEnabledFeatures

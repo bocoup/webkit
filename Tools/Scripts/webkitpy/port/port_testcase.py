@@ -43,6 +43,7 @@ from webkitpy.common.system.executive_mock import MockExecutive
 from webkitpy.common.system.filesystem_mock import MockFileSystem
 from webkitpy.common.system.outputcapture import OutputCapture
 from webkitpy.common.system.systemhost_mock import MockSystemHost
+from webkitpy.common.version_name_map import INTERNAL_TABLE
 from webkitpy.port.base import Port
 from webkitpy.port.config import apple_additions
 from webkitpy.port.image_diff import ImageDiffer
@@ -87,21 +88,13 @@ def bind_mock_apple_additions():
             return '/additional_testing_path/'
 
         @staticmethod
-        def ios_os_name(name):
-            return 'add-{}'.format(name)
-
-        @staticmethod
-        def mac_os_name(name):
-            return 'add-{}'.format(name)
-
-        @staticmethod
         def version_name_mapping(platform=None):
             result = VersionNameMap(platform)
-            result.mapping['internal'] = {}
+            result.mapping[INTERNAL_TABLE] = {}
             for platform in result.mapping[PUBLIC_TABLE]:
-                result.mapping['internal'][platform] = {}
+                result.mapping[INTERNAL_TABLE][platform] = {}
                 for name, version in result.mapping[PUBLIC_TABLE][platform].iteritems():
-                    result.mapping['internal'][platform]['add-' + name] = version
+                    result.mapping[INTERNAL_TABLE][platform]['add-' + name] = version
             return result
 
     # apple_additions is a memoized function. Take advantage of this fact and manipulate the cache
@@ -636,7 +629,7 @@ MOCK output of child process
         self._assert_config_file_for_platform(port, 'linux2', 'debian-httpd-2.2.conf')
 
         self._assert_config_file_for_platform(port, 'mac', 'apache2.2-httpd.conf')
-        self._assert_config_file_for_platform(port, 'win32', 'apache2.2-httpd-win.conf')  # win32 isn't a supported sys.platform.  AppleWin/WinCairo ports all use cygwin.
+        self._assert_config_file_for_platform(port, 'win32', 'win-httpd-2.2-php7.conf')  # WinCairo uses win32. Only AppleWin port uses cygwin.
         self._assert_config_file_for_platform(port, 'barf', 'apache2.2-httpd.conf')
 
     def test_path_to_apache_config_file(self):

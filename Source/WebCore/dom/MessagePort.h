@@ -32,6 +32,7 @@
 #include "MessagePortChannel.h"
 #include "MessagePortIdentifier.h"
 #include "MessageWithMessagePorts.h"
+#include <wtf/WeakPtr.h>
 
 namespace JSC {
 class ExecState;
@@ -47,6 +48,8 @@ class MessagePort final : public ActiveDOMObject, public EventTargetWithInlineDa
 public:
     static Ref<MessagePort> create(ScriptExecutionContext&, const MessagePortIdentifier& local, const MessagePortIdentifier& remote);
     virtual ~MessagePort();
+
+    auto& weakPtrFactory() const { return m_weakFactory; }
 
     ExceptionOr<void> postMessage(JSC::ExecState&, JSC::JSValue message, Vector<JSC::Strong<JSC::JSObject>>&&);
 
@@ -106,9 +109,13 @@ private:
     // A port starts out its life entangled, and remains entangled until it is closed or is cloned.
     bool isEntangled() const { return !m_closed && m_entangled; }
 
+    void updateActivity(MessagePortChannelProvider::HasActivity);
+
     bool m_started { false };
     bool m_closed { false };
     bool m_entangled { true };
+
+    WeakPtrFactory<MessagePort> m_weakFactory;
 
     // Flags to manage querying the remote port for GC purposes
     mutable bool m_mightBeEligibleForGC { false };

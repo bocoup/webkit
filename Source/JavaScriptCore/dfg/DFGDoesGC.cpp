@@ -100,6 +100,8 @@ bool doesGC(Graph& graph, Node* node)
     case GetById:
     case GetByIdFlush:
     case GetByIdWithThis:
+    case GetByIdDirect:
+    case GetByIdDirectFlush:
     case PutById:
     case PutByIdFlush:
     case PutByIdWithThis:
@@ -141,6 +143,7 @@ bool doesGC(Graph& graph, Node* node)
     case RegExpExecNonGlobalOrSticky:
     case RegExpTest:
     case RegExpMatchFast:
+    case RegExpMatchFastGlobal:
     case CompareLess:
     case CompareLessEq:
     case CompareGreater:
@@ -242,7 +245,6 @@ bool doesGC(Graph& graph, Node* node)
     case GetByValWithThis:
     case GetIndexedPropertyStorage:
     case GetArrayLength:
-    case GetArrayMask:
     case GetVectorLength:
     case ArrayPush:
     case ArrayPop:

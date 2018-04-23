@@ -21,8 +21,6 @@
 #include "config.h"
 #include "WebKitTestServer.h"
 #include "WebViewTest.h"
-#include <JavaScriptCore/JSStringRef.h>
-#include <JavaScriptCore/JSValueRef.h>
 #include <glib/gstdio.h>
 #include <wtf/glib/GRefPtr.h>
 
@@ -110,8 +108,19 @@ static void testWebViewWebContextLifetime(WebViewTest* test, gconstpointer)
 #if PLATFORM(WPE)
 static void testWebViewWebBackend(Test* test, gconstpointer)
 {
-    // Use the default backend (we don't have a way to check the backend will be actually freed).
-    GRefPtr<WebKitWebView> webView = adoptGRef(webkit_web_view_new(nullptr));
+    static struct wpe_view_backend_interface s_testingInterface = {
+        // create
+        [](void*, struct wpe_view_backend*) -> void* { return nullptr; },
+        // destroy
+        [](void*) { },
+        // initialize
+        [](void*) { },
+        // get_renderer_host_fd
+        [](void*) -> int { return -1; }
+    };
+
+    // User provided backend with default deleter (we don't have a way to check the backend will be actually freed).
+    GRefPtr<WebKitWebView> webView = adoptGRef(webkit_web_view_new(webkit_web_view_backend_new(wpe_view_backend_create_with_backend_interface(&s_testingInterface, nullptr), nullptr, nullptr)));
     test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webView.get()));
     auto* viewBackend = webkit_web_view_get_backend(webView.get());
     g_assert(viewBackend);
@@ -119,17 +128,8 @@ static void testWebViewWebBackend(Test* test, gconstpointer)
     g_assert(wpeBackend);
     webView = nullptr;
 
-    // User provided backend with default deleter (we don't have a way to check the backend will be actually freed).
-    webView = adoptGRef(webkit_web_view_new(webkit_web_view_backend_new(wpe_view_backend_create(), nullptr, nullptr)));
-    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webView.get()));
-    viewBackend = webkit_web_view_get_backend(webView.get());
-    g_assert(viewBackend);
-    wpeBackend = webkit_web_view_backend_get_wpe_backend(viewBackend);
-    g_assert(wpeBackend);
-    webView = nullptr;
-
     // User provided backend with destroy notify.
-    wpeBackend = wpe_view_backend_create();
+    wpeBackend = wpe_view_backend_create_with_backend_interface(&s_testingInterface, nullptr);
     webView = adoptGRef(webkit_web_view_new(webkit_web_view_backend_new(wpeBackend, [](gpointer userData) {
         auto* backend = *static_cast<struct wpe_view_backend**>(userData);
         wpe_view_backend_destroy(backend);
@@ -156,7 +156,7 @@ static void testWebViewWebBackend(Test* test, gconstpointer)
 
         struct wpe_view_backend* backend;
     };
-    auto* owner = new BackendOwner(wpe_view_backend_create());
+    auto* owner = new BackendOwner(wpe_view_backend_create_with_backend_interface(&s_testingInterface, nullptr));
     g_assert(hasInstance);
     webView = adoptGRef(webkit_web_view_new(webkit_web_view_backend_new(owner->backend, [](gpointer userData) {
         delete static_cast<BackendOwner*>(userData);
@@ -287,54 +287,64 @@ static void testWebViewRunJavaScript(WebViewTest* test, gconstpointer)
     GUniqueOutPtr<GError> error;
     WebKitJavascriptResult* javascriptResult = test->runJavaScriptAndWaitUntilFinished("window.document.getElementById('WebKitLink').title;", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     GUniquePtr<char> valueString(WebViewTest::javascriptResultToCString(javascriptResult));
     g_assert_cmpstr(valueString.get(), ==, "WebKitGTK+ Title");
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("window.document.getElementById('WebKitLink').href;", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     valueString.reset(WebViewTest::javascriptResultToCString(javascriptResult));
     g_assert_cmpstr(valueString.get(), ==, "http://www.webkitgtk.org/");
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("window.document.getElementById('WebKitLink').textContent", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     valueString.reset(WebViewTest::javascriptResultToCString(javascriptResult));
     g_assert_cmpstr(valueString.get(), ==, "WebKitGTK+ Website");
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("a = 25;", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     g_assert_cmpfloat(WebViewTest::javascriptResultToNumber(javascriptResult), ==, 25);
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("a = 2.5;", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     g_assert_cmpfloat(WebViewTest::javascriptResultToNumber(javascriptResult), ==, 2.5);
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("a = true", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     g_assert(WebViewTest::javascriptResultToBoolean(javascriptResult));
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("a = false", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     g_assert(!WebViewTest::javascriptResultToBoolean(javascriptResult));
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("a = null", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     g_assert(WebViewTest::javascriptResultIsNull(javascriptResult));
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("function Foo() { a = 25; } Foo();", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     g_assert(WebViewTest::javascriptResultIsUndefined(javascriptResult));
 
     javascriptResult = test->runJavaScriptFromGResourceAndWaitUntilFinished("/org/webkit/glib/tests/link-title.js", &error.outPtr());
     g_assert(javascriptResult);
+    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webkit_javascript_result_get_js_value(javascriptResult)));
     g_assert(!error.get());
     valueString.reset(WebViewTest::javascriptResultToCString(javascriptResult));
     g_assert_cmpstr(valueString.get(), ==, "WebKitGTK+ Title");

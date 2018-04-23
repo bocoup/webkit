@@ -274,10 +274,11 @@ WebCore::FloatRect WebPageProxy::computeCustomFixedPositionRect(const FloatRect&
     if (!visualViewportEnabled)
         return FrameView::rectForViewportConstrainedObjects(enclosingLayoutRect(constrainedUnobscuredRect), LayoutSize(documentRect.size()), displayedContentScale, false, StickToViewportBounds);
         
-    FloatSize constainedSize = isBelowMinimumScale ? constrainedUnobscuredRect.size() : unobscuredContentRect.size();
+    FloatSize constrainedSize = isBelowMinimumScale ? constrainedUnobscuredRect.size() : unobscuredContentRect.size();
     FloatRect unobscuredContentRectForViewport = isBelowMinimumScale ? constrainedUnobscuredRect : unobscuredContentRectRespectingInputViewBounds;
 
-    FloatRect layoutViewportRect = FrameView::computeUpdatedLayoutViewportRect(LayoutRect(currentCustomFixedPositionRect), LayoutRect(documentRect), LayoutSize(constainedSize), LayoutRect(unobscuredContentRectForViewport), m_baseLayoutViewportSize, m_minStableLayoutViewportOrigin, m_maxStableLayoutViewportOrigin, constraint);
+    auto layoutViewportSize = FrameView::expandedLayoutViewportSize(m_baseLayoutViewportSize, LayoutSize(documentRect.size()), m_preferences->layoutViewportHeightExpansionFactor());
+    FloatRect layoutViewportRect = FrameView::computeUpdatedLayoutViewportRect(LayoutRect(currentCustomFixedPositionRect), LayoutRect(documentRect), LayoutSize(constrainedSize), LayoutRect(unobscuredContentRectForViewport), layoutViewportSize, m_minStableLayoutViewportOrigin, m_maxStableLayoutViewportOrigin, constraint);
     
     if (layoutViewportRect != currentCustomFixedPositionRect)
         LOG_WITH_STREAM(VisibleRects, stream << "WebPageProxy::computeCustomFixedPositionRect: new layout viewport  " << layoutViewportRect);
@@ -304,7 +305,7 @@ void WebPageProxy::overflowScrollDidEndScroll()
     m_pageClient.overflowScrollDidEndScroll();
 }
 
-void WebPageProxy::dynamicViewportSizeUpdate(const FloatSize& minimumLayoutSize, const WebCore::FloatSize& maximumUnobscuredSize, const FloatRect& targetExposedContentRect, const FloatRect& targetUnobscuredRect, const FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& unobscuredSafeAreaInsets, double targetScale, int32_t deviceOrientation)
+void WebPageProxy::dynamicViewportSizeUpdate(const FloatSize& minimumLayoutSize, const FloatSize& viewSize, const WebCore::FloatSize& maximumUnobscuredSize, const FloatRect& targetExposedContentRect, const FloatRect& targetUnobscuredRect, const FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& unobscuredSafeAreaInsets, double targetScale, int32_t deviceOrientation)
 {
     if (!isValid())
         return;
@@ -313,7 +314,7 @@ void WebPageProxy::dynamicViewportSizeUpdate(const FloatSize& minimumLayoutSize,
 
     m_dynamicViewportSizeUpdateWaitingForTarget = true;
     m_dynamicViewportSizeUpdateWaitingForLayerTreeCommit = true;
-    m_process->send(Messages::WebPage::DynamicViewportSizeUpdate(minimumLayoutSize, maximumUnobscuredSize, targetExposedContentRect, targetUnobscuredRect, targetUnobscuredRectInScrollViewCoordinates, unobscuredSafeAreaInsets, targetScale, deviceOrientation, ++m_currentDynamicViewportSizeUpdateID), m_pageID);
+    m_process->send(Messages::WebPage::DynamicViewportSizeUpdate(minimumLayoutSize, viewSize, maximumUnobscuredSize, targetExposedContentRect, targetUnobscuredRect, targetUnobscuredRectInScrollViewCoordinates, unobscuredSafeAreaInsets, targetScale, deviceOrientation, ++m_currentDynamicViewportSizeUpdateID), m_pageID);
 }
 
 void WebPageProxy::synchronizeDynamicViewportUpdate()
@@ -353,12 +354,13 @@ void WebPageProxy::synchronizeDynamicViewportUpdate()
     m_dynamicViewportSizeUpdateWaitingForLayerTreeCommit = false;
 }
 
-void WebPageProxy::setViewportConfigurationMinimumLayoutSize(const WebCore::FloatSize& size)
+void WebPageProxy::setViewportConfigurationMinimumLayoutSize(const WebCore::FloatSize& size, const WebCore::FloatSize& viewSize)
 {
     m_viewportConfigurationMinimumLayoutSize = size;
+    m_viewportConfigurationViewSize = viewSize;
 
     if (isValid())
-        m_process->send(Messages::WebPage::SetViewportConfigurationMinimumLayoutSize(size), m_pageID);
+        m_process->send(Messages::WebPage::SetViewportConfigurationMinimumLayoutSize(size, viewSize), m_pageID);
 }
 
 void WebPageProxy::setForceAlwaysUserScalable(bool userScalable)
@@ -672,18 +674,6 @@ void WebPageProxy::saveImageToLibrary(const SharedMemory::Handle& imageHandle, u
     auto buffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryBuffer->data()), imageSize);
     m_pageClient.saveImageToLibrary(WTFMove(buffer));
 }
-    
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-void WebPageProxy::updateBlockSelectionWithTouch(const WebCore::IntPoint point, uint32_t touch, uint32_t handlePosition)
-{
-    m_process->send(Messages::WebPage::UpdateBlockSelectionWithTouch(point, touch, handlePosition), m_pageID);
-}
-    
-void WebPageProxy::didUpdateBlockSelectionWithTouch(uint32_t touch, uint32_t flags, float growThreshold, float shrinkThreshold)
-{
-    m_pageClient.didUpdateBlockSelectionWithTouch(touch, flags, growThreshold, shrinkThreshold);
-}
-#endif
 
 void WebPageProxy::applicationDidEnterBackground()
 {
@@ -898,7 +888,12 @@ FloatSize WebPageProxy::availableScreenSize()
 {
     return WebCore::availableScreenSize();
 }
-    
+
+FloatSize WebPageProxy::overrideScreenSize()
+{
+    return WebCore::overrideScreenSize();
+}
+
 float WebPageProxy::textAutosizingWidth()
 {
     return WebCore::screenSize().width();

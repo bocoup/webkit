@@ -34,16 +34,18 @@ from webkitpy.common.host import Host
 from webkitpy.common.net.bugzilla import Bugzilla
 from webkitpy.common.webkit_finder import WebKitFinder
 from webkitpy.w3c.wpt_github import WPTGitHub
+from webkitpy.w3c.wpt_linter import WPTLinter
 
 _log = logging.getLogger(__name__)
 
 WEBKIT_WPT_DIR = 'LayoutTests/imported/w3c/web-platform-tests'
 WPT_PR_URL = "https://github.com/w3c/web-platform-tests/pull/"
+WEBKIT_EXPORT_PR_LABEL = 'webkit-export'
 
 
 class TestExporter(object):
 
-    def __init__(self, host, options, gitClass=Git, bugzillaClass=Bugzilla, WPTGitHubClass=WPTGitHub):
+    def __init__(self, host, options, gitClass=Git, bugzillaClass=Bugzilla, WPTGitHubClass=WPTGitHub, WPTLinterClass=WPTLinter):
         self._host = host
         self._filesystem = host.filesystem
         self._options = options
@@ -63,6 +65,7 @@ class TestExporter(object):
             self._options.repository_directory = webkit_finder.path_from_webkit_base('WebKitBuild', 'w3c-tests', 'web-platform-tests')
 
         self._git = self._ensure_wpt_repository("https://github.com/w3c/web-platform-tests.git", self._options.repository_directory, gitClass)
+        self._linter = WPTLinterClass(self._options.repository_directory, host.filesystem)
 
         self._username = options.username
         if not self._username:
@@ -153,7 +156,7 @@ class TestExporter(object):
             self._git.delete_branch(self._branch_name)
             self._git.checkout_new_branch(self._branch_name)
         try:
-            self._git.apply_mail_patch([patch, '--exclude', '*-expected.txt'])
+            self._git.apply_mail_patch([patch, '--exclude', '*-expected.txt', '--exclude', '*.worker.html', '--exclude', '*.any.html', '--exclude', '*.any.worker.html'])
         except Exception as e:
             _log.warning(e)
             self._git.apply_mail_patch(['--abort'])
@@ -177,9 +180,27 @@ class TestExporter(object):
 
         _log.info('Making pull request')
         description = self._bugzilla.fetch_bug_dictionary(self._bug_id)["title"]
-        pr_number = self._github.create_pr(self._wpt_fork_remote + ':' + self._branch_name, self._commit_message, self._commit_message + "\n" + description)
-        if self._bug_id:
+        pr_number = self.create_wpt_pull_request(self._wpt_fork_remote + ':' + self._public_branch_name, self._commit_message, self._commit_message + "\n" + description)
+        if pr_number:
+            try:
+                self._github.add_label(pr_number, WEBKIT_EXPORT_PR_LABEL)
+            except Exception as e:
+                _log.warning(e)
+                _log.info('Could not add label "%s" to pr #%s. User "%s" may not have permission to update labels in the w3c/web-platform-test repo.' % (WEBKIT_EXPORT_PR_LABEL, pr_number, self._username))
+        if self._bug_id and pr_number:
             self._bugzilla.post_comment_to_bug(self._bug_id, "Submitted web-platform-tests pull request: " + WPT_PR_URL + str(pr_number))
+
+    def create_wpt_pull_request(self, remote_branch_name, title, body):
+        pr_number = None
+        try:
+            pr_number = self._github.create_pr(remote_branch_name, title, body)
+        except Exception as e:
+            if e.code == 422:
+                _log.info('Unable to create a new pull request for branch "%s" because a pull request already exists. The branch has been updated and there is no further action needed.' % (remote_branch_name))
+            else:
+                _log.warning(e)
+                _log.info('Error creating a pull request on github. Please ensure that the provided github token has the "public_repo" scope.')
+        return pr_number
 
     def delete_local_branch(self):
         _log.info('Removing branch ' + self._branch_name)
@@ -221,6 +242,13 @@ class TestExporter(object):
         if git_patch_file:
             self._filesystem.remove(git_patch_file)
 
+        lint_errors = self._linter.lint()
+        if lint_errors:
+            _log.error("The wpt linter detected %s linting error(s). Please address the above errors before attempting to export changes to the web-platform-test repository." % (lint_errors,))
+            self.delete_local_branch()
+            self.clean()
+            return
+
         try:
             if self.push_to_wpt_fork():
                 if self._options.create_pull_request:
@@ -246,7 +274,6 @@ def parse_args(args):
     - As a dry run, one can start by running the script without -c. This will only create the branch on the user public GitHub repository.
     - By default, the script will create an https remote URL that will require a password-based authentication to GitHub. If you are using an SSH key, please use the --remote-url option.
     FIXME:
-    - Add a label on github issues
     - The script is not yet able to update an existing pull request
     - Need a way to monitor the progress of the pul request so that status of all pending pull requests can be done at import time.
     """
@@ -277,7 +304,7 @@ def configure_logging():
                 return "%s: %s" % (record.levelname, record.getMessage())
             return record.getMessage()
 
-    logger = logging.getLogger()
+    logger = logging.getLogger('webkitpy.w3c.test_exporter')
     logger.setLevel(logging.INFO)
     handler = LogHandler()
     handler.setLevel(logging.INFO)

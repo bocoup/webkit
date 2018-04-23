@@ -131,7 +131,6 @@
 #include "MarkedSpaceInlines.h"
 #include "MathObject.h"
 #include "Microtask.h"
-#include "ModuleLoaderPrototype.h"
 #include "NativeErrorConstructor.h"
 #include "NativeErrorPrototype.h"
 #include "NullGetterFunction.h"
@@ -183,6 +182,11 @@
 #if ENABLE(REMOTE_INSPECTOR)
 #include "JSGlobalObjectDebuggable.h"
 #include "JSGlobalObjectInspectorController.h"
+#endif
+
+#ifdef JSC_GLIB_API_ENABLED
+#include "JSCCallbackFunction.h"
+#include "JSCWrapperMap.h"
 #endif
 
 namespace JSC {
@@ -327,14 +331,14 @@ static EncodedJSValue JSC_HOST_CALL enqueueJob(ExecState* exec)
 
     JSValue job = exec->argument(0);
     JSValue arguments = exec->argument(1);
-    ASSERT(arguments.inherits(vm, JSArray::info()));
+    ASSERT(arguments.inherits<JSArray>(vm));
 
     globalObject->queueMicrotask(createJSJob(vm, job, jsCast<JSArray*>(arguments)));
 
     return JSValue::encode(jsUndefined());
 }
 
-JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectMethodTable* globalObjectMethodTable, RefPtr<ThreadLocalCache> threadLocalCache)
+JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectMethodTable* globalObjectMethodTable)
     : Base(vm, structure, 0)
     , m_vm(vm)
     , m_masqueradesAsUndefinedWatchpoint(adoptRef(new WatchpointSet(IsWatched)))
@@ -351,7 +355,6 @@ JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectM
     , m_numberToStringWatchpoint(IsWatched)
     , m_runtimeFlags()
     , m_globalObjectMethodTable(globalObjectMethodTable ? globalObjectMethodTable : &s_globalObjectMethodTable)
-    , m_threadLocalCache(threadLocalCache ? WTFMove(threadLocalCache) : vm.defaultThreadLocalCache)
 {
 }
 
@@ -567,7 +570,16 @@ void JSGlobalObject::init(VM& vm)
             init.set(JSCallbackObject<JSAPIWrapperObject>::createStructure(init.vm, init.owner, init.owner->m_objectPrototype.get()));
         });
 #endif
-    
+#ifdef JSC_GLIB_API_ENABLED
+    m_glibCallbackFunctionStructure.initLater(
+        [] (const Initializer<Structure>& init) {
+            init.set(JSCCallbackFunction::createStructure(init.vm, init.owner, init.owner->m_functionPrototype.get()));
+        });
+    m_glibWrapperObjectStructure.initLater(
+        [] (const Initializer<Structure>& init) {
+            init.set(JSCallbackObject<JSAPIWrapperObject>::createStructure(init.vm, init.owner, init.owner->m_objectPrototype.get()));
+        });
+#endif
     m_arrayPrototype.set(vm, this, ArrayPrototype::create(vm, this, ArrayPrototype::createStructure(vm, this, m_objectPrototype.get())));
     
     m_originalArrayStructureForIndexingShape[UndecidedShape >> IndexingShapeShift].set(vm, this, JSArray::createStructure(vm, this, m_arrayPrototype.get(), ArrayWithUndecided));
@@ -636,8 +648,6 @@ m_ ## properName ## Structure.set(vm, this, instanceType::createStructure(vm, th
     FOR_EACH_LAZY_BUILTIN_TYPE(CREATE_PROTOTYPE_FOR_LAZY_TYPE)
     
 #undef CREATE_PROTOTYPE_FOR_LAZY_TYPE
-    
-    m_moduleLoaderPrototype.set(vm, this, ModuleLoaderPrototype::create(vm, this, ModuleLoaderPrototype::createStructure(vm, this, m_objectPrototype.get())));
     
     // Constructors
 
@@ -766,12 +776,12 @@ putDirectWithoutTransition(vm, vm.propertyNames-> jsName, lowerName ## Construct
     ReflectObject* reflectObject = ReflectObject::create(vm, this, ReflectObject::createStructure(vm, this, m_objectPrototype.get()));
     putDirectWithoutTransition(vm, vm.propertyNames->Reflect, reflectObject, static_cast<unsigned>(PropertyAttribute::DontEnum));
 
-    m_moduleLoaderStructure.set(vm, this, JSModuleLoader::createStructure(vm, this, m_moduleLoaderPrototype.get()));
-    m_moduleLoader.set(vm, this, JSModuleLoader::create(globalExec(), vm, this, m_moduleLoaderStructure.get()));
+    m_moduleLoader.set(vm, this, JSModuleLoader::create(globalExec(), vm, this, JSModuleLoader::createStructure(vm, this, jsNull())));
     if (Options::exposeInternalModuleLoader())
         putDirectWithoutTransition(vm, vm.propertyNames->Loader, m_moduleLoader.get(), static_cast<unsigned>(PropertyAttribute::DontEnum));
 
     JSFunction* builtinLog = JSFunction::create(vm, this, 1, vm.propertyNames->emptyIdentifier.string(), globalFuncBuiltinLog);
+    JSFunction* builtinDescribe = JSFunction::create(vm, this, 1, vm.propertyNames->emptyIdentifier.string(), globalFuncBuiltinDescribe);
 
     JSFunction* privateFuncAbs = JSFunction::create(vm, this, 0, String(), mathProtoFuncAbs, AbsIntrinsic);
     JSFunction* privateFuncFloor = JSFunction::create(vm, this, 0, String(), mathProtoFuncFloor, FloorIntrinsic);
@@ -862,6 +872,7 @@ putDirectWithoutTransition(vm, vm.propertyNames-> jsName, lowerName ## Construct
         GlobalPropertyInfo(vm.propertyNames->builtinNames().hasInstanceBoundFunctionPrivateName(), privateFuncHasInstanceBoundFunction, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         GlobalPropertyInfo(vm.propertyNames->builtinNames().instanceOfPrivateName(), privateFuncInstanceOf, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         GlobalPropertyInfo(vm.propertyNames->builtinNames().BuiltinLogPrivateName(), builtinLog, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        GlobalPropertyInfo(vm.propertyNames->builtinNames().BuiltinDescribePrivateName(), builtinDescribe, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         GlobalPropertyInfo(vm.propertyNames->builtinNames().NumberPrivateName(), numberConstructor, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         GlobalPropertyInfo(vm.propertyNames->builtinNames().RegExpPrivateName(), m_regExpConstructor.get(), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         GlobalPropertyInfo(vm.propertyNames->builtinNames().StringPrivateName(), stringConstructor, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
@@ -1170,10 +1181,15 @@ ObjectsWithBrokenIndexingFinder::ObjectsWithBrokenIndexingFinder(
 {
 }
 
+inline bool hasBrokenIndexing(IndexingType type)
+{
+    return type && !hasSlowPutArrayStorage(type);
+}
+
 inline bool hasBrokenIndexing(JSObject* object)
 {
     IndexingType type = object->indexingType();
-    return type && !hasSlowPutArrayStorage(type);
+    return hasBrokenIndexing(type);
 }
 
 inline void ObjectsWithBrokenIndexingFinder::visit(JSCell* cell)
@@ -1181,32 +1197,48 @@ inline void ObjectsWithBrokenIndexingFinder::visit(JSCell* cell)
     if (!cell->isObject())
         return;
     
+    VM& vm = m_globalObject->vm();
+
+    // We only want to have a bad time in the affected global object, not in the entire
+    // VM. But we have to be careful, since there may be objects that claim to belong to
+    // a different global object that have prototypes from our global object.
+    auto isInEffectedGlobalObject = [&] (JSObject* object) {
+        for (JSObject* current = object; ;) {
+            if (current->globalObject() == m_globalObject)
+                return true;
+            
+            JSValue prototypeValue = current->getPrototypeDirect(vm);
+            if (prototypeValue.isNull())
+                return false;
+            current = asObject(prototypeValue);
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    };
+
     JSObject* object = asObject(cell);
+
+    if (JSFunction* function = jsDynamicCast<JSFunction*>(vm, object)) {
+        if (FunctionRareData* rareData = function->rareData()) {
+            // We only use this to cache JSFinalObjects. They do not start off with a broken indexing type.
+            ASSERT(!(rareData->objectAllocationStructure() && hasBrokenIndexing(rareData->objectAllocationStructure()->indexingType())));
+
+            if (Structure* structure = rareData->internalFunctionAllocationStructure()) {
+                if (hasBrokenIndexing(structure->indexingType())) {
+                    bool isRelevantGlobalObject = (structure->globalObject() == m_globalObject)
+                        || (structure->hasMonoProto() && !structure->storedPrototype().isNull() && isInEffectedGlobalObject(asObject(structure->storedPrototype())));
+                    if (isRelevantGlobalObject)
+                        rareData->clearInternalFunctionAllocationProfile();
+                }
+            }
+        }
+    }
 
     // Run this filter first, since it's cheap, and ought to filter out a lot of objects.
     if (!hasBrokenIndexing(object))
         return;
     
-    // We only want to have a bad time in the affected global object, not in the entire
-    // VM. But we have to be careful, since there may be objects that claim to belong to
-    // a different global object that have prototypes from our global object.
-    bool foundGlobalObject = false;
-    VM& vm = m_globalObject->vm();
-    for (JSObject* current = object; ;) {
-        if (current->globalObject() == m_globalObject) {
-            foundGlobalObject = true;
-            break;
-        }
-        
-        JSValue prototypeValue = current->getPrototypeDirect(vm);
-        if (prototypeValue.isNull())
-            break;
-        current = asObject(prototypeValue);
-    }
-    if (!foundGlobalObject)
-        return;
-    
-    m_foundObjects.append(object);
+    if (isInEffectedGlobalObject(object))
+        m_foundObjects.append(object);
 }
 
 IterationStatus ObjectsWithBrokenIndexingFinder::operator()(HeapCell* cell, HeapCell::Kind kind) const
@@ -1227,7 +1259,9 @@ void JSGlobalObject::haveABadTime(VM& vm)
     
     if (isHavingABadTime())
         return;
-    
+
+    vm.structureCache.clear(); // We may be caching array structures in here.
+
     // Make sure that all allocations or indexed storage transitions that are inlining
     // the assumption that it's safe to transition to a non-SlowPut array storage don't
     // do so anymore.
@@ -1336,7 +1370,6 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.append(thisObject->m_asyncGeneratorPrototype);
     visitor.append(thisObject->m_asyncIteratorPrototype);
     visitor.append(thisObject->m_asyncGeneratorFunctionPrototype);
-    visitor.append(thisObject->m_moduleLoaderPrototype);
 
     thisObject->m_debuggerScopeStructure.visit(visitor);
     thisObject->m_withScopeStructure.visit(visitor);
@@ -1357,6 +1390,10 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 #if JSC_OBJC_API_ENABLED
     thisObject->m_objcCallbackFunctionStructure.visit(visitor);
     thisObject->m_objcWrapperObjectStructure.visit(visitor);
+#endif
+#ifdef JSC_GLIB_API_ENABLED
+    thisObject->m_glibCallbackFunctionStructure.visit(visitor);
+    thisObject->m_glibWrapperObjectStructure.visit(visitor);
 #endif
     thisObject->m_nullPrototypeObjectStructure.visit(visitor);
     visitor.append(thisObject->m_errorStructure);
@@ -1383,7 +1420,6 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
     visitor.append(thisObject->m_proxyObjectStructure);
     visitor.append(thisObject->m_callableProxyObjectStructure);
     visitor.append(thisObject->m_proxyRevokeStructure);
-    visitor.append(thisObject->m_moduleLoaderStructure);
     
     visitor.append(thisObject->m_arrayBufferPrototype);
     visitor.append(thisObject->m_arrayBufferStructure);
@@ -1576,6 +1612,7 @@ void JSGlobalObject::finishCreation(VM& vm)
     m_runtimeFlags = m_globalObjectMethodTable->javaScriptRuntimeFlags(this);
     init(vm);
     setGlobalThis(vm, JSProxy::create(vm, JSProxy::createStructure(vm, this, getPrototypeDirect(vm), PureForwardingProxyType), this));
+    ASSERT(type() == GlobalObjectType);
 }
 
 void JSGlobalObject::finishCreation(VM& vm, JSObject* thisValue)
@@ -1585,6 +1622,14 @@ void JSGlobalObject::finishCreation(VM& vm, JSObject* thisValue)
     m_runtimeFlags = m_globalObjectMethodTable->javaScriptRuntimeFlags(this);
     init(vm);
     setGlobalThis(vm, thisValue);
+    ASSERT(type() == GlobalObjectType);
 }
+
+#ifdef JSC_GLIB_API_ENABLED
+void JSGlobalObject::setWrapperMap(std::unique_ptr<WrapperMap>&& map)
+{
+    m_wrapperMap = WTFMove(map);
+}
+#endif
 
 } // namespace JSC

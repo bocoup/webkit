@@ -70,7 +70,9 @@ void AssistedNodeInformation::encode(IPC::Encoder& encoder) const
     encoder << maximumScaleFactorIgnoringAlwaysScalable;
     encoder << nodeFontSize;
     encoder << hasNextNode;
+    encoder << nextNodeRect;
     encoder << hasPreviousNode;
+    encoder << previousNodeRect;
     encoder << isAutocorrect;
     encoder << isRTL;
     encoder.encodeEnum(autocapitalizeType);
@@ -89,6 +91,8 @@ void AssistedNodeInformation::encode(IPC::Encoder& encoder) const
     encoder << acceptsAutofilledLoginCredentials;
     encoder << representingPageURL;
     encoder.encodeEnum(autofillFieldName);
+    encoder << placeholder;
+    encoder << label;
     encoder << assistedNodeIdentifier;
 }
 
@@ -115,7 +119,13 @@ bool AssistedNodeInformation::decode(IPC::Decoder& decoder, AssistedNodeInformat
     if (!decoder.decode(result.hasNextNode))
         return false;
 
+    if (!decoder.decode(result.nextNodeRect))
+        return false;
+
     if (!decoder.decode(result.hasPreviousNode))
+        return false;
+
+    if (!decoder.decode(result.previousNodeRect))
         return false;
 
     if (!decoder.decode(result.isAutocorrect))
@@ -170,6 +180,12 @@ bool AssistedNodeInformation::decode(IPC::Decoder& decoder, AssistedNodeInformat
         return false;
 
     if (!decoder.decodeEnum(result.autofillFieldName))
+        return false;
+
+    if (!decoder.decode(result.placeholder))
+        return false;
+
+    if (!decoder.decode(result.label))
         return false;
 
     if (!decoder.decode(result.assistedNodeIdentifier))

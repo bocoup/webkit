@@ -399,12 +399,16 @@ void AccessCase::generateWithGuard(
                 CCallHelpers::Address(baseGPR, JSCell::typeInfoTypeOffset()),
                 CCallHelpers::TrustedImm32(ScopedArgumentsType)));
 
+        jit.loadPtr(
+            CCallHelpers::Address(baseGPR, ScopedArguments::offsetOfStorage()),
+            scratchGPR);
+        jit.xorPtr(CCallHelpers::TrustedImmPtr(ScopedArgumentsPoison::key()), scratchGPR);
         fallThrough.append(
             jit.branchTest8(
                 CCallHelpers::NonZero,
-                CCallHelpers::Address(baseGPR, ScopedArguments::offsetOfOverrodeThings())));
+                CCallHelpers::Address(scratchGPR, ScopedArguments::offsetOfOverrodeThingsInStorage())));
         jit.load32(
-            CCallHelpers::Address(baseGPR, ScopedArguments::offsetOfTotalLength()),
+            CCallHelpers::Address(scratchGPR, ScopedArguments::offsetOfTotalLengthInStorage()),
             valueRegs.payloadGPR());
         jit.boxInt32(valueRegs.payloadGPR(), valueRegs);
         state.succeed();
@@ -782,7 +786,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
 
             CCallHelpers::Jump slowCase = jit.branchPtrWithPatch(
                 CCallHelpers::NotEqual, loadedValueGPR, addressOfLinkFunctionCheck,
-                CCallHelpers::TrustedImmPtr(0));
+                CCallHelpers::TrustedImmPtr(nullptr));
 
             fastPathCall = jit.nearCall();
             if (m_type == Getter)
@@ -814,13 +818,13 @@ void AccessCase::generateImpl(AccessGenerationState& state)
 
             jit.addLinkTask([=, &vm] (LinkBuffer& linkBuffer) {
                 this->as<GetterSetterAccessCase>().callLinkInfo()->setCallLocations(
-                    CodeLocationLabel(linkBuffer.locationOfNearCall(slowPathCall)),
-                    CodeLocationLabel(linkBuffer.locationOf(addressOfLinkFunctionCheck)),
-                    linkBuffer.locationOfNearCall(fastPathCall));
+                    CodeLocationLabel<JSInternalPtrTag>(linkBuffer.locationOfNearCall<JSInternalPtrTag>(slowPathCall)),
+                    CodeLocationLabel<JSInternalPtrTag>(linkBuffer.locationOf<JSInternalPtrTag>(addressOfLinkFunctionCheck)),
+                    linkBuffer.locationOfNearCall<JSInternalPtrTag>(fastPathCall));
 
                 linkBuffer.link(
                     slowPathCall,
-                    CodeLocationLabel(vm.getCTIStub(linkCallThunkGenerator).code()));
+                    CodeLocationLabel<JITThunkPtrTag>(vm.getCTIStub(linkCallThunkGenerator).code()));
             });
         } else {
             ASSERT(m_type == CustomValueGetter || m_type == CustomAccessorGetter || m_type == CustomValueSetter || m_type == CustomAccessorSetter);
@@ -839,31 +843,20 @@ void AccessCase::generateImpl(AccessGenerationState& state)
             // FIXME: Remove this differences in custom values and custom accessors.
             // https://bugs.webkit.org/show_bug.cgi?id=158014
             GPRReg baseForCustom = m_type == CustomValueGetter || m_type == CustomValueSetter ? baseForAccessGPR : baseForCustomGetGPR; 
-#if USE(JSVALUE64)
             if (m_type == CustomValueGetter || m_type == CustomAccessorGetter) {
-                jit.setupArgumentsWithExecState(
-                    baseForCustom,
-                    CCallHelpers::TrustedImmPtr(ident.impl()));
-            } else
-                jit.setupArgumentsWithExecState(baseForCustom, valueRegs.gpr());
-#else
-            if (m_type == CustomValueGetter || m_type == CustomAccessorGetter) {
-                jit.setupArgumentsWithExecState(
-                    EABI_32BIT_DUMMY_ARG baseForCustom,
-                    CCallHelpers::TrustedImm32(JSValue::CellTag),
+                jit.setupArguments<PropertySlot::GetValueFunc>(
+                    CCallHelpers::CellValue(baseForCustom),
                     CCallHelpers::TrustedImmPtr(ident.impl()));
             } else {
-                jit.setupArgumentsWithExecState(
-                    EABI_32BIT_DUMMY_ARG baseForCustom,
-                    CCallHelpers::TrustedImm32(JSValue::CellTag),
-                    valueRegs.payloadGPR(), valueRegs.tagGPR());
+                jit.setupArguments<PutPropertySlot::PutValueFunc>(
+                    CCallHelpers::CellValue(baseForCustom),
+                    valueRegs);
             }
-#endif
             jit.storePtr(GPRInfo::callFrameRegister, &vm.topCallFrame);
 
-            operationCall = jit.call();
+            operationCall = jit.call(OperationPtrTag);
             jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                linkBuffer.link(operationCall, FunctionPtr(this->as<GetterSetterAccessCase>().m_customAccessor.opaque));
+                linkBuffer.link(operationCall, this->as<GetterSetterAccessCase>().m_customAccessor);
             });
 
             if (m_type == CustomValueGetter || m_type == CustomAccessorGetter)
@@ -987,7 +980,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
                 }
 
                 for (size_t offset = oldSize; offset < newSize; offset += sizeof(void*))
-                    jit.storePtr(CCallHelpers::TrustedImmPtr(0), CCallHelpers::Address(scratchGPR, -static_cast<ptrdiff_t>(offset + sizeof(JSValue) + sizeof(void*))));
+                    jit.storePtr(CCallHelpers::TrustedImmPtr(nullptr), CCallHelpers::Address(scratchGPR, -static_cast<ptrdiff_t>(offset + sizeof(JSValue) + sizeof(void*))));
             } else {
                 // Handle the case where we are allocating out-of-line using an operation.
                 RegisterSet extraRegistersToPreserve;
@@ -1003,25 +996,25 @@ void AccessCase::generateImpl(AccessGenerationState& state)
                 jit.makeSpaceOnStackForCCall();
                 
                 if (!reallocating) {
-                    jit.setupArgumentsWithExecState(baseGPR);
+                    jit.setupArguments<decltype(operationReallocateButterflyToHavePropertyStorageWithInitialCapacity)>(baseGPR);
                     
-                    CCallHelpers::Call operationCall = jit.call();
+                    CCallHelpers::Call operationCall = jit.call(OperationPtrTag);
                     jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
                         linkBuffer.link(
                             operationCall,
-                            FunctionPtr(operationReallocateButterflyToHavePropertyStorageWithInitialCapacity));
+                            FunctionPtr<OperationPtrTag>(operationReallocateButterflyToHavePropertyStorageWithInitialCapacity));
                     });
                 } else {
                     // Handle the case where we are reallocating (i.e. the old structure/butterfly
                     // already had out-of-line property storage).
-                    jit.setupArgumentsWithExecState(
+                    jit.setupArguments<decltype(operationReallocateButterflyToGrowPropertyStorage)>(
                         baseGPR, CCallHelpers::TrustedImm32(newSize / sizeof(JSValue)));
                     
-                    CCallHelpers::Call operationCall = jit.call();
+                    CCallHelpers::Call operationCall = jit.call(OperationPtrTag);
                     jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
                         linkBuffer.link(
                             operationCall,
-                            FunctionPtr(operationReallocateButterflyToGrowPropertyStorage));
+                            FunctionPtr<OperationPtrTag>(operationReallocateButterflyToGrowPropertyStorage));
                     });
                 }
                 

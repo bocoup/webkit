@@ -285,6 +285,8 @@ void WebPreferences::initializeDefaultSettings()
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitShowDebugBordersPreferenceKey), kCFBooleanFalse);
 
+    CFDictionaryAddValue(defaults, CFSTR(WebKitSpatialNavigationEnabledPreferenceKey), kCFBooleanFalse);
+
     CFDictionaryAddValue(defaults, CFSTR(WebKitDNSPrefetchingEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitHyperlinkAuditingEnabledPreferenceKey), kCFBooleanTrue);
@@ -532,9 +534,9 @@ void WebPreferences::copyWebKitPreferencesToCFPreferences(CFDictionaryRef dict)
     CFStringRef didRemoveDefaultsKey = CFSTR(WebKitDidMigrateDefaultSettingsFromSafari3BetaPreferenceKey);
     bool omitDefaults = !booleanValueForPreferencesValue(CFDictionaryGetValue(dict, didRemoveDefaultsKey));
 
-    auto keys = std::make_unique<CFTypeRef[]>(count);
-    auto values = std::make_unique<CFTypeRef[]>(count);
-    CFDictionaryGetKeysAndValues(dict, keys.get(), values.get());
+    Vector<CFTypeRef> keys(count);
+    Vector<CFTypeRef> values(count);
+    CFDictionaryGetKeysAndValues(dict, keys.data(), values.data());
 
     for (int i = 0; i < count; ++i) {
         if (!keys[i] || !values[i] || CFGetTypeID(keys[i]) != CFStringGetTypeID())
@@ -1728,6 +1730,20 @@ HRESULT WebPreferences::customDragCursorsEnabled(_Out_ BOOL* enabled)
     return S_OK;
 }
 
+HRESULT WebPreferences::spatialNavigationEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitSpatialNavigationEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setSpatialNavigationEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitSpatialNavigationEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
 HRESULT WebPreferences::setDNSPrefetchingEnabled(BOOL enabled)
 {
     setBoolValue(WebKitDNSPrefetchingEnabledPreferenceKey, enabled);
@@ -1999,6 +2015,20 @@ HRESULT WebPreferences::setCustomElementsEnabled(BOOL enabled)
     return S_OK;
 }
 
+HRESULT WebPreferences::menuItemElementEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitMenuItemElementEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setMenuItemElementEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitMenuItemElementEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
 HRESULT WebPreferences::setModernMediaControlsEnabled(BOOL enabled)
 {
     setBoolValue(WebKitModernMediaControlsEnabledPreferenceKey, enabled);
@@ -2010,6 +2040,20 @@ HRESULT WebPreferences::modernMediaControlsEnabled(_Out_ BOOL* enabled)
     if (!enabled)
         return E_POINTER;
     *enabled = boolValueForKey(WebKitModernMediaControlsEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitCSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setCSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitCSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabledPreferenceKey, enabled);
     return S_OK;
 }
 

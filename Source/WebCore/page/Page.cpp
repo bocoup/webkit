@@ -40,6 +40,7 @@
 #include "DiagnosticLoggingKeys.h"
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
+#include "DocumentTimeline.h"
 #include "DragController.h"
 #include "Editor.h"
 #include "EditorClient.h"
@@ -61,21 +62,23 @@
 #include "InspectorController.h"
 #include "InspectorInstrumentation.h"
 #include "LibWebRTCProvider.h"
+#include "LoaderStrategy.h"
 #include "Logging.h"
 #include "LowPowerModeNotifier.h"
-#include "MainFrame.h"
 #include "MediaCanStartListener.h"
 #include "Navigator.h"
-#include "NetworkStateNotifier.h"
 #include "PageCache.h"
 #include "PageConfiguration.h"
 #include "PageConsoleClient.h"
 #include "PageDebuggable.h"
 #include "PageGroup.h"
 #include "PageOverlayController.h"
+#include "PaymentCoordinator.h"
+#include "PerformanceLogging.h"
 #include "PerformanceLoggingClient.h"
 #include "PerformanceMonitor.h"
 #include "PlatformMediaSessionManager.h"
+#include "PlatformStrategies.h"
 #include "PlugInClient.h"
 #include "PluginData.h"
 #include "PluginInfoProvider.h"
@@ -93,6 +96,7 @@
 #include "SchemeRegistry.h"
 #include "ScriptController.h"
 #include "ScriptedAnimationController.h"
+#include "ScrollLatchingState.h"
 #include "ScrollingCoordinator.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
@@ -111,8 +115,8 @@
 #include "VisitedLinkStore.h"
 #include "VoidCallback.h"
 #include "WebGLStateTracker.h"
+#include "WheelEventDeltaFilter.h"
 #include "Widget.h"
-#include <wtf/CurrentTime.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/Base64.h>
@@ -121,6 +125,10 @@
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 #include "HTMLVideoElement.h"
 #include "MediaPlaybackTarget.h"
+#endif
+
+#if PLATFORM(MAC)
+#include "ServicesOverlayController.h"
 #endif
 
 #if ENABLE(MEDIA_SESSION)
@@ -204,7 +212,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_settings(Settings::create(this))
     , m_progress(std::make_unique<ProgressTracker>(*pageConfiguration.progressTrackerClient))
     , m_backForwardController(std::make_unique<BackForwardController>(*this, *WTFMove(pageConfiguration.backForwardClient)))
-    , m_mainFrame(MainFrame::create(*this, pageConfiguration))
+    , m_mainFrame(Frame::create(this, nullptr, pageConfiguration.loaderClientForMainFrame))
     , m_editorClient(WTFMove(pageConfiguration.editorClient))
     , m_plugInClient(pageConfiguration.plugInClient)
     , m_validationMessageClient(WTFMove(pageConfiguration.validationMessageClient))
@@ -234,6 +242,18 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_isUtilityPage(isUtilityPageChromeClient(chrome().client()))
     , m_performanceMonitor(isUtilityPage() ? nullptr : std::make_unique<PerformanceMonitor>(*this))
     , m_lowPowerModeNotifier(std::make_unique<LowPowerModeNotifier>([this](bool isLowPowerModeEnabled) { handleLowModePowerChange(isLowPowerModeEnabled); }))
+    , m_performanceLogging(std::make_unique<PerformanceLogging>(*this))
+#if PLATFORM(MAC) && (ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION))
+    , m_servicesOverlayController(std::make_unique<ServicesOverlayController>(*this))
+#endif
+    , m_recentWheelEventDeltaFilter(WheelEventDeltaFilter::create())
+    , m_pageOverlayController(std::make_unique<PageOverlayController>(*this))
+#if ENABLE(APPLE_PAY)
+    , m_paymentCoordinator(std::make_unique<PaymentCoordinator>(*pageConfiguration.paymentCoordinatorClient))
+#endif
+#if ENABLE(APPLICATION_MANIFEST)
+    , m_applicationManifest(pageConfiguration.applicationManifest)
+#endif
 {
     updateTimerThrottlingState();
 
@@ -244,7 +264,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
 
     static bool addedListener;
     if (!addedListener) {
-        NetworkStateNotifier::singleton().addListener(&networkStateChanged);
+        platformStrategies()->loaderStrategy()->addOnlineStateChangeListener(&networkStateChanged);
         addedListener = true;
     }
 
@@ -448,7 +468,7 @@ void Page::setOpenedByDOM()
     m_openedByDOM = true;
 }
 
-void Page::goToItem(HistoryItem& item, FrameLoadType type)
+void Page::goToItem(HistoryItem& item, FrameLoadType type, NavigationPolicyCheck navigationPolicyCheck)
 {
     // stopAllLoaders may end up running onload handlers, which could cause further history traversals that may lead to the passed in HistoryItem
     // being deref()-ed. Make sure we can still use it with HistoryController::goToItem later.
@@ -457,7 +477,7 @@ void Page::goToItem(HistoryItem& item, FrameLoadType type)
     if (m_mainFrame->loader().history().shouldStopLoadingForHistoryItem(item))
         m_mainFrame->loader().stopAllLoaders();
 
-    m_mainFrame->loader().history().goToItem(item, type);
+    m_mainFrame->loader().history().goToItem(item, type, navigationPolicyCheck);
 }
 
 void Page::setGroupName(const String& name)
@@ -895,7 +915,7 @@ void Page::setDeviceScaleFactor(float scaleFactor)
 
     GraphicsContext::updateDocumentMarkerResources();
 
-    mainFrame().pageOverlayController().didChangeDeviceScaleFactor();
+    pageOverlayController().didChangeDeviceScaleFactor();
 }
 
 void Page::setUserInterfaceLayoutDirection(UserInterfaceLayoutDirection userInterfaceLayoutDirection)
@@ -1120,7 +1140,13 @@ void Page::setIsVisuallyIdleInternal(bool isVisuallyIdle)
 void Page::handleLowModePowerChange(bool isLowPowerModeEnabled)
 {
     updateScriptedAnimationsThrottlingReason(*this, isLowPowerModeEnabled ? ThrottlingReasonOperation::Add : ThrottlingReasonOperation::Remove, ScriptedAnimationController::ThrottlingReason::LowPowerMode);
-    mainFrame().animation().updateThrottlingState();
+    if (RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled()) {
+        forEachDocument([&] (Document& document) {
+            if (auto timeline = document.existingTimeline())
+                timeline->updateThrottlingState();
+        });
+    } else
+        mainFrame().animation().updateThrottlingState();
     updateDOMTimerAlignmentInterval();
 }
 
@@ -1231,7 +1257,7 @@ void Page::setDebugger(JSC::Debugger* debugger)
     m_debugger = debugger;
 
     for (Frame* frame = &m_mainFrame.get(); frame; frame = frame->tree().traverseNext())
-        frame->script().attachDebugger(m_debugger);
+        frame->windowProxy().attachDebugger(m_debugger);
 }
 
 StorageNamespace* Page::sessionStorage(bool optionalCreate)
@@ -1611,8 +1637,14 @@ void Page::setIsVisibleInternal(bool isVisible)
         if (FrameView* view = mainFrame().view())
             view->show();
 
-        if (m_settings->hiddenPageCSSAnimationSuspensionEnabled())
-            mainFrame().animation().resumeAnimations();
+        if (m_settings->hiddenPageCSSAnimationSuspensionEnabled()) {
+            if (RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled()) {
+                forEachDocument([&] (Document& document) {
+                    document.timeline().resumeAnimations();
+                });
+            } else
+                mainFrame().animation().resumeAnimations();
+        }
 
         setSVGAnimationsState(*this, SVGAnimationsState::Resumed);
 
@@ -1625,8 +1657,14 @@ void Page::setIsVisibleInternal(bool isVisible)
     }
 
     if (!isVisible) {
-        if (m_settings->hiddenPageCSSAnimationSuspensionEnabled())
-            mainFrame().animation().suspendAnimations();
+        if (m_settings->hiddenPageCSSAnimationSuspensionEnabled()) {
+            if (RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled()) {
+                forEachDocument([&] (Document& document) {
+                    document.timeline().suspendAnimations();
+                });
+            } else
+                mainFrame().animation().suspendAnimations();
+        }
 
         setSVGAnimationsState(*this, SVGAnimationsState::Paused);
 
@@ -1972,10 +2010,19 @@ void Page::resetSeenMediaEngines()
 void Page::hiddenPageCSSAnimationSuspensionStateChanged()
 {
     if (!isVisible()) {
-        if (m_settings->hiddenPageCSSAnimationSuspensionEnabled())
-            mainFrame().animation().suspendAnimations();
-        else
-            mainFrame().animation().resumeAnimations();
+        if (RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled()) {
+            forEachDocument([&] (Document& document) {
+                if (m_settings->hiddenPageCSSAnimationSuspensionEnabled())
+                    document.timeline().suspendAnimations();
+                else
+                    document.timeline().resumeAnimations();
+            });
+        } else {
+            if (m_settings->hiddenPageCSSAnimationSuspensionEnabled())
+                mainFrame().animation().suspendAnimations();
+            else
+                mainFrame().animation().resumeAnimations();
+        }
     }
 }
 
@@ -2305,6 +2352,24 @@ void Page::setUnobscuredSafeAreaInsets(const FloatBoxExtent& insets)
     }
 }
 
+void Page::setFullscreenInsetTop(double inset)
+{
+    for (Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        if (!frame->document())
+            continue;
+        frame->document()->constantProperties().setFullscreenInsetTop(inset);
+    }
+}
+
+void Page::setFullscreenAutoHideDelay(double delay)
+{
+    for (Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        if (!frame->document())
+            continue;
+        frame->document()->constantProperties().setFullscreenAutoHideDelay(delay);
+    }
+}
+
 #if ENABLE(DATA_INTERACTION)
 
 bool Page::hasSelectionAtPosition(const FloatPoint& position) const
@@ -2387,5 +2452,51 @@ void Page::applicationDidBecomeActive()
         });
     });
 }
+
+#if PLATFORM(MAC)
+ScrollLatchingState* Page::latchingState()
+{
+    if (m_latchingState.isEmpty())
+        return nullptr;
+
+    return &m_latchingState.last();
+}
+
+void Page::pushNewLatchingState()
+{
+    m_latchingState.append(ScrollLatchingState());
+}
+
+void Page::resetLatchingState()
+{
+    m_latchingState.clear();
+}
+
+void Page::popLatchingState()
+{
+    m_latchingState.removeLast();
+}
+
+void Page::removeLatchingStateForTarget(Element& targetNode)
+{
+    if (m_latchingState.isEmpty())
+        return;
+
+    m_latchingState.removeAllMatching([&targetNode] (ScrollLatchingState& state) {
+        auto* wheelElement = state.wheelEventElement();
+        if (!wheelElement)
+            return false;
+
+        return targetNode.isEqualNode(wheelElement);
+    });
+}
+#endif // PLATFORM(MAC)
+
+#if ENABLE(APPLE_PAY)
+void Page::setPaymentCoordinator(std::unique_ptr<PaymentCoordinator>&& paymentCoordinator)
+{
+    m_paymentCoordinator = WTFMove(paymentCoordinator);
+}
+#endif
 
 } // namespace WebCore

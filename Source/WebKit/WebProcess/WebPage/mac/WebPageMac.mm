@@ -63,17 +63,17 @@
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/FocusController.h>
+#import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsContext.h>
+#import <WebCore/GraphicsContext3D.h>
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLPlugInImageElement.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/MIMETypeRegistry.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/NetworkStorageSession.h>
-#import <WebCore/NetworkingContext.h>
 #import <WebCore/NodeRenderStyle.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageOverlayController.h>
@@ -683,8 +683,9 @@ bool WebPage::platformHasLocalDataForURL(const WebCore::URL& url)
     NSMutableURLRequest* request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setValue:(NSString*)userAgent(url) forHTTPHeaderField:@"User-Agent"];
     NSCachedURLResponse *cachedResponse;
-    if (CFURLStorageSessionRef storageSession = corePage()->mainFrame().loader().networkingContext()->storageSession().platformSession())
-        cachedResponse = cachedResponseForRequest(storageSession, request);
+    auto* storageSession = NetworkStorageSession::storageSession(corePage()->sessionID());
+    if (CFURLStorageSessionRef platformSession = storageSession ? storageSession->platformSession() : nullptr)
+        cachedResponse = cachedResponseForRequest(platformSession, request);
     else
         cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
     [request release];
@@ -697,8 +698,9 @@ static NSCachedURLResponse *cachedResponseForURL(WebPage* webPage, const URL& ur
     RetainPtr<NSMutableURLRequest> request = adoptNS([[NSMutableURLRequest alloc] initWithURL:url]);
     [request setValue:(NSString *)webPage->userAgent(url) forHTTPHeaderField:@"User-Agent"];
 
-    if (CFURLStorageSessionRef storageSession = webPage->corePage()->mainFrame().loader().networkingContext()->storageSession().platformSession())
-        return cachedResponseForRequest(storageSession, request.get());
+    auto* storageSession = NetworkStorageSession::storageSession(webPage->corePage()->sessionID());
+    if (CFURLStorageSessionRef platformSession = storageSession ? storageSession->platformSession() : nullptr)
+        return cachedResponseForRequest(platformSession, request.get());
 
     return [[NSURLCache sharedURLCache] cachedResponseForRequest:request.get()];
 }
@@ -976,7 +978,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
 {
     layoutIfNeeded();
 
-    MainFrame& mainFrame = corePage()->mainFrame();
+    auto& mainFrame = corePage()->mainFrame();
     if (!mainFrame.view() || !mainFrame.view()->renderView()) {
         send(Messages::WebPageProxy::DidPerformImmediateActionHitTest(WebHitTestResultData(), false, UserData()));
         return;
@@ -1013,7 +1015,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
     }
 
     bool pageOverlayDidOverrideDataDetectors = false;
-    for (const auto& overlay : mainFrame.pageOverlayController().pageOverlays()) {
+    for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
         WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay);
         if (!webOverlay)
             continue;
@@ -1118,8 +1120,7 @@ void WebPage::immediateActionDidComplete()
 
 void WebPage::dataDetectorsDidPresentUI(PageOverlay::PageOverlayID overlayID)
 {
-    MainFrame& mainFrame = corePage()->mainFrame();
-    for (const auto& overlay : mainFrame.pageOverlayController().pageOverlays()) {
+    for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
         if (overlay->pageOverlayID() == overlayID) {
             if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
                 webOverlay->dataDetectorsDidPresentUI();
@@ -1130,8 +1131,7 @@ void WebPage::dataDetectorsDidPresentUI(PageOverlay::PageOverlayID overlayID)
 
 void WebPage::dataDetectorsDidChangeUI(PageOverlay::PageOverlayID overlayID)
 {
-    MainFrame& mainFrame = corePage()->mainFrame();
-    for (const auto& overlay : mainFrame.pageOverlayController().pageOverlays()) {
+    for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
         if (overlay->pageOverlayID() == overlayID) {
             if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
                 webOverlay->dataDetectorsDidChangeUI();
@@ -1142,12 +1142,12 @@ void WebPage::dataDetectorsDidChangeUI(PageOverlay::PageOverlayID overlayID)
 
 void WebPage::dataDetectorsDidHideUI(PageOverlay::PageOverlayID overlayID)
 {
-    MainFrame& mainFrame = corePage()->mainFrame();
+    auto& mainFrame = corePage()->mainFrame();
 
     // Dispatching a fake mouse event will allow clients to display any UI that is normally displayed on hover.
     mainFrame.eventHandler().dispatchFakeMouseMoveEventSoon();
 
-    for (const auto& overlay : mainFrame.pageOverlayController().pageOverlays()) {
+    for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
         if (overlay->pageOverlayID() == overlayID) {
             if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
                 webOverlay->dataDetectorsDidHideUI();
@@ -1189,6 +1189,12 @@ void WebPage::setShouldPlayToPlaybackTarget(uint64_t contextId, bool shouldPlay)
 }
 #endif
 
+#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+void WebPage::openGLDisplayMaskChanged(uint32_t displayMask)
+{
+    GraphicsContext3D::setOpenGLDisplayMask(displayMask);
+}
+#endif
 
 } // namespace WebKit
 

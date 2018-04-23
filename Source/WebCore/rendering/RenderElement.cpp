@@ -94,9 +94,6 @@ struct SameSizeAsRenderElement : public RenderObject {
 
 static_assert(sizeof(RenderElement) == sizeof(SameSizeAsRenderElement), "RenderElement should stay small");
 
-bool RenderElement::s_affectsParentBlock = false;
-bool RenderElement::s_noLongerAffectsParentBlock = false;
-    
 inline RenderElement::RenderElement(ContainerNode& elementOrDocument, RenderStyle&& style, BaseTypeFlags baseTypeFlags)
     : RenderObject(elementOrDocument)
     , m_baseTypeFlags(baseTypeFlags)
@@ -749,13 +746,6 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
             downcast<RenderBox>(*this).removeFloatingOrPositionedChildFromBlockLists();
         }
 
-        s_affectsParentBlock = isFloatingOrOutOfFlowPositioned()
-            && (!newStyle.isFloating() && !newStyle.hasOutOfFlowPosition())
-            && parent() && (parent()->isRenderBlockFlow() || parent()->isRenderInline());
-
-        s_noLongerAffectsParentBlock = ((!isFloating() && newStyle.isFloating()) || (!isOutOfFlowPositioned() && newStyle.hasOutOfFlowPosition()))
-            && parent() && parent()->isRenderBlock();
-
         // reset style flags
         if (diff == StyleDifferenceLayout || diff == StyleDifferenceLayoutPositionedMovementOnly) {
             setFloating(false);
@@ -769,9 +759,6 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         setHasOverflowClip(false);
         setHasTransformRelatedProperty(false);
         setHasReflection(false);
-    } else {
-        s_affectsParentBlock = false;
-        s_noLongerAffectsParentBlock = false;
     }
 
     bool newStyleSlowScroll = false;
@@ -812,18 +799,6 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     updateImage(oldStyle ? oldStyle->borderImage().image() : nullptr, m_style.borderImage().image());
     updateImage(oldStyle ? oldStyle->maskBoxImage().image() : nullptr, m_style.maskBoxImage().image());
     updateShapeImage(oldStyle ? oldStyle->shapeOutside() : nullptr, m_style.shapeOutside());
-
-    if (s_affectsParentBlock) {
-        // We have gone from not affecting the inline status of the parent flow to suddenly
-        // having an impact. See if there is a mismatch between the parent flow's
-        // childrenInline() state and our state.
-        setInline(style().isDisplayInlineType());
-        if (isInline() != parent()->childrenInline())
-            RenderTreeBuilder::current()->childFlowStateChangesAndAffectsParentBlock(*this);
-    }
-
-    if (s_noLongerAffectsParentBlock)
-        RenderTreeBuilder::current()->childFlowStateChangesAndNoLongerAffectsParentBlock(*this);
 
     SVGRenderSupport::styleChanged(*this, oldStyle);
 
@@ -1861,9 +1836,9 @@ void RenderElement::paintFocusRing(PaintInfo& paintInfo, const RenderStyle& styl
             for (auto rect : pixelSnappedFocusRingRects)
                 path.addRect(rect);
         }
-        paintInfo.context().drawFocusRing(path, page().focusController().timeSinceFocusWasSet(), needsRepaint);
+        paintInfo.context().drawFocusRing(path, page().focusController().timeSinceFocusWasSet().seconds(), needsRepaint);
     } else
-        paintInfo.context().drawFocusRing(pixelSnappedFocusRingRects, page().focusController().timeSinceFocusWasSet(), needsRepaint);
+        paintInfo.context().drawFocusRing(pixelSnappedFocusRingRects, page().focusController().timeSinceFocusWasSet().seconds(), needsRepaint);
     if (needsRepaint)
         page().focusController().setFocusedElementNeedsRepaint();
 #else

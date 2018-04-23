@@ -33,8 +33,8 @@
 
 #include "AcceleratedSurface.h"
 #include "WebPage.h"
+#include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
-#include <WebCore/MainFrame.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -224,7 +224,7 @@ void ThreadedCoordinatedLayerTreeHost::didChangeViewport()
     if (scrollbar && !scrollbar->isOverlayScrollbar())
         visibleRect.expand(0, scrollbar->height());
 
-    CoordinatedLayerTreeHost::setVisibleContentsRect(visibleRect, FloatPoint::zero());
+    CoordinatedLayerTreeHost::setVisibleContentsRect(visibleRect);
 
     float pageScale = m_viewportController.pageScaleFactor();
     IntPoint scrollPosition = roundedIntPoint(visibleRect.location());
@@ -246,11 +246,6 @@ void ThreadedCoordinatedLayerTreeHost::commitSceneState(const CoordinatedGraphic
 {
     CoordinatedLayerTreeHost::commitSceneState(state);
     m_compositor->updateSceneState(state);
-}
-
-void ThreadedCoordinatedLayerTreeHost::releaseUpdateAtlases(const Vector<uint32_t>& atlasesToRemove)
-{
-    m_compositor->releaseUpdateAtlases(atlasesToRemove);
 }
 
 void ThreadedCoordinatedLayerTreeHost::setIsDiscardable(bool discardable)

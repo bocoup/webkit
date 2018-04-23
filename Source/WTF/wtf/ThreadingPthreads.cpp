@@ -35,7 +35,6 @@
 #if USE(PTHREADS)
 
 #include <errno.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/DataLog.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RawPointer.h>
@@ -69,7 +68,7 @@
 
 namespace WTF {
 
-static StaticLock globalSuspendLock;
+static Lock globalSuspendLock;
 
 Thread::~Thread()
 {
@@ -157,12 +156,13 @@ void Thread::signalHandlerSuspendResume(int, siginfo_t*, void* ucontext)
         return;
     }
 
-    ucontext_t* userContext = static_cast<ucontext_t*>(ucontext);
     ASSERT_WITH_MESSAGE(!isOnAlternativeSignalStack(), "Using an alternative signal stack is not supported. Consider disabling the concurrent GC.");
 
 #if HAVE(MACHINE_CONTEXT)
+    ucontext_t* userContext = static_cast<ucontext_t*>(ucontext);
     thread->m_platformRegisters = &registersFromUContext(userContext);
 #else
+    UNUSED_PARAM(ucontext);
     PlatformRegisters platformRegisters { getApproximateStackPointer() };
     thread->m_platformRegisters = &platformRegisters;
 #endif

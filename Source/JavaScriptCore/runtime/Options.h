@@ -195,6 +195,8 @@ constexpr bool enableAsyncIteration = false;
     v(bool, reportFTLCompileTimes, false, Normal, "dumps JS function signature and the time it took to FTL compile") \
     v(bool, reportDFGPhaseTimes, false, Normal, "dumps JS function name and the time is took for each DFG phase") \
     v(bool, reportTotalCompileTimes, false, Normal, nullptr) \
+    v(bool, reportParseTimes, false, Normal, "dumps JS function signature and the time it took to parse") \
+    v(bool, reportBytecodeCompileTimes, false, Normal, "dumps JS function signature and the time it took to bytecode compile") \
     v(bool, verboseExitProfile, false, Normal, nullptr) \
     v(bool, verboseCFA, false, Normal, nullptr) \
     v(bool, verboseDFGFailure, false, Normal, nullptr) \
@@ -250,7 +252,7 @@ constexpr bool enableAsyncIteration = false;
     v(bool, b3AlwaysFailsBeforeLink, false, Normal, nullptr) \
     v(bool, ftlCrashes, false, Normal, nullptr) /* fool-proof way of checking that you ended up in the FTL. ;-) */\
     v(bool, clobberAllRegsInFTLICSlowPath, !ASSERT_DISABLED, Normal, nullptr) \
-    v(bool, enableJITDebugAssetions, !ASSERT_DISABLED, Normal, nullptr) \
+    v(bool, enableJITDebugAssertions, !ASSERT_DISABLED, Normal, nullptr) \
     v(bool, useAccessInlining, true, Normal, nullptr) \
     v(unsigned, maxAccessVariantListSize, 8, Normal, nullptr) \
     v(bool, usePolyvariantDevirtualization, true, Normal, nullptr) \
@@ -286,7 +288,7 @@ constexpr bool enableAsyncIteration = false;
     \
     v(unsigned, maximumOptimizationCandidateInstructionCount, 100000, Normal, nullptr) \
     \
-    v(unsigned, maximumFunctionForCallInlineCandidateInstructionCount, 180, Normal, nullptr) \
+    v(unsigned, maximumFunctionForCallInlineCandidateInstructionCount, 190, Normal, nullptr) \
     v(unsigned, maximumFunctionForClosureCallInlineCandidateInstructionCount, 100, Normal, nullptr) \
     v(unsigned, maximumFunctionForConstructInlineCandidateInstructionCount, 100, Normal, nullptr) \
     \
@@ -426,6 +428,7 @@ constexpr bool enableAsyncIteration = false;
     v(bool, airLinearScanSpillsEverything, false, Normal, nullptr) \
     v(bool, airForceBriggsAllocator, false, Normal, nullptr) \
     v(bool, airForceIRCAllocator, false, Normal, nullptr) \
+    v(bool, airRandomizeRegs, false, Normal, nullptr) \
     v(bool, coalesceSpillSlots, true, Normal, nullptr) \
     v(bool, logAirRegisterPressure, false, Normal, nullptr) \
     v(unsigned, maxB3TailDupBlockSize, 3, Normal, nullptr) \
@@ -452,9 +455,6 @@ constexpr bool enableAsyncIteration = false;
     \
     v(bool, useSuperSampler, false, Normal, nullptr) \
     \
-    v(bool, reportLLIntStats, false, Configurable, "Reports LLInt statistics") \
-    v(optionString, llintStatsFile, nullptr, Configurable, "File to collect LLInt statistics in") \
-    \
     v(bool, useSourceProviderCache, true, Normal, "If false, the parser will not use the source provider cache. It's good to verify everything works when this is false. Because the cache is so successful, it can mask bugs.") \
     v(bool, useCodeCache, true, Normal, "If false, the unlinked byte code cache will not be used.") \
     \
@@ -463,6 +463,7 @@ constexpr bool enableAsyncIteration = false;
     v(bool, enableSpectreMitigations, true, Restricted, "Enable Spectre mitigations.") \
     v(bool, enableSpectreGadgets, false, Restricted, "enable gadgets to test Spectre mitigations.") \
     v(bool, usePoisoning, true, Normal, "Poison is randomized at load time when true, and initialized to 0 if false which defeats some Spectre and type confusion mitigations, but allows tools such as leak detectors to function better.") \
+    v(bool, zeroStackFrame, false, Normal, "Zero stack frame on entry to a function.") \
     \
     v(bool, useAsyncIterator, enableAsyncIteration, Normal, "Allow to use Async Iterator in JS.") \
     \
@@ -637,7 +638,7 @@ private:
     static bool overrideAliasedOptionWithHeuristic(const char* name);
 
     // Declare the singleton instance of the options store:
-    JS_EXPORTDATA static Entry s_options[numberOfOptions];
+    JS_EXPORT_PRIVATE static Entry s_options[numberOfOptions];
     static Entry s_defaultOptions[numberOfOptions];
     static const EntryInfo s_optionsInfo[numberOfOptions];
 

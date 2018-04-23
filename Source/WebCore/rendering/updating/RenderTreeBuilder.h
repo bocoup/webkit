@@ -54,15 +54,15 @@ public:
 
     void updateAfterDescendants(RenderElement&);
     void destroyAndCleanUpAnonymousWrappers(RenderObject& child);
+    void normalizeTreeAfterStyleChange(RenderElement&, RenderStyle& oldStyle);
 
 #if ENABLE(FULLSCREEN_API)
     void createPlaceholderForFullScreen(RenderFullScreen&, std::unique_ptr<RenderStyle>, const LayoutRect&);
 #endif
 
+private:
     void childFlowStateChangesAndAffectsParentBlock(RenderElement& child);
     void childFlowStateChangesAndNoLongerAffectsParentBlock(RenderElement& child);
-
-private:
     void attachIgnoringContinuation(RenderElement& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
     void attachToRenderGrid(RenderGrid& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
     void attachToRenderElement(RenderElement& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
@@ -80,7 +80,7 @@ private:
     void moveAllChildren(RenderBoxModelObject& from, RenderBoxModelObject& to, NormalizeAfterInsertion);
     void moveAllChildren(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject* beforeChild, NormalizeAfterInsertion);
 
-    RenderObject* splitAnonymousBoxesAroundChild(RenderBox& parent, RenderObject* beforeChild);
+    RenderObject* splitAnonymousBoxesAroundChild(RenderBox& parent, RenderObject& originalBeforeChild);
     void makeChildrenNonInline(RenderBlock& parent, RenderObject* insertionPoint = nullptr);
     void removeAnonymousWrappersForInlineChildrenIfNeeded(RenderElement& parent);
 

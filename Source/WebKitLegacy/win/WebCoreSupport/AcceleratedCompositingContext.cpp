@@ -35,7 +35,6 @@
 #include <WebCore/FrameView.h>
 #include <WebCore/GraphicsLayerTextureMapper.h>
 #include <WebCore/HWndDC.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SystemInfo.h>
@@ -319,8 +318,7 @@ bool AcceleratedCompositingContext::acceleratedCompositingAvailable()
     IntRect targetRect(0, 0, width, height);
     IntPoint offset(0, 0);
     int bytesPerLine = width * 4;
-    BitmapTexture::UpdateContentsFlag flags = BitmapTexture::UpdateCanModifyOriginalImageData;
-    texture->updateContents(data, targetRect, offset, bytesPerLine, flags);
+    texture->updateContents(data, targetRect, offset, bytesPerLine);
 
     // Render texture.
     textureMapper->beginPainting();

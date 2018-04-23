@@ -1,4 +1,4 @@
-; Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+; Copyright (C) 2010-2018 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -78,10 +78,11 @@
        file-ioctl
     (literal "/dev/dtracehelper"))
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
 (allow network-outbound
     (literal "/private/var/run/asl_input")
     (literal "/private/var/run/syslog"))
-
+#endif
 
 ;;; Allow creation of core dumps.
 (allow file-write-create
@@ -140,27 +141,6 @@
         (iokit-property "ggcs")
         (iokit-property "bgcs")))))
 
-
-;;; (system-network) - Allow access to the network.
-(define (system-network)
-    (allow file-read*
-        (literal "/Library/Preferences/com.apple.networkd.plist"))
-    (allow mach-lookup
-        (global-name "com.apple.SystemConfiguration.PPPController")
-        (global-name "com.apple.SystemConfiguration.SCNetworkReachability")
-        (global-name "com.apple.nehelper")
-        (global-name "com.apple.networkd")
-        (global-name "com.apple.nsurlstorage-cache")
-        (global-name "com.apple.symptomsd")
-        (global-name "com.apple.usymptomsd"))
-    (allow network-outbound
-        (control-name "com.apple.netsrc")
-        (control-name "com.apple.network.statistics"))
-    (allow system-socket
-        (require-all (socket-domain AF_SYSTEM)
-        (socket-protocol 2)) ; SYSPROTO_CONTROL
-    (socket-domain AF_ROUTE)))
-
 ;;;
 ;;; End rules originally copied from 'system.sb'
 ;;;
@@ -218,6 +198,7 @@
     (iokit-property "CapsLockDelay")
     (iokit-property "ConfigState")
     (iokit-property "Description")
+    (iokit-property "Development")
     (iokit-property-regex #"^Device( Characteristics|EqID)")
     (iokit-property "DisplayRouting")
     (iokit-property "Driver is Ready")
@@ -262,7 +243,7 @@
     (iokit-property "IOI2CTransactionTypes")
     (iokit-property-regex #"^IOInterrupt(Controllers|Specifiers)")
     (iokit-property "IOGVAVTCapabilities")
-    (iokit-property-regex #"^IOGVA(Codec|EncoderRestricted)")
+    (iokit-property-regex #"^IOGVA(BGRAEnc|Codec|EncoderRestricted|Scaler)")
     (iokit-property-regex #"^IOGVA(.*)(De|En)code$")
     (iokit-property "IOMatchCategory")
     (iokit-property "IONDRVFramebufferGeneration")
@@ -271,7 +252,7 @@
     (iokit-property "IOPCITunnelled")
     (iokit-property "IOPMStrictTreeOrder")
     (iokit-property "IOParentMatch")
-    (iokit-property-regex #"^IOPCI(Express(Capabilities|Link(Status|Capabilities))|MSIMode|Resourced|Tunnelled)")
+    (iokit-property-regex #"^IOPCI(ClassMatch|Express(Capabilities|Link(Status|Capabilities))|PrimaryMatch|MSIMode|Resourced|Tunnelled)")
     (iokit-property "IOPMIsPowerManaged")
     (iokit-property-regex #"^IOPlatform(SerialNumber|UUID)")
     (iokit-property "IOPowerManagement")
@@ -309,6 +290,7 @@
     (iokit-property "SampleRates")
     (iokit-property "Serial Number")
     (iokit-property "StartupDisplay")
+    (iokit-property "SurfaceList")
     (iokit-property-regex #"^Support(AudioAUUC|sSilentClick|TapToWake)")
     (iokit-property-regex #"^Sensor (Columns|Rows)")
     (iokit-property-regex #"^Sensor Region (Descriptor|Param|Rows)")
@@ -317,6 +299,7 @@
     (iokit-property "TimeStampFiltering")
     (iokit-property "Transport")
     (iokit-property "UserClientEnabled")
+    (iokit-property "VRAM,totalMB")
     (iokit-property "WANTS_FRAMES_IGNORED")
     (iokit-property-regex #"^acpi-(device|path)")
     (iokit-property "assigned-addresses")
@@ -349,6 +332,25 @@
     (iokit-property "saved-config")
     (iokit-property "startup-timing")
     (iokit-property "touch-size-id")
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    (iokit-property "ATY,cbits")
+    (iokit-property "ATY,intrev")
+    (iokit-property "AccelNativeDMARowByteAlignment")
+    (iokit-property "CompactVRAM")
+    (iokit-property "EnableBlitLib")
+    (iokit-property "ForceDisableEDRAM")
+    (iokit-property "GPUConfigurationVariable")
+    (iokit-property "GpuDebugPolicy")
+    (iokit-property "IOKitDebug")
+    (iokit-property "IOPCIMatch")
+    (iokit-property "IOOCDBundleName")
+    (iokit-property "MetalStatisticsScriptName")
+    (iokit-property "MetalCoalesce")
+    (iokit-property "PanicOnGPUHang")
+    (iokit-property "TelemetryDisable")
+    (iokit-property "cail_properties")
+    (iokit-property "dpm")
+#endif
 )
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
@@ -455,6 +457,7 @@
         "com.apple.LaunchServices"
         "com.apple.MultitouchSupport" ;; FIXME: Remove when <rdar://problem/13011633> is fixed.
         "com.apple.ServicesMenu.Services" ;; Needed for NSAttributedString <rdar://problem/10844321>
+        "com.apple.ViewBridge" ;; Needed for Input elements.
         "com.apple.WebFoundation"
         "com.apple.avfoundation"
         "com.apple.avfoundation.frecents" ;; <rdar://problem/33137029>
@@ -588,7 +591,11 @@
        (global-name "com.apple.trustd")
        (global-name "com.apple.trustd.agent")
        (global-name "com.apple.window_proxies")
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+       (global-name "com.apple.CARenderServer") ; Needed for [CAContext remoteContextWithOptions]
+#else
        (global-name "com.apple.windowserver.active")
+#endif
        (global-name "com.apple.xpc.activity.unmanaged")
        (global-name "com.apple.xpcd")
 )
@@ -645,9 +652,13 @@
 (system-graphics)
 
 ;; Networking
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
 (system-network)
+#endif
 (allow network-outbound
        ;; Local mDNSResponder for DNS, arbitrary outbound TCP
+       ;; Note: This is needed for some media playback features. <rdar://problem/38191574>
+       ;; Remove this permission when <rdar://problem/38240572> is fixed.
        (literal "/private/var/run/mDNSResponder")
        (remote tcp))
 
@@ -662,8 +673,10 @@
        (global-name "com.apple.GSSCred")
        (global-name "com.apple.system.logger")
        (global-name "com.apple.system.notification_center"))
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
 (allow network-outbound
        (remote udp))
+#endif
 (allow user-preference-read
     (preference-domain
         "com.apple.Kerberos"

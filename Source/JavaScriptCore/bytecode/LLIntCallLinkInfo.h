@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #include "JSFunction.h"
 #include "MacroAssemblerCodeRef.h"
+#include "PtrTag.h"
 #include <wtf/SentinelLinkedList.h>
 
 namespace JSC {
@@ -49,14 +50,14 @@ struct LLIntCallLinkInfo : public BasicRawSentinelNode<LLIntCallLinkInfo> {
     void unlink()
     {
         callee.clear();
-        machineCodeTarget = MacroAssemblerCodePtr();
+        machineCodeTarget = MacroAssemblerCodePtr<JSEntryPtrTag>();
         if (isOnList())
             remove();
     }
     
     WriteBarrier<JSObject> callee;
     WriteBarrier<JSObject> lastSeenCallee;
-    MacroAssemblerCodePtr machineCodeTarget;
+    MacroAssemblerCodePtr<JSEntryPtrTag> machineCodeTarget;
 };
 
 } // namespace JSC

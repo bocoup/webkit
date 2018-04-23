@@ -73,6 +73,8 @@ public:
     WEBCORE_EXPORT static void ensureSession(PAL::SessionID, const String& identifierBase = String());
     WEBCORE_EXPORT static void destroySession(PAL::SessionID);
     WEBCORE_EXPORT static void forEach(const WTF::Function<void(const WebCore::NetworkStorageSession&)>&);
+    WEBCORE_EXPORT static void permitProcessToUseCookieAPI(bool);
+    WEBCORE_EXPORT static bool processMayUseCookieAPI();
 
     WEBCORE_EXPORT static void switchToNewTestingSession();
 
@@ -91,6 +93,7 @@ public:
 #if PLATFORM(COCOA) || USE(CFURLCONNECTION)
     WEBCORE_EXPORT static void ensureSession(PAL::SessionID, const String& identifierBase, RetainPtr<CFHTTPCookieStorageRef>&&);
     NetworkStorageSession(PAL::SessionID, RetainPtr<CFURLStorageSessionRef>&&, RetainPtr<CFHTTPCookieStorageRef>&&);
+    explicit NetworkStorageSession(PAL::SessionID);
 
     // May be null, in which case a Foundation default should be used.
     CFURLStorageSessionRef platformSession() { return m_platformSession.get(); }
@@ -100,15 +103,16 @@ public:
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
     WEBCORE_EXPORT String cookieStoragePartition(const ResourceRequest&, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID) const;
     WEBCORE_EXPORT bool shouldBlockCookies(const ResourceRequest&) const;
-    bool shouldBlockCookies(const URL& firstPartyForCookies, const URL& resource) const;
+    WEBCORE_EXPORT bool shouldBlockCookies(const URL& firstPartyForCookies, const URL& resource) const;
     WEBCORE_EXPORT String cookieStoragePartition(const URL& firstPartyForCookies, const URL& resource, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID) const;
     WEBCORE_EXPORT void setPrevalentDomainsToPartitionOrBlockCookies(const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, bool clearFirst);
     WEBCORE_EXPORT void removePrevalentDomains(const Vector<String>& domains);
-    WEBCORE_EXPORT bool hasStorageAccessForFrame(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID) const;
+    WEBCORE_EXPORT bool hasStorageAccess(const String& resourceDomain, const String& firstPartyDomain, std::optional<uint64_t> frameID, uint64_t pageID) const;
     WEBCORE_EXPORT Vector<String> getAllStorageAccessEntries() const;
-    WEBCORE_EXPORT void grantStorageAccessForFrame(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID);
+    WEBCORE_EXPORT void grantStorageAccess(const String& resourceDomain, const String& firstPartyDomain, std::optional<uint64_t> frameID, uint64_t pageID);
     WEBCORE_EXPORT void removeStorageAccessForFrame(uint64_t frameID, uint64_t pageID);
     WEBCORE_EXPORT void removeStorageAccessForAllFramesOnPage(uint64_t pageID);
+    WEBCORE_EXPORT void removeAllStorageAccess();
 #endif
 #elif USE(SOUP)
     NetworkStorageSession(PAL::SessionID, std::unique_ptr<SoupNetworkSession>&&);
@@ -120,7 +124,7 @@ public:
     SoupCookieJar* cookieStorage() const;
     void setCookieStorage(SoupCookieJar*);
     void setCookieObserverHandler(Function<void ()>&&);
-    void getCredentialFromPersistentStorage(const ProtectionSpace&, Function<void (Credential&&)> completionHandler);
+    void getCredentialFromPersistentStorage(const ProtectionSpace&, GCancellable*, Function<void (Credential&&)>&& completionHandler);
     void saveCredentialToPersistentStorage(const ProtectionSpace&, const Credential&);
 #elif USE(CURL)
     NetworkStorageSession(PAL::SessionID, NetworkingContext*);
@@ -128,7 +132,7 @@ public:
 
     const CookieJarCurl& cookieStorage() const { return m_cookieStorage; };
     CookieJarDB& cookieDatabase() const;
-    void setCookieDatabase(UniqueRef<CookieJarDB>&&) const;
+    WEBCORE_EXPORT void setCookieDatabase(UniqueRef<CookieJarDB>&&) const;
 
     NetworkingContext* context() const;
 #else
@@ -158,10 +162,6 @@ private:
     mutable std::unique_ptr<SoupNetworkSession> m_session;
     GRefPtr<SoupCookieJar> m_cookieStorage;
     Function<void ()> m_cookieObserverHandler;
-#if USE(LIBSECRET)
-    Function<void (Credential&&)> m_persisentStorageCompletionHandler;
-    GRefPtr<GCancellable> m_persisentStorageCancellable;
-#endif
 #elif USE(CURL)
     RefPtr<NetworkingContext> m_context;
 
@@ -182,6 +182,7 @@ private:
     HashSet<String> m_topPrivatelyControlledDomainsToPartition;
     HashSet<String> m_topPrivatelyControlledDomainsToBlock;
     HashMap<uint64_t, HashMap<uint64_t, String, DefaultHash<uint64_t>::Hash, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>, DefaultHash<uint64_t>::Hash, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_framesGrantedStorageAccess;
+    HashMap<uint64_t, HashMap<String, String>, DefaultHash<uint64_t>::Hash, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_pagesGrantedStorageAccess;
 #endif
 
 #if PLATFORM(COCOA)
@@ -191,6 +192,7 @@ public:
 private:
     mutable RefPtr<CookieStorageObserver> m_cookieStorageObserver;
 #endif
+    static bool m_processMayUseCookieAPI;
 };
 
 #if PLATFORM(COCOA)

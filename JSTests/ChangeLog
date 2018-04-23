@@ -1,3 +1,868 @@
+2018-04-20  JF Bastien  <jfbastien@apple.com>
+
+        Handle more JSON stringify OOM
+        https://bugs.webkit.org/show_bug.cgi?id=184846
+        <rdar://problem/39390672>
+
+        Reviewed by Mark Lam.
+
+        * stress/json-stringified-overflow-2.js: Added. Same as the one
+        below, but with a bigger input which will trigger a different code
+        path.
+        (catch):
+        * stress/json-stringified-overflow.js: Modify the test to only
+        catch OOM on stringification. not on string creation.
+
+2018-04-18  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [WebAssembly][Modules] Import tables in wasm modules
+        https://bugs.webkit.org/show_bug.cgi?id=184738
+
+        Reviewed by JF Bastien.
+
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports.js:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/imports.wasm:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/imports.wat:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/re-export.js:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/sum.wasm:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/sum.wat:
+        * wasm/modules/wasm-imports-wasm-exports.js:
+        * wasm/modules/wasm-imports-wasm-exports/imports.wasm:
+        * wasm/modules/wasm-imports-wasm-exports/imports.wat:
+        * wasm/modules/wasm-imports-wasm-exports/sum.wasm:
+        * wasm/modules/wasm-imports-wasm-exports/sum.wat:
+
+2018-04-18  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [WebAssembly][Modules] Import globals from wasm modules
+        https://bugs.webkit.org/show_bug.cgi?id=184736
+
+        Reviewed by JF Bastien.
+
+        * wasm.yaml:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports.js:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/imports.wasm:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/imports.wat:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/re-export.js:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/sum.wasm:
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/sum.wat:
+        * wasm/modules/wasm-imports-wasm-exports.js:
+        * wasm/modules/wasm-imports-wasm-exports/imports.wasm:
+        * wasm/modules/wasm-imports-wasm-exports/imports.wat:
+        * wasm/modules/wasm-imports-wasm-exports/sum.wasm:
+        * wasm/modules/wasm-imports-wasm-exports/sum.wat:
+
+2018-04-18  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Unreviewed, reland r230697, r230720, and r230724.
+        https://bugs.webkit.org/show_bug.cgi?id=184600
+
+        * wasm.yaml:
+        * wasm/modules/constant.wasm: Added.
+        * wasm/modules/constant.wat: Added.
+        * wasm/modules/default-import-star-error.js: Added.
+        (then):
+        * wasm/modules/default-import-star-error/entry.wasm: Added.
+        * wasm/modules/default-import-star-error/entry.wat: Added.
+        * wasm/modules/default-import-star-error/t0.js: Added.
+        * wasm/modules/default-import-star-error/t1.js: Added.
+        * wasm/modules/default-import-star-error/t2.js: Added.
+        (export.default.Cocoa):
+        * wasm/modules/js-wasm-cycle.js: Added.
+        * wasm/modules/js-wasm-cycle/entry.js: Added.
+        (from.string_appeared_here.export.return42):
+        * wasm/modules/js-wasm-cycle/sum.wasm: Added.
+        * wasm/modules/js-wasm-cycle/sum.wat: Added.
+        * wasm/modules/js-wasm-function-namespace.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-function.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-global-namespace.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-global.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-memory-namespace.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-memory.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-start.js: Added.
+        (then):
+        * wasm/modules/js-wasm-table-namespace.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-table.js: Added.
+        (assert.throws):
+        * wasm/modules/memory.wasm: Added.
+        * wasm/modules/memory.wat: Added.
+        * wasm/modules/run-from-wasm.wasm: Added.
+        * wasm/modules/run-from-wasm.wat: Added.
+        * wasm/modules/run-from-wasm/check.js: Added.
+        (export.check):
+        * wasm/modules/start.wasm: Added.
+        * wasm/modules/start.wat: Added.
+        * wasm/modules/sum.wasm: Added.
+        * wasm/modules/sum.wat: Added.
+        * wasm/modules/table.wasm: Added.
+        * wasm/modules/table.wat: Added.
+        * wasm/modules/wasm-imports-js-exports.js: Added.
+        * wasm/modules/wasm-imports-js-exports/imports.wasm: Added.
+        * wasm/modules/wasm-imports-js-exports/imports.wat: Added.
+        * wasm/modules/wasm-imports-js-exports/sum.js: Added.
+        (export.sum):
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports.js: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/imports.wasm: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/imports.wat: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/re-export.js: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/sum.wasm: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/sum.wat: Added.
+        * wasm/modules/wasm-imports-wasm-exports.js: Added.
+        * wasm/modules/wasm-imports-wasm-exports/imports.wasm: Added.
+        * wasm/modules/wasm-imports-wasm-exports/imports.wat: Added.
+        * wasm/modules/wasm-imports-wasm-exports/sum.wasm: Added.
+        * wasm/modules/wasm-imports-wasm-exports/sum.wat: Added.
+        * wasm/modules/wasm-js-cycle.js: Added.
+        * wasm/modules/wasm-js-cycle/entry.wasm: Added.
+        * wasm/modules/wasm-js-cycle/entry.wat: Added.
+        * wasm/modules/wasm-js-cycle/sum.js: Added.
+        (from.string_appeared_here.export.sum):
+        * wasm/modules/wasm-wasm-cycle.js: Added.
+        * wasm/modules/wasm-wasm-cycle/entry.wasm: Added.
+        * wasm/modules/wasm-wasm-cycle/entry.wat: Added.
+        * wasm/modules/wasm-wasm-cycle/sum.wasm: Added.
+        * wasm/modules/wasm-wasm-cycle/sum.wat: Added.
+
+2018-04-17  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r230697, r230720, and r230724.
+        https://bugs.webkit.org/show_bug.cgi?id=184717
+
+        These caused multiple failures on the Test262 testers.
+        (Requested by mlewis13 on #webkit).
+
+        Reverted changesets:
+
+        "[WebAssembly][Modules] Prototype wasm import"
+        https://bugs.webkit.org/show_bug.cgi?id=184600
+        https://trac.webkit.org/changeset/230697
+
+        "[WebAssembly][Modules] Implement function import from wasm
+        modules"
+        https://bugs.webkit.org/show_bug.cgi?id=184689
+        https://trac.webkit.org/changeset/230720
+
+        "[JSC] Rename runWebAssembly to runWebAssemblySuite"
+        https://bugs.webkit.org/show_bug.cgi?id=184703
+        https://trac.webkit.org/changeset/230724
+
+2018-04-17  JF Bastien  <jfbastien@apple.com>
+
+        A put is not an ExistingProperty put when we transition a structure because of an attributes change
+        https://bugs.webkit.org/show_bug.cgi?id=184706
+        <rdar://problem/38871451>
+
+        Reviewed by Saam Barati.
+
+        * stress/put-by-id-direct-strict-transition.js: Added.
+        (const.foo):
+        (j.const.obj.set hello):
+        * stress/put-by-id-direct-transition.js: Added.
+        (const.foo):
+        (j.const.obj.set hello):
+        * stress/put-getter-setter-by-id-strict-transition.js: Added.
+        (const.foo):
+        (j.const.obj.set hello):
+        * stress/put-getter-setter-by-id-transition.js: Added.
+        (const.foo):
+        (j.const.obj.set hello):
+
+2018-04-16  Filip Pizlo  <fpizlo@apple.com>
+
+        PutStackSinkingPhase should know that KillStack means ConflictingFlush
+        https://bugs.webkit.org/show_bug.cgi?id=184672
+
+        Reviewed by Michael Saboff.
+
+        * stress/sink-put-stack-over-kill-stack.js: Added.
+        (avocado_1):
+        (apricot_0):
+        (__c_0):
+        (banana_2):
+
+2018-04-17  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [JSC] Rename runWebAssembly to runWebAssemblySuite
+        https://bugs.webkit.org/show_bug.cgi?id=184703
+
+        Reviewed by JF Bastien.
+
+        And add runWebAssembly as a command to simplely run wasm modules.
+
+        * wasm.yaml:
+
+2018-04-17  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [WebAssembly][Modules] Implement function import from wasm modules
+        https://bugs.webkit.org/show_bug.cgi?id=184689
+
+        Reviewed by JF Bastien.
+
+        * wasm.yaml:
+        * wasm/modules/js-wasm-cycle.js: Added.
+        * wasm/modules/js-wasm-cycle/entry.js: Added.
+        (from.string_appeared_here.export.return42):
+        * wasm/modules/js-wasm-cycle/sum.wasm: Added.
+        * wasm/modules/js-wasm-cycle/sum.wat: Added.
+        * wasm/modules/run-from-wasm.wasm: Added.
+        * wasm/modules/run-from-wasm.wat: Added.
+        * wasm/modules/run-from-wasm/check.js: Added.
+        (export.check):
+        * wasm/modules/wasm-imports-js-exports.js: Added.
+        * wasm/modules/wasm-imports-js-exports/imports.wasm: Added.
+        * wasm/modules/wasm-imports-js-exports/imports.wat: Added.
+        * wasm/modules/wasm-imports-js-exports/sum.js: Added.
+        (export.sum):
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports.js: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/imports.wasm: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/imports.wat: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/re-export.js: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/sum.wasm: Added.
+        * wasm/modules/wasm-imports-js-re-exports-wasm-exports/sum.wat: Added.
+        * wasm/modules/wasm-imports-wasm-exports.js: Added.
+        * wasm/modules/wasm-imports-wasm-exports/imports.wasm: Added.
+        * wasm/modules/wasm-imports-wasm-exports/imports.wat: Added.
+        * wasm/modules/wasm-imports-wasm-exports/sum.wasm: Added.
+        * wasm/modules/wasm-imports-wasm-exports/sum.wat: Added.
+        * wasm/modules/wasm-js-cycle.js: Added.
+        * wasm/modules/wasm-js-cycle/entry.wasm: Added.
+        * wasm/modules/wasm-js-cycle/entry.wat: Added.
+        * wasm/modules/wasm-js-cycle/sum.js: Added.
+        (from.string_appeared_here.export.sum):
+        * wasm/modules/wasm-wasm-cycle.js: Added.
+        * wasm/modules/wasm-wasm-cycle/entry.wasm: Added.
+        * wasm/modules/wasm-wasm-cycle/entry.wat: Added.
+        * wasm/modules/wasm-wasm-cycle/sum.wasm: Added.
+        * wasm/modules/wasm-wasm-cycle/sum.wat: Added.
+
+2018-04-16  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [WebAssembly][Modules] Prototype wasm import
+        https://bugs.webkit.org/show_bug.cgi?id=184600
+
+        Reviewed by JF Bastien.
+
+        Add wasm and wat files since module loader want to load wasm files from FS.
+        Currently, importing the other modules from wasm is not supported.
+
+        * wasm.yaml:
+        * wasm/modules/constant.wasm: Added.
+        * wasm/modules/constant.wat: Added.
+        * wasm/modules/js-wasm-function-namespace.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-function.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-global-namespace.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-global.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-memory-namespace.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-memory.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-start.js: Added.
+        (then):
+        * wasm/modules/js-wasm-table-namespace.js: Added.
+        (assert.throws):
+        * wasm/modules/js-wasm-table.js: Added.
+        (assert.throws):
+        * wasm/modules/memory.wasm: Added.
+        * wasm/modules/memory.wat: Added.
+        * wasm/modules/start.wasm: Added.
+        * wasm/modules/start.wat: Added.
+        * wasm/modules/sum.wasm: Added.
+        * wasm/modules/sum.wat: Added.
+        * wasm/modules/table.wasm: Added.
+        * wasm/modules/table.wat: Added.
+
+2018-04-14  Filip Pizlo  <fpizlo@apple.com>
+
+        Function.prototype.caller shouldn't return generator bodies
+        https://bugs.webkit.org/show_bug.cgi?id=184630
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/function-caller-async-arrow-function-body.js: Added.
+        * stress/function-caller-async-function-body.js: Added.
+        * stress/function-caller-async-generator-body.js: Added.
+        * stress/function-caller-generator-body.js: Added.
+        * stress/function-caller-generator-method-body.js: Added.
+
+2018-04-12  Tomas Popela  <tpopela@redhat.com>
+
+        Unreviewed, skip JIT tests if it isn't enabled
+
+        See https://bugs.webkit.org/show_bug.cgi?id=182730.
+
+        * stress/big-int-spec-to-primitive.js:
+        * stress/big-int-spec-to-this.js:
+
+2018-04-10  Caio Lima  <ticaiolima@gmail.com>
+
+        [ESNext][BigInt] Add support for BigInt in SpeculatedType
+        https://bugs.webkit.org/show_bug.cgi?id=182470
+
+        Reviewed by Saam Barati.
+
+        * stress/big-int-spec-to-primitive.js: Added.
+        * stress/big-int-spec-to-this.js: Added.
+        * stress/big-int-strict-equals-jit.js: Added.
+        * stress/big-int-strict-spec-to-this.js: Added.
+        * stress/big-int-type-of-proven-type.js: Added.
+
+2018-04-10  Filip Pizlo  <fpizlo@apple.com>
+
+        DFG AI and clobberize should agree with each other
+        https://bugs.webkit.org/show_bug.cgi?id=184440
+
+        Reviewed by Saam Barati.
+        
+        Add tests for all of the bugs I fixed.
+
+        * stress/direct-arguments-out-of-bounds-change-structure.js: Added.
+        (foo):
+        * stress/new-typed-array-cse-effects.js: Added.
+        (foo):
+        * stress/scoped-arguments-out-of-bounds-change-structure.js: Added.
+        (foo.theO):
+        (foo):
+        * stress/string-from-char-code-change-structure-not-dead.js: Added.
+        (foo):
+        (i.valueOf):
+        (weirdValue.valueOf):
+        * stress/string-from-char-code-change-structure.js: Added.
+        (foo):
+        (i.valueOf):
+        (weirdValue.valueOf):
+
+2018-04-09  Leo Balter  <leonardo.balter@gmail.com>
+
+        Fix errant Test262 files CRLF to LF for consistency with the original source
+        https://bugs.webkit.org/show_bug.cgi?id=184425
+
+        Reviewed by Yusuke Suzuki.
+
+        * test262/test/built-ins/Math/acosh/nan-returns.js:
+        * test262/test/built-ins/Math/asinh/asinh-specialVals.js:
+        * test262/test/built-ins/Math/atanh/atanh-specialVals.js:
+        * test262/test/built-ins/Math/cbrt/cbrt-specialValues.js:
+        * test262/test/built-ins/Math/cbrt/prop-desc.js:
+        * test262/test/built-ins/Math/cosh/cosh-specialVals.js:
+        * test262/test/built-ins/Math/expm1/expm1-specialVals.js:
+        * test262/test/built-ins/Math/log10/Log10-specialVals.js:
+        * test262/test/built-ins/Math/log2/log2-basicTests.js:
+        * test262/test/built-ins/Math/sign/sign-specialVals.js:
+        * test262/test/built-ins/Math/sinh/sinh-specialVals.js:
+        * test262/test/built-ins/Math/tanh/tanh-specialVals.js:
+        * test262/test/built-ins/Math/trunc/trunc-sampleTests.js:
+        * test262/test/built-ins/Math/trunc/trunc-specialVals.js:
+
+2018-04-08  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Unreviewed, remove incorrect entry in test262.yaml
+        https://bugs.webkit.org/show_bug.cgi?id=184266
+
+        * test262.yaml:
+
+2018-04-08  Valerie Young  <valerie@bocoup.com>
+
+        [JSC] Update Test262 to April 6 version
+        https://bugs.webkit.org/show_bug.cgi?id=184266
+
+        Rubber stamped by Yusuke Suzuki.
+
+2018-04-08  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [JSC] Introduce op_get_by_id_direct
+        https://bugs.webkit.org/show_bug.cgi?id=183970
+
+        Reviewed by Filip Pizlo.
+
+        * stress/generator-prototype-copy.js: Added.
+        (gen):
+        (catch):
+        Adopted JF's tests.
+
+        * stress/generator-type-check.js: Added.
+        (shouldThrow):
+        (foo2):
+        (i.shouldThrow):
+        * stress/get-by-id-direct-getter.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (obj.get hello):
+        (builtin.createBuiltin):
+        (obj2.get length):
+        * stress/get-by-id-direct.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (builtin.createBuiltin):
+        * test262.yaml:
+        We fixed long-standing spec compatibility issue.
+        As a result, this patch makes several test262 tests passed!
+
+
+2018-04-07  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Unreviewed, annotate test with @skip if $memoryLimited
+        https://bugs.webkit.org/show_bug.cgi?id=183894
+
+        * stress/json-stringified-overflow.js:
+
+2018-04-06  Alexey Proskuryakov  <ap@apple.com>
+
+        Add svn:eol-style to line-terminator-normalisation-CR.js
+        https://bugs.webkit.org/show_bug.cgi?id=184341
+
+        * test262/test/built-ins/Function/prototype/toString/line-terminator-normalisation-CR.js: Added property svn:eol-style.
+
+2018-04-06  Ross Kirsling  <ross.kirsling@sony.com>
+
+        Unreviewed, remove errant LF from existing test262 test for CR line endings.
+
+        * test262/test/built-ins/Function/prototype/toString/line-terminator-normalisation-CR.js:
+
+2018-04-05  Ross Kirsling  <ross.kirsling@sony.com>
+
+        Unreviewed, rolling out r230320.
+
+        Revert fix, as the root cause lies elsewhere.
+
+        Reverted changeset:
+
+        "[test262] Mark line-terminator-normalisation-CR.js as a
+        binary file."
+        https://bugs.webkit.org/show_bug.cgi?id=184341
+        https://trac.webkit.org/changeset/230320
+
+2018-04-05  Ross Kirsling  <ross.kirsling@sony.com>
+
+        [test262] Mark line-terminator-normalisation-CR.js as a binary file.
+        https://bugs.webkit.org/show_bug.cgi?id=184341
+
+        Reviewed by Yusuke Suzuki.
+
+        This test is all about CR line endings, but `svn-apply` can't deal with them.
+        Treating the file as binary ensures that its contents never are never shown in a diff.
+
+        * .gitattributes: Added.
+
+2018-04-05  Robin Morisset  <rmorisset@apple.com>
+
+        Fix testcase (missing try/catch).
+        https://bugs.webkit.org/show_bug.cgi?id=183657
+
+        Unreviewed.
+
+        * stress/large-unshift-splice.js
+
+2018-04-04  Filip Pizlo  <fpizlo@apple.com>
+
+        REGRESSION(r222563): removed DoubleReal type check causes tons of crashes because CSE has never known how to handle SaneChain
+        https://bugs.webkit.org/show_bug.cgi?id=184319
+
+        Reviewed by Saam Barati.
+
+        * stress/array-push-nan-to-double-array-cse-sane-and-insane-chain.js: Added.
+        (foo):
+        (bar):
+        * stress/array-push-nan-to-double-array.js: Added.
+        (foo):
+        (bar):
+
+2018-04-03  Mark Lam  <mark.lam@apple.com>
+
+        Test js-fixed-array-out-of-memory.js should be excluded for memory limited devices.
+        https://bugs.webkit.org/show_bug.cgi?id=184284
+
+        Reviewed by Saam Barati.
+
+        * stress/js-fixed-array-out-of-memory.js:
+
+2018-03-31  Filip Pizlo  <fpizlo@apple.com>
+
+        JSC crash in JIT code with for-of loop and Array/Set iterators
+        https://bugs.webkit.org/show_bug.cgi?id=183174
+
+        Reviewed by Saam Barati.
+
+        * microbenchmarks/hoist-get-by-offset-tower-with-inferred-types.js: Added. This test shows that fixing the bug didn't break hoisting of GetByOffset with inferred types. I confirmed that if I did break it, this test slows down by >7x.
+        (foo):
+        * stress/hoist-get-by-offset-with-control-dependent-inferred-type.js: Added. This test shows that the bug is fixed.
+        (f):
+
+2018-03-30  JF Bastien  <jfbastien@apple.com>
+
+        WebAssembly: support DataView compilation
+        https://bugs.webkit.org/show_bug.cgi?id=183342
+
+        Reviewed by Mark Lam.
+
+        Test WebAssembly compilation using a DataView with offset.
+
+        * wasm/regress/183342.js: Added.
+        (attempt.catch):
+
+2018-03-30  Filip Pizlo  <fpizlo@apple.com>
+
+        Bytecode generator should not get_from_scope something that may be a hole into a variable that is already live
+        https://bugs.webkit.org/show_bug.cgi?id=184189
+
+        Reviewed by JF Bastien.
+
+        * stress/load-hole-from-scope-into-live-var.js: Added.
+        (result.eval.try.switch):
+        (catch):
+
+2018-03-30  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r230102.
+
+        Caused assertion failures on JSC bots.
+
+        Reverted changeset:
+
+        "A stack overflow in the parsing of a builtin (called by
+        createExecutable) cause a crash instead of a catchable js
+        exception"
+        https://bugs.webkit.org/show_bug.cgi?id=184074
+        https://trac.webkit.org/changeset/230102
+
+2018-03-30  Robin Morisset  <rmorisset@apple.com>
+
+        Inlining of a function that ends in op_unreachable in a non-tail position triggers an ASSERT
+        https://bugs.webkit.org/show_bug.cgi?id=183812
+
+        Reviewed by Keith Miller.
+
+        * stress/inlining-unreachable-non-tail.js: Added.
+        (foo.):
+        (foo):
+
+2018-03-30  Robin Morisset  <rmorisset@apple.com>
+
+        A stack overflow in the parsing of a builtin (called by createExecutable) cause a crash instead of a catchable js exception
+        https://bugs.webkit.org/show_bug.cgi?id=184074
+        <rdar://problem/37165897>
+
+        Reviewed by Keith Miller.
+
+        * stress/stack-overflow-while-parsing-builtin.js: Added.
+        (f):
+
+2018-03-30  Robin Morisset  <rmorisset@apple.com>
+
+        Out-of-bounds accesses due to a missing check for MAX_STORAGE_VECTOR_LENGTH in unshiftCountForAnyIndexingType
+        https://bugs.webkit.org/show_bug.cgi?id=183657
+
+        Reviewed by Keith Miller.
+
+        * stress/large-unshift-splice.js: Added.
+        (make_contig_arr):
+
+2018-03-28  Robin Morisset  <rmorisset@apple.com>
+
+        appendQuotedJSONString stops on arithmetic overflow instead of propagating it upwards
+        https://bugs.webkit.org/show_bug.cgi?id=183894
+
+        Reviewed by Saam Barati.
+
+        * stress/json-stringified-overflow.js: Added.
+        (catch):
+
+2018-03-26  Filip Pizlo  <fpizlo@apple.com>
+
+        DFG should know that CreateThis can be effectful
+        https://bugs.webkit.org/show_bug.cgi?id=184013
+
+        Reviewed by Saam Barati.
+
+        * stress/create-this-property-change.js: Added.
+        (Foo):
+        (RealBar):
+        (get if):
+        * stress/create-this-structure-change-without-cse.js: Added.
+        (Foo):
+        (RealBar):
+        (get if):
+        * stress/create-this-structure-change.js: Added.
+        (Foo):
+        (RealBar):
+        (get if):
+
+2018-03-22  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [DFG] Introduces fused compare and jump
+        https://bugs.webkit.org/show_bug.cgi?id=177100
+
+        Reviewed by Mark Lam.
+
+        * stress/fused-jeq-slow.js: Added.
+        (shouldBe):
+        (testJEQ):
+        (testJNEQB):
+        (testJEQB):
+        (testJNEQF):
+        (testJEQF):
+        * stress/fused-jeq.js: Added.
+        (shouldBe):
+        (testJEQ):
+        (testJNEQB):
+        (testJEQB):
+        (testJNEQF):
+        (testJEQF):
+        * stress/fused-jstricteq-slow.js: Added.
+        (shouldBe):
+        (testJSTRICTEQ):
+        (testJNSTRICTEQB):
+        (testJSTRICTEQB):
+        (testJNSTRICTEQF):
+        (testJSTRICTEQF):
+        * stress/fused-jstricteq.js: Added.
+        (shouldBe):
+        (testJSTRICTEQ):
+        (testJNSTRICTEQB):
+        (testJSTRICTEQB):
+        (testJNSTRICTEQF):
+        (testJSTRICTEQF):
+
+2018-03-22  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [JSC] Clear MustGenerate for ToString(Number) converted from NumberToStringWithRadix
+        https://bugs.webkit.org/show_bug.cgi?id=183559
+
+        Reviewed by Mark Lam.
+
+        * stress/double-to-string-in-loop-removed.js: Added.
+        (test):
+        * stress/int32-to-string-in-loop-removed.js: Added.
+        (test):
+        * stress/int52-to-string-in-loop-removed.js: Added.
+        (test):
+
+2018-03-22  Michael Saboff  <msaboff@apple.com>
+
+        Race Condition in arrayProtoFuncReverse() causes wrong results or crash
+        https://bugs.webkit.org/show_bug.cgi?id=183901
+
+        Reviewed by Keith Miller.
+
+        New test.
+
+        * stress/array-reverse-doesnt-clobber.js: Added.
+        (testArrayReverse):
+        (createArrayOfArrays):
+        (createArrayStorage):
+
+2018-03-21  Filip Pizlo  <fpizlo@apple.com>
+
+        ScopedArguments should do poisoning and index masking
+        https://bugs.webkit.org/show_bug.cgi?id=183863
+
+        Reviewed by Mark Lam.
+        
+        Adds another stress test of scoped arguments.
+
+        * stress/scoped-arguments-test.js: Added.
+        (foo):
+
+2018-03-20  Saam Barati  <sbarati@apple.com>
+
+        We need to do proper bookkeeping of exitOK when inserting constants when sinking NewArrayBuffer
+        https://bugs.webkit.org/show_bug.cgi?id=183795
+        <rdar://problem/38298694>
+
+        Reviewed by JF Bastien.
+
+        * stress/sink-phantom-new-array-buffer-exit-ok.js: Added.
+        (foo):
+        (bar):
+
+2018-03-16  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [DFG][FTL] Add vectorLengthHint for NewArray
+        https://bugs.webkit.org/show_bug.cgi?id=183694
+
+        Reviewed by Saam Barati.
+
+        * stress/vector-length-hint-array-constructor.js: Added.
+        (shouldBe):
+        (test):
+        * stress/vector-length-hint-new-array.js: Added.
+        (shouldBe):
+        (test):
+
+2018-03-13  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [DFG][FTL] Make ArraySlice(0) code tight
+        https://bugs.webkit.org/show_bug.cgi?id=183590
+
+        Reviewed by Saam Barati.
+
+        * stress/array-slice-with-zero.js: Added.
+        (shouldBe):
+        (test):
+        (test2):
+        * stress/array-slice-zero-args.js: Added.
+        (shouldBe):
+        (test):
+
+2018-03-14  Caitlin Potter  <caitp@igalia.com>
+
+        [JSC] fix order of evaluation for ClassDefinitionEvaluation
+        https://bugs.webkit.org/show_bug.cgi?id=183523
+
+        Reviewed by Keith Miller.
+
+        Computed property names need to be evaluated in source order during class
+        definition evaluation, as it's observable (and specified to work this way).
+
+        This change improves compatibility with Chromium.
+
+        * stress/class_elements.js: Added.
+        (test):
+        (test.C.prototype.effect):
+        (test.C.effect):
+        (test.C.prototype.get effect):
+        (test.C.prototype.set effect):
+        (test.C):
+
+2018-03-11  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [DFG] AI should convert CreateThis to NewObject if the prototype object is proved
+        https://bugs.webkit.org/show_bug.cgi?id=183310
+
+        Reviewed by Filip Pizlo.
+
+        * stress/ai-create-this-to-new-object-fire.js: Added.
+        (assert):
+        (test):
+        (func):
+        (check):
+        (test.body.A):
+        (test.body.B):
+        (test.body):
+        * stress/ai-create-this-to-new-object.js: Added.
+        (assert):
+        (test):
+        (func):
+        (check):
+        (test.body.A):
+        (test.body.B):
+        (test.body):
+
+2018-03-10  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [FTL] Drop NewRegexp for String.prototype.match with RegExp + global flag
+        https://bugs.webkit.org/show_bug.cgi?id=181848
+
+        Reviewed by Sam Weinig.
+
+        * microbenchmarks/regexp-u-global-es5.js: Added.
+        (fn):
+        * microbenchmarks/regexp-u-global-es6.js: Added.
+        (fn):
+        * stress/materialized-regexp-has-correct-last-index-set-by-match-at-osr-exit.js: Added.
+        (shouldBe):
+        (test):
+        (i.switch):
+        * stress/materialized-regexp-has-correct-last-index-set-by-match.js: Added.
+        (shouldBe):
+        (test):
+
+2018-03-07  Dominik Infuehr  <dinfuehr@igalia.com>
+
+        Disable test stress/var-injection-cache-invalidation.js on systems with limited memory
+        https://bugs.webkit.org/show_bug.cgi?id=183334
+
+        Reviewed by Žan Doberšek.
+
+        * stress/var-injection-cache-invalidation.js:
+
+2018-03-06  Dominik Infuehr  <dinfuehr@igalia.com>
+
+        [ARM] Disable tests that run out of memory
+        https://bugs.webkit.org/show_bug.cgi?id=182699
+
+        Reviewed by Žan Doberšek.
+
+        Skip tests that run of of memory. Do not run
+        modules/module-jit-reachability.js without LLInt to prevent
+        running out of executable memory.
+
+        * modules.yaml:
+        * modules/module-jit-reachability.js:
+        * stress/has-own-property-name-cache-string-keys.js:
+        * stress/has-own-property-name-cache-symbol-keys.js:
+
+2018-03-01  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        ASSERTION FAILED: matchContextualKeyword(m_vm->propertyNames->async)
+        https://bugs.webkit.org/show_bug.cgi?id=183173
+
+        Reviewed by Saam Barati.
+
+        * stress/async-arrow-function-in-class-heritage.js: Added.
+        (testSyntax):
+        (testSyntaxError):
+        (SyntaxError):
+
+2018-03-01  Saam Barati  <sbarati@apple.com>
+
+        We need to clear cached structures when having a bad time
+        https://bugs.webkit.org/show_bug.cgi?id=183256
+        <rdar://problem/36245022>
+
+        Reviewed by Mark Lam.
+
+        * stress/having-a-bad-time-with-derived-arrays.js: Added.
+        (assert):
+        (defineSetter):
+        (iterate):
+        (doSlice):
+
+2018-02-28  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        JSC crash with `import("")`
+        https://bugs.webkit.org/show_bug.cgi?id=183175
+
+        Reviewed by Saam Barati.
+
+        * stress/import-with-empty-string.js: Added.
+
+2018-02-27  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        Unreviewed, skip FTL tests if FTL is disabled
+        https://bugs.webkit.org/show_bug.cgi?id=183071
+
+        * stress/has-indexed-property-array-storage-ftl.js:
+        * stress/has-indexed-property-slow-put-array-storage-ftl.js:
+
+2018-02-25  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [FTL] Support PutByVal(ArrayStorage/SlowPutArrayStorage)
+        https://bugs.webkit.org/show_bug.cgi?id=182965
+
+        Reviewed by Saam Barati.
+
+        * stress/put-by-val-array-storage.js: Added.
+        (shouldBe):
+        (testArrayStorageInBounds):
+        * stress/put-by-val-direct-out-of-bounds-setter.js: Added.
+        (shouldBe):
+        (testInt32.createBuiltin):
+        (set for):
+        * stress/put-by-val-slow-put-array-storage.js: Added.
+        (shouldBe):
+        (testArrayStorageInBounds):
+
 2018-02-26  Saam Barati  <sbarati@apple.com>
 
         validateStackAccess should not validate if the offset is within the stack bounds

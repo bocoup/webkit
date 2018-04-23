@@ -38,6 +38,7 @@
 #include "Database.h"
 #include "DocumentLoader.h"
 #include "Event.h"
+#include "Frame.h"
 #include "InspectorApplicationCacheAgent.h"
 #include "InspectorCSSAgent.h"
 #include "InspectorCanvasAgent.h"
@@ -53,7 +54,6 @@
 #include "InspectorWorkerAgent.h"
 #include "InstrumentingAgents.h"
 #include "LoaderStrategy.h"
-#include "MainFrame.h"
 #include "PageDebuggerAgent.h"
 #include "PageHeapAgent.h"
 #include "PageRuntimeAgent.h"
@@ -648,12 +648,6 @@ void InspectorInstrumentation::domContentLoadedEventFiredImpl(InstrumentingAgent
     if (!frame.isMainFrame())
         return;
 
-    if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
-        domAgent->mainFrameDOMContentLoaded();
-
-    if (InspectorDOMDebuggerAgent* domDebuggerAgent = instrumentingAgents.inspectorDOMDebuggerAgent())
-        domDebuggerAgent->mainFrameDOMContentLoaded();
-
     if (InspectorPageAgent* pageAgent = instrumentingAgents.inspectorPageAgent())
         pageAgent->domContentEventFired();
 }
@@ -731,6 +725,9 @@ void InspectorInstrumentation::frameDocumentUpdatedImpl(InstrumentingAgents& ins
 {
     if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
         domAgent->frameDocumentUpdated(frame);
+
+    if (InspectorDOMDebuggerAgent* domDebuggerAgent = instrumentingAgents.inspectorDOMDebuggerAgent())
+        domDebuggerAgent->frameDocumentUpdated(frame);
 }
 
 void InspectorInstrumentation::loaderDetachedFromFrameImpl(InstrumentingAgents& instrumentingAgents, DocumentLoader& loader)
@@ -1002,6 +999,13 @@ bool InspectorInstrumentation::isShaderProgramDisabledImpl(InstrumentingAgents& 
 {
     if (InspectorCanvasAgent* canvasAgent = instrumentingAgents.inspectorCanvasAgent())
         return canvasAgent->isShaderProgramDisabled(program);
+    return false;
+}
+
+bool InspectorInstrumentation::isShaderProgramHighlightedImpl(InstrumentingAgents& instrumentingAgents, WebGLProgram& program)
+{
+    if (InspectorCanvasAgent* canvasAgent = instrumentingAgents.inspectorCanvasAgent())
+        return canvasAgent->isShaderProgramHighlighted(program);
     return false;
 }
 #endif

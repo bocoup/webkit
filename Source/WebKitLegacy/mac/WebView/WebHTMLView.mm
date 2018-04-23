@@ -109,7 +109,6 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/MIMETypeRegistry.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/Page.h>
 #import <WebCore/PrintContext.h>
 #import <WebCore/Range.h>
@@ -149,7 +148,6 @@
 #import "WebNSEventExtras.h"
 #import "WebNSPasteboardExtras.h"
 #import <AppKit/NSAccessibility.h>
-#import <ApplicationServices/ApplicationServices.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <pal/spi/mac/NSMenuSPI.h>
 #endif

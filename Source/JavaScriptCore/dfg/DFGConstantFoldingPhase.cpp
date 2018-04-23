@@ -488,6 +488,8 @@ private:
                 break;
             }
         
+            case GetByIdDirect:
+            case GetByIdDirectFlush:
             case GetById:
             case GetByIdFlush: {
                 Edge childEdge = node->child1();
@@ -613,7 +615,7 @@ private:
             }
 
             case ToPrimitive: {
-                if (m_state.forNode(node->child1()).m_type & ~(SpecFullNumber | SpecBoolean | SpecString | SpecSymbol))
+                if (m_state.forNode(node->child1()).m_type & ~(SpecFullNumber | SpecBoolean | SpecString | SpecSymbol | SpecBigInt))
                     break;
                 
                 node->convertToIdentity();
@@ -632,6 +634,27 @@ private:
                     node->convertToGetGlobalThis();
                     changed = true;
                     break;
+                }
+                break;
+            }
+
+            case CreateThis: {
+                if (JSValue base = m_state.forNode(node->child1()).m_value) {
+                    if (auto* function = jsDynamicCast<JSFunction*>(m_graph.m_vm, base)) {
+                        if (FunctionRareData* rareData = function->rareData()) {
+                            if (Structure* structure = rareData->objectAllocationStructure()) {
+                                // FIXME: we should be able to allocate a poly proto object here:
+                                // https://bugs.webkit.org/show_bug.cgi?id=177517
+                                if (structure->hasMonoProto()) {
+                                    m_graph.freeze(rareData);
+                                    m_graph.watchpoints().addLazily(rareData->allocationProfileWatchpointSet());
+                                    node->convertToNewObject(m_graph.registerStructure(structure));
+                                    changed = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
                 break;
             }
@@ -685,6 +708,7 @@ private:
                     if (2 <= radix && radix <= 36) {
                         if (radix == 10) {
                             node->setOpAndDefaultFlags(ToString);
+                            node->clearFlags(NodeMustGenerate);
                             node->child2() = Edge();
                         } else
                             node->convertToNumberToStringWithValidRadixConstant(radix);
@@ -759,6 +783,23 @@ private:
                 break;
             }
                 
+            case PhantomNewObject:
+            case PhantomNewFunction:
+            case PhantomNewGeneratorFunction:
+            case PhantomNewAsyncGeneratorFunction:
+            case PhantomNewAsyncFunction:
+            case PhantomCreateActivation:
+            case PhantomDirectArguments:
+            case PhantomClonedArguments:
+            case PhantomCreateRest:
+            case PhantomSpread:
+            case PhantomNewArrayWithSpread:
+            case PhantomNewArrayBuffer:
+            case PhantomNewRegexp:
+            case BottomValue:
+                alreadyHandled = true;
+                break;
+
             default:
                 break;
             }

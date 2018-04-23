@@ -29,11 +29,8 @@
 
 #include "X86Assembler.h"
 #include "AbstractMacroAssembler.h"
+#include <array>
 #include <wtf/Optional.h>
-
-#if COMPILER(MSVC)
-#include <intrin.h>
-#endif
 
 namespace JSC {
 
@@ -387,6 +384,18 @@ public:
         }
         m_assembler.bsf_rr(src, dst);
         ctzAfterBsf<32>(dst);
+    }
+
+    void countPopulation32(Address src, RegisterID dst)
+    {
+        ASSERT(supportsCountPopulation());
+        m_assembler.popcnt_mr(src.offset, src.base, dst);
+    }
+
+    void countPopulation32(RegisterID src, RegisterID dst)
+    {
+        ASSERT(supportsCountPopulation());
+        m_assembler.popcnt_rr(src, dst);
     }
 
     // Only used for testing purposes.
@@ -1194,8 +1203,9 @@ public:
         m_assembler.movl_mr_disp8(address.offset, address.base, dest);
         return DataLabelCompact(this);
     }
-    
-    static void repatchCompact(CodeLocationDataLabelCompact dataLabelCompact, int32_t value)
+
+    template<PtrTag tag>
+    static void repatchCompact(CodeLocationDataLabelCompact<tag> dataLabelCompact, int32_t value)
     {
         ASSERT(isCompactPtrAlignedAddressOffset(value));
         AssemblerType_T::repatchCompact(dataLabelCompact.dataLocation(), value);
@@ -1416,7 +1426,7 @@ public:
     {
 #if CPU(X86)
         ASSERT(isSSE2Present());
-        m_assembler.movsd_mr(address.m_value, dest);
+        m_assembler.movsd_mr(address.asPtr(), dest);
 #else
         move(address, scratchRegister());
         loadDouble(scratchRegister(), dest);
@@ -2124,6 +2134,17 @@ public:
         m_assembler.push_i32(imm.m_value);
     }
 
+    void popPair(RegisterID dest1, RegisterID dest2)
+    {
+        pop(dest2);
+        pop(dest1);
+    }
+
+    void pushPair(RegisterID src1, RegisterID src2)
+    {
+        push(src1);
+        push(src2);
+    }
 
     // Register move operations:
     //
@@ -2240,6 +2261,19 @@ public:
             m_assembler.xchgq_rr(reg1, reg2);
     }
 
+    void swap(FPRegisterID reg1, FPRegisterID reg2)
+    {
+        if (reg1 == reg2)
+            return;
+
+        // FIXME: This is kinda a hack since we don't use xmm7 as a temp.
+        ASSERT(reg1 != FPRegisterID::xmm7);
+        ASSERT(reg2 != FPRegisterID::xmm7);
+        moveDouble(reg1, FPRegisterID::xmm7);
+        moveDouble(reg2, reg1);
+        moveDouble(FPRegisterID::xmm7, reg2);
+    }
+
     void signExtend32ToPtr(TrustedImm32 imm, RegisterID dest)
     {
         if (!imm.m_value)
@@ -2275,6 +2309,12 @@ public:
             m_assembler.xorl_rr(dest, dest);
         else
             m_assembler.movl_i32r(imm.asIntptr(), dest);
+    }
+
+    // Only here for templates!
+    void move(TrustedImm64, RegisterID)
+    {
+        UNREACHABLE_FOR_PLATFORM();
     }
 
     void moveConditionallyDouble(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID src, RegisterID dest)
@@ -2317,6 +2357,19 @@ public:
     {
         if (reg1 != reg2)
             m_assembler.xchgl_rr(reg1, reg2);
+    }
+
+    void swap(FPRegisterID reg1, FPRegisterID reg2)
+    {
+        if (reg1 == reg2)
+            return;
+
+        // FIXME: This is kinda a hack since we don't use xmm7 as a temp.
+        ASSERT(reg1 != FPRegisterID::xmm7);
+        ASSERT(reg2 != FPRegisterID::xmm7);
+        moveDouble(reg1, FPRegisterID::xmm7);
+        moveDouble(reg2, reg1);
+        moveDouble(FPRegisterID::xmm7, reg2);
     }
 
     void signExtend32ToPtr(RegisterID src, RegisterID dest)
@@ -2664,23 +2717,26 @@ public:
         return Jump(m_assembler.jmp());
     }
 
-    void jump(RegisterID target)
+    void jump(RegisterID target, PtrTag)
     {
         m_assembler.jmp_r(target);
     }
 
     // Address is a memory location containing the address to jump to
-    void jump(Address address)
+    void jump(Address address, PtrTag)
     {
         m_assembler.jmp_m(address.offset, address.base);
     }
 
     // Address is a memory location containing the address to jump to
-    void jump(BaseIndex address)
+    void jump(BaseIndex address, PtrTag)
     {
         m_assembler.jmp_m(address.offset, address.base, address.index, address.scale);
     }
 
+    ALWAYS_INLINE void jump(RegisterID target, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(target, NoPtrTag); }
+    ALWAYS_INLINE void jump(Address address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
+    ALWAYS_INLINE void jump(BaseIndex address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
 
     // Arithmetic control flow operations:
     //
@@ -2862,15 +2918,18 @@ public:
         return Call(m_assembler.call(), Call::LinkableNear);
     }
 
-    Call call(RegisterID target)
+    Call call(RegisterID target, PtrTag)
     {
         return Call(m_assembler.call(target), Call::None);
     }
 
-    void call(Address address)
+    void call(Address address, PtrTag)
     {
         m_assembler.call_m(address.offset, address.base);
     }
+
+    ALWAYS_INLINE Call call(RegisterID target, RegisterID callTag) { return UNUSED_PARAM(callTag), call(target, NoPtrTag); }
+    ALWAYS_INLINE void call(Address address, RegisterID callTag) { UNUSED_PARAM(callTag), call(address, NoPtrTag); }
 
     void ret()
     {
@@ -3821,12 +3880,14 @@ public:
     }
 #endif
 
-    static void replaceWithVMHalt(CodeLocationLabel instructionStart)
+    template<PtrTag tag>
+    static void replaceWithVMHalt(CodeLocationLabel<tag> instructionStart)
     {
         X86Assembler::replaceWithHlt(instructionStart.executableAddress());
     }
 
-    static void replaceWithJump(CodeLocationLabel instructionStart, CodeLocationLabel destination)
+    template<PtrTag startTag, PtrTag destTag>
+    static void replaceWithJump(CodeLocationLabel<startTag> instructionStart, CodeLocationLabel<destTag> destination)
     {
         X86Assembler::replaceWithJump(instructionStart.executableAddress(), destination.executableAddress());
     }
@@ -3844,48 +3905,21 @@ public:
     static bool supportsFloatingPointRounding()
     {
         if (s_sse4_1CheckState == CPUIDCheckState::NotChecked)
-            updateEax1EcxFlags();
+            collectCPUFeatures();
         return s_sse4_1CheckState == CPUIDCheckState::Set;
+    }
+
+    static bool supportsCountPopulation()
+    {
+        if (s_popcntCheckState == CPUIDCheckState::NotChecked)
+            collectCPUFeatures();
+        return s_popcntCheckState == CPUIDCheckState::Set;
     }
 
     static bool supportsAVX()
     {
         // AVX still causes mysterious regressions and those regressions can be massive.
         return false;
-    }
-
-    static void updateEax1EcxFlags()
-    {
-        int flags = 0;
-#if COMPILER(MSVC)
-        int cpuInfo[4];
-        __cpuid(cpuInfo, 0x1);
-        flags = cpuInfo[2];
-#elif COMPILER(GCC_OR_CLANG)
-#if CPU(X86_64)
-        asm (
-            "movl $0x1, %%eax;"
-            "cpuid;"
-            "movl %%ecx, %0;"
-            : "=g" (flags)
-            :
-            : "%eax", "%ebx", "%ecx", "%edx"
-            );
-#else
-        asm (
-            "movl $0x1, %%eax;"
-            "pushl %%ebx;"
-            "cpuid;"
-            "popl %%ebx;"
-            "movl %%ecx, %0;"
-            : "=g" (flags)
-            :
-            : "%eax", "%ecx", "%edx"
-            );
-#endif
-#endif // COMPILER(GCC_OR_CLANG)
-        s_sse4_1CheckState = (flags & (1 << 19)) ? CPUIDCheckState::Set : CPUIDCheckState::Clear;
-        s_avxCheckState = (flags & (1 << 28)) ? CPUIDCheckState::Set : CPUIDCheckState::Clear;
     }
 
     void lfence()
@@ -3969,62 +4003,15 @@ protected:
 
     static bool supportsLZCNT()
     {
-        if (s_lzcntCheckState == CPUIDCheckState::NotChecked) {
-            int flags = 0;
-#if COMPILER(MSVC)
-            int cpuInfo[4];
-            __cpuid(cpuInfo, 0x80000001);
-            flags = cpuInfo[2];
-#elif COMPILER(GCC_OR_CLANG)
-#if CPU(X86_64)
-            asm (
-                "movl $0x80000001, %%eax;"
-                "cpuid;"
-                "movl %%ecx, %0;"
-                : "=g" (flags)
-                :
-                : "%eax", "%ebx", "%ecx", "%edx"
-                );
-#else
-            asm (
-                "movl $0x80000001, %%eax;"
-                "pushl %%ebx;"
-                "cpuid;"
-                "popl %%ebx;"
-                "movl %%ecx, %0;"
-                : "=g" (flags)
-                :
-                : "%eax", "%ecx", "%edx"
-                );
-#endif
-#endif // COMPILER(GCC_OR_CLANG)
-            s_lzcntCheckState = (flags & 0x20) ? CPUIDCheckState::Set : CPUIDCheckState::Clear;
-        }
+        if (s_lzcntCheckState == CPUIDCheckState::NotChecked)
+            collectCPUFeatures();
         return s_lzcntCheckState == CPUIDCheckState::Set;
     }
 
     static bool supportsBMI1()
     {
-        if (s_bmi1CheckState == CPUIDCheckState::NotChecked) {
-            int flags = 0;
-#if COMPILER(MSVC)
-            int cpuInfo[4];
-            __cpuid(cpuInfo, 0x80000001);
-            flags = cpuInfo[2];
-#elif COMPILER(GCC_OR_CLANG)
-            asm (
-                 "movl $0x7, %%eax;"
-                 "movl $0x0, %%ecx;"
-                 "cpuid;"
-                 "movl %%ebx, %0;"
-                 : "=g" (flags)
-                 :
-                 : "%eax", "%ebx", "%ecx", "%edx"
-                 );
-#endif // COMPILER(GCC_OR_CLANG)
-            static int BMI1FeatureBit = 1 << 3;
-            s_bmi1CheckState = (flags & BMI1FeatureBit) ? CPUIDCheckState::Set : CPUIDCheckState::Clear;
-        }
+        if (s_bmi1CheckState == CPUIDCheckState::NotChecked)
+            collectCPUFeatures();
         return s_bmi1CheckState == CPUIDCheckState::Set;
     }
 
@@ -4177,47 +4164,12 @@ private:
     }
 
 #else // OS(MAC_OS_X)
-
-    enum SSE2CheckState {
-        NotCheckedSSE2,
-        HasSSE2,
-        NoSSE2
-    };
-
     static bool isSSE2Present()
     {
-        if (s_sse2CheckState == NotCheckedSSE2) {
-            // Default the flags value to zero; if the compiler is
-            // not MSVC or GCC we will read this as SSE2 not present.
-            int flags = 0;
-#if COMPILER(MSVC)
-            _asm {
-                mov eax, 1 // cpuid function 1 gives us the standard feature set
-                cpuid;
-                mov flags, edx;
-            }
-#elif COMPILER(GCC_OR_CLANG)
-            asm (
-                 "movl $0x1, %%eax;"
-                 "pushl %%ebx;"
-                 "cpuid;"
-                 "popl %%ebx;"
-                 "movl %%edx, %0;"
-                 : "=g" (flags)
-                 :
-                 : "%eax", "%ecx", "%edx"
-                 );
-#endif
-            static const int SSE2FeatureBit = 1 << 26;
-            s_sse2CheckState = (flags & SSE2FeatureBit) ? HasSSE2 : NoSSE2;
-        }
-        // Only check once.
-        ASSERT(s_sse2CheckState != NotCheckedSSE2);
-
-        return s_sse2CheckState == HasSSE2;
+        if (s_sse2CheckState == CPUIDCheckState::NotChecked)
+            collectCPUFeatures();
+        return s_sse2CheckState == CPUIDCheckState::Set;
     }
-    
-    JS_EXPORTDATA static SSE2CheckState s_sse2CheckState;
 
 #endif // OS(MAC_OS_X)
 #elif !defined(NDEBUG) // CPU(X86)
@@ -4231,15 +4183,23 @@ private:
 
 #endif
 
+    using CPUID = std::array<unsigned, 4>;
+    static CPUID getCPUID(unsigned level);
+    static CPUID getCPUIDEx(unsigned level, unsigned count);
+    JS_EXPORT_PRIVATE static void collectCPUFeatures();
+
     enum class CPUIDCheckState {
         NotChecked,
         Clear,
         Set
     };
+    JS_EXPORT_PRIVATE static CPUIDCheckState s_sse2CheckState;
     JS_EXPORT_PRIVATE static CPUIDCheckState s_sse4_1CheckState;
+    JS_EXPORT_PRIVATE static CPUIDCheckState s_sse4_2CheckState;
     JS_EXPORT_PRIVATE static CPUIDCheckState s_avxCheckState;
-    static CPUIDCheckState s_bmi1CheckState;
-    static CPUIDCheckState s_lzcntCheckState;
+    JS_EXPORT_PRIVATE static CPUIDCheckState s_lzcntCheckState;
+    JS_EXPORT_PRIVATE static CPUIDCheckState s_bmi1CheckState;
+    JS_EXPORT_PRIVATE static CPUIDCheckState s_popcntCheckState;
 };
 
 } // namespace JSC

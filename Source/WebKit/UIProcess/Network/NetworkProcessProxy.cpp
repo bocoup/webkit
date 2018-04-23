@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,19 +26,23 @@
 #include "config.h"
 #include "NetworkProcessProxy.h"
 
+#include "APIContentRuleList.h"
 #include "AuthenticationChallengeProxy.h"
 #include "DownloadProxyMessages.h"
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
 #include "LegacyCustomProtocolManagerProxyMessages.h"
 #endif
 #include "Logging.h"
+#include "NetworkContentRuleListManagerMessages.h"
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkProcessMessages.h"
 #include "SandboxExtension.h"
 #include "StorageProcessMessages.h"
+#include "WebCompiledContentRuleList.h"
 #include "WebPageProxy.h"
 #include "WebProcessMessages.h"
 #include "WebProcessPool.h"
+#include "WebUserContentControllerProxy.h"
 #include "WebsiteData.h"
 #include <wtf/CompletionHandler.h>
 
@@ -85,6 +89,10 @@ NetworkProcessProxy::~NetworkProcessProxy()
     ASSERT(m_pendingFetchWebsiteDataCallbacks.isEmpty());
     ASSERT(m_pendingDeleteWebsiteDataCallbacks.isEmpty());
     ASSERT(m_pendingDeleteWebsiteDataForOriginsCallbacks.isEmpty());
+#if ENABLE(CONTENT_EXTENSIONS)
+    for (auto* proxy : m_webUserContentControllerProxies)
+        proxy->removeNetworkProcess(*this);
+#endif
 }
 
 void NetworkProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
@@ -135,6 +143,10 @@ void NetworkProcessProxy::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<W
     RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because the Network process is fetching Website data", this);
 
     m_pendingFetchWebsiteDataCallbacks.add(callbackID, [this, token = throttler().backgroundActivityToken(), completionHandler = WTFMove(completionHandler), sessionID](WebsiteData websiteData) {
+#if RELEASE_LOG_DISABLED
+        UNUSED_PARAM(this);
+        UNUSED_PARAM(sessionID);
+#endif
         completionHandler(WTFMove(websiteData));
         RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is releasing a background assertion because the Network process is done fetching Website data", this);
     });
@@ -148,6 +160,10 @@ void NetworkProcessProxy::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<
     RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because the Network process is deleting Website data", this);
 
     m_pendingDeleteWebsiteDataCallbacks.add(callbackID, [this, token = throttler().backgroundActivityToken(), completionHandler = WTFMove(completionHandler), sessionID] {
+#if RELEASE_LOG_DISABLED
+        UNUSED_PARAM(this);
+        UNUSED_PARAM(sessionID);
+#endif
         completionHandler();
         RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is releasing a background assertion because the Network process is done deleting Website data", this);
     });
@@ -162,6 +178,10 @@ void NetworkProcessProxy::deleteWebsiteDataForOrigins(PAL::SessionID sessionID, 
     RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because the Network process is deleting Website data for several origins", this);
 
     m_pendingDeleteWebsiteDataForOriginsCallbacks.add(callbackID, [this, token = throttler().backgroundActivityToken(), completionHandler = WTFMove(completionHandler), sessionID] {
+#if RELEASE_LOG_DISABLED
+        UNUSED_PARAM(this);
+        UNUSED_PARAM(sessionID);
+#endif
         completionHandler();
         RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), ProcessSuspension, "%p - NetworkProcessProxy is releasing a background assertion because the Network process is done deleting Website data for several origins", this);
     });
@@ -276,9 +296,9 @@ void NetworkProcessProxy::didCreateNetworkConnectionToWebProcess(const IPC::Atta
 void NetworkProcessProxy::didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, const WebCore::AuthenticationChallenge& coreChallenge, uint64_t challengeID)
 {
 #if ENABLE(SERVICE_WORKER)
-    if (m_processPool.isServiceWorker(pageID)) {
+    if (auto* serviceWorkerProcessProxy = m_processPool.serviceWorkerProcessProxyFromPageID(pageID)) {
         auto authenticationChallenge = AuthenticationChallengeProxy::create(coreChallenge, challengeID, connection());
-        m_processPool.serviceWorkerProxy()->didReceiveAuthenticationChallenge(pageID, frameID, WTFMove(authenticationChallenge));
+        serviceWorkerProcessProxy->didReceiveAuthenticationChallenge(pageID, frameID, WTFMove(authenticationChallenge));
         return;
     }
 #endif
@@ -327,7 +347,7 @@ void NetworkProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Con
 {
     ChildProcessProxy::didFinishLaunching(launcher, connectionIdentifier);
 
-    if (IPC::Connection::identifierIsNull(connectionIdentifier)) {
+    if (!IPC::Connection::identifierIsValid(connectionIdentifier)) {
         networkProcessFailedToLaunch();
         return;
     }
@@ -394,7 +414,7 @@ void NetworkProcessProxy::canAuthenticateAgainstProtectionSpace(uint64_t loaderI
             return;
         }
 #if ENABLE(SERVICE_WORKER)
-    } else if (m_processPool.isServiceWorker(pageID)) {
+    } else if (m_processPool.serviceWorkerProcessProxyFromPageID(pageID)) {
         send(Messages::NetworkProcess::ContinueCanAuthenticateAgainstProtectionSpace(loaderID, true), 0);
         return;
 #endif
@@ -420,12 +440,18 @@ void NetworkProcessProxy::hasStorageAccessForFrame(PAL::SessionID sessionID, con
     send(Messages::NetworkProcess::HasStorageAccessForFrame(sessionID, resourceDomain, firstPartyDomain, frameID, pageID, contextId), 0);
 }
 
-void NetworkProcessProxy::grantStorageAccessForFrame(PAL::SessionID sessionID, const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void(bool)>&& callback)
+void NetworkProcessProxy::grantStorageAccess(PAL::SessionID sessionID, const String& resourceDomain, const String& firstPartyDomain, std::optional<uint64_t> frameID, uint64_t pageID, WTF::CompletionHandler<void(bool)>&& callback)
 {
     auto contextId = nextRequestStorageAccessContextId();
     auto addResult = m_storageAccessResponseCallbackMap.add(contextId, WTFMove(callback));
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
-    send(Messages::NetworkProcess::GrantStorageAccessForFrame(sessionID, resourceDomain, firstPartyDomain, frameID, pageID, contextId), 0);
+    send(Messages::NetworkProcess::GrantStorageAccess(sessionID, resourceDomain, firstPartyDomain, frameID, pageID, contextId), 0);
+}
+
+void NetworkProcessProxy::removeAllStorageAccess(PAL::SessionID sessionID)
+{
+    if (canSendMessage())
+        send(Messages::NetworkProcess::RemoveAllStorageAccess(sessionID), 0);
 }
 
 void NetworkProcessProxy::storageAccessRequestResult(bool wasGranted, uint64_t contextId)
@@ -521,5 +547,29 @@ void NetworkProcessProxy::setIsHoldingLockedFiles(bool isHoldingLockedFiles)
         m_tokenForHoldingLockedFiles = m_throttler.backgroundActivityToken();
     }
 }
+
+
+#if ENABLE(CONTENT_EXTENSIONS)
+void NetworkProcessProxy::contentExtensionRules(UserContentControllerIdentifier identifier)
+{
+    if (auto* webUserContentControllerProxy = WebUserContentControllerProxy::get(identifier)) {
+        m_webUserContentControllerProxies.add(webUserContentControllerProxy);
+        webUserContentControllerProxy->addNetworkProcess(*this);
+
+        auto rules = WTF::map(webUserContentControllerProxy->contentExtensionRules(), [](auto&& keyValue) -> std::pair<String, WebCompiledContentRuleListData> {
+            return std::make_pair(keyValue.value->name(), keyValue.value->compiledRuleList().data());
+        });
+        send(Messages::NetworkContentRuleListManager::AddContentRuleLists { identifier, rules }, 0);
+        return;
+    }
+    send(Messages::NetworkContentRuleListManager::AddContentRuleLists { identifier, { } }, 0);
+}
+
+void NetworkProcessProxy::didDestroyWebUserContentControllerProxy(WebUserContentControllerProxy& proxy)
+{
+    send(Messages::NetworkContentRuleListManager::Remove { proxy.identifier() }, 0);
+    m_webUserContentControllerProxies.remove(&proxy);
+}
+#endif
 
 } // namespace WebKit

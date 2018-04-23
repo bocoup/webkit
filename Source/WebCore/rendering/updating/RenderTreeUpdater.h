@@ -58,6 +58,7 @@ private:
     void updateTextRenderer(Text&, const Style::TextUpdate*);
     void createTextRenderer(Text&, const Style::TextUpdate*);
     void updateElementRenderer(Element&, const Style::ElementUpdate&);
+    void updateRendererStyle(RenderElement&, RenderStyle&&, StyleDifference);
     void createRenderer(Element&, RenderStyle&&);
     void updateBeforeDescendants(Element&, const Style::ElementUpdates*);
     void updateAfterDescendants(Element&, const Style::ElementUpdates*);
@@ -86,10 +87,10 @@ private:
     void popParentsToDepth(unsigned depth);
 
     enum class TeardownType { Full, RendererUpdate, RendererUpdateCancelingAnimations };
-    static void tearDownRenderers(Element&, TeardownType);
-    static void tearDownTextRenderer(Text&);
-    static void tearDownLeftoverShadowHostChildren(Element&);
-    static void tearDownLeftoverPaginationRenderersIfNeeded(Element&);
+    static void tearDownRenderers(Element&, TeardownType, RenderTreeBuilder&);
+    static void tearDownTextRenderer(Text&, RenderTreeBuilder&);
+    static void tearDownLeftoverShadowHostChildren(Element&, RenderTreeBuilder&);
+    static void tearDownLeftoverPaginationRenderersIfNeeded(Element&, RenderTreeBuilder&);
 
     RenderView& renderView();
 

@@ -139,7 +139,6 @@ private:
     // It is also used when doing an early return from an inlined callee: it is easier to fix the bytecode index later on if needed
     // than to move the right index all the way to the treatment of op_ret.
     BasicBlock* allocateTargetableBlock(unsigned bytecodeIndex);
-    BasicBlock* allocateTargetableBlock(InlineStackEntry*, unsigned bytecodeIndex);
     BasicBlock* allocateUntargetableBlock();
     // An untargetable block can be given a bytecodeIndex to be later managed by linkBlock, but only once, and it can never go in the other direction
     void makeBlockTargetable(BasicBlock*, unsigned bytecodeIndex);
@@ -829,7 +828,7 @@ private:
         // chain and use its prediction. If we only have
         // inlined tail call frames, we use SpecFullTop
         // to avoid a spurious OSR exit.
-        Instruction* instruction = m_inlineStackTop->m_profiledBlock->instructions().begin() + bytecodeIndex;
+        Instruction* instruction = &m_inlineStackTop->m_profiledBlock->instructions()[bytecodeIndex];
         OpcodeID opcodeID = Interpreter::getOpcodeID(instruction->u.opcode);
 
         switch (opcodeID) {
@@ -1158,18 +1157,13 @@ private:
 
 BasicBlock* ByteCodeParser::allocateTargetableBlock(unsigned bytecodeIndex)
 {
-    return allocateTargetableBlock(m_inlineStackTop, bytecodeIndex);
-}
-
-BasicBlock* ByteCodeParser::allocateTargetableBlock(InlineStackEntry* stackEntry, unsigned bytecodeIndex)
-{
     ASSERT(bytecodeIndex != UINT_MAX);
     Ref<BasicBlock> block = adoptRef(*new BasicBlock(bytecodeIndex, m_numArguments, m_numLocals, 1));
     BasicBlock* blockPtr = block.ptr();
     // m_blockLinkingTargets must always be sorted in increasing order of bytecodeBegin
-    if (stackEntry->m_blockLinkingTargets.size())
-        ASSERT(stackEntry->m_blockLinkingTargets.last()->bytecodeBegin < bytecodeIndex);
-    stackEntry->m_blockLinkingTargets.append(blockPtr);
+    if (m_inlineStackTop->m_blockLinkingTargets.size())
+        ASSERT(m_inlineStackTop->m_blockLinkingTargets.last()->bytecodeBegin < bytecodeIndex);
+    m_inlineStackTop->m_blockLinkingTargets.append(blockPtr);
     m_graph.appendBlock(WTFMove(block));
     return blockPtr;
 }
@@ -1672,11 +1666,10 @@ void ByteCodeParser::inlineCall(Node* callTargetNode, int resultOperand, CallVar
     
     // Most functions have at least one op_ret and thus set up the continuation block.
     // In some rare cases, a function ends in op_unreachable, forcing us to allocate a new continuationBlock here.
-    // We must be careful to allocate it in the caller and not the top of the inline stack, since the callee is still on the stack at this point.
     if (inlineStackEntry.m_continuationBlock)
         m_currentBlock = inlineStackEntry.m_continuationBlock;
     else
-        m_currentBlock = allocateTargetableBlock(inlineStackEntry.m_caller, m_currentIndex);
+        m_currentBlock = allocateUntargetableBlock();
     ASSERT(!m_currentBlock->terminal());
 
     prepareToParseBlock();
@@ -2241,7 +2234,7 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, int resultOperand, Intrin
             return false;
         }
 #endif
-        if (argumentCountIncludingThis < 2)
+        if (argumentCountIncludingThis < 1)
             return false;
 
         if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantCache)
@@ -2303,7 +2296,8 @@ bool ByteCodeParser::handleIntrinsicCall(Node* callee, int resultOperand, Intrin
                 addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(structureSet)), array);
 
                 addVarArgChild(array);
-                addVarArgChild(get(virtualRegisterForArgument(1, registerOffset))); // Start index.
+                if (argumentCountIncludingThis >= 2)
+                    addVarArgChild(get(virtualRegisterForArgument(1, registerOffset))); // Start index.
                 if (argumentCountIncludingThis >= 3)
                     addVarArgChild(get(virtualRegisterForArgument(2, registerOffset))); // End index.
                 addVarArgChild(addToGraph(GetButterfly, array));
@@ -3454,7 +3448,7 @@ bool ByteCodeParser::handleConstantInternalFunction(
         for (int i = 1; i < argumentCountIncludingThis; ++i)
             addVarArgChild(get(virtualRegisterForArgument(i, registerOffset)));
         set(VirtualRegister(resultOperand),
-            addToGraph(Node::VarArg, NewArray, OpInfo(ArrayWithUndecided), OpInfo(0)));
+            addToGraph(Node::VarArg, NewArray, OpInfo(ArrayWithUndecided), OpInfo(argumentCountIncludingThis - 1)));
         return true;
     }
 
@@ -3960,8 +3954,10 @@ void ByteCodeParser::handleGetById(
     NodeType getById;
     if (type == AccessType::Get)
         getById = getByIdStatus.makesCalls() ? GetByIdFlush : GetById;
-    else
+    else if (type == AccessType::TryGet)
         getById = TryGetById;
+    else
+        getById = getByIdStatus.makesCalls() ? GetByIdDirectFlush : GetByIdDirect;
 
     if (getById != TryGetById && getByIdStatus.isModuleNamespace()) {
         if (handleModuleNamespaceLoad(destinationOperand, prediction, base, getByIdStatus)) {
@@ -3985,7 +3981,7 @@ void ByteCodeParser::handleGetById(
         }
     }
 
-    ASSERT(type == AccessType::Get || !getByIdStatus.makesCalls());
+    ASSERT(type == AccessType::Get || type == AccessType::GetDirect ||  !getByIdStatus.makesCalls());
     if (!getByIdStatus.isSimple() || !getByIdStatus.numVariants() || !Options::useAccessInlining()) {
         set(VirtualRegister(destinationOperand),
             addToGraph(getById, OpInfo(identifierNumber), OpInfo(prediction), base));
@@ -4055,7 +4051,7 @@ void ByteCodeParser::handleGetById(
     if (UNLIKELY(m_graph.compilation()))
         m_graph.compilation()->noticeInlinedGetById();
 
-    ASSERT(type == AccessType::Get || !variant.callLinkStatus());
+    ASSERT(type == AccessType::Get || type == AccessType::GetDirect || !variant.callLinkStatus());
     if (!variant.callLinkStatus() && variant.intrinsic() == NoIntrinsic) {
         set(VirtualRegister(destinationOperand), loadedValue);
         return;
@@ -4463,7 +4459,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 if (cachedFunction
                     && cachedFunction != JSCell::seenMultipleCalleeObjects()
                     && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadCell)) {
-                    ASSERT(cachedFunction->inherits(*m_vm, JSFunction::info()));
+                    ASSERT(cachedFunction->inherits<JSFunction>(*m_vm));
 
                     FrozenValue* frozen = m_graph.freeze(cachedFunction);
                     addToGraph(CheckCell, OpInfo(frozen), callee);
@@ -4509,7 +4505,8 @@ void ByteCodeParser::parseBlock(unsigned limit)
             ArrayAllocationProfile* profile = currentInstruction[4].u.arrayAllocationProfile;
             for (int operandIdx = startOperand; operandIdx > startOperand - numOperands; --operandIdx)
                 addVarArgChild(get(VirtualRegister(operandIdx)));
-            set(VirtualRegister(currentInstruction[1].u.operand), addToGraph(Node::VarArg, NewArray, OpInfo(profile->selectIndexingType()), OpInfo(0)));
+            unsigned vectorLengthHint = std::max<unsigned>(profile->vectorLengthHint(), numOperands);
+            set(VirtualRegister(currentInstruction[1].u.operand), addToGraph(Node::VarArg, NewArray, OpInfo(profile->selectIndexingType()), OpInfo(vectorLengthHint)));
             NEXT_OPCODE(op_new_array);
         }
 
@@ -4993,11 +4990,12 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 handleGetById(currentInstruction[1].u.operand, prediction, base, identifierNumber, getByIdStatus, AccessType::Get, OPCODE_LENGTH(op_get_by_val));
             else {
                 ArrayMode arrayMode = getArrayMode(currentInstruction[4].u.arrayProfile, Array::Read);
+                // FIXME: We could consider making this not vararg, since it only uses three child
+                // slots.
+                // https://bugs.webkit.org/show_bug.cgi?id=184192
                 addVarArgChild(base);
                 addVarArgChild(property);
                 addVarArgChild(0); // Leave room for property storage.
-                if (isFTL(m_graph.m_plan.mode))
-                    addVarArgChild(0); // Leave room for the array mask.
                 Node* getByVal = addToGraph(Node::VarArg, GetByVal, OpInfo(arrayMode.asWord()), OpInfo(prediction));
                 m_exitOK = false; // GetByVal must be treated as if it clobbers exit state, since FixupPhase may make it generic.
                 set(VirtualRegister(currentInstruction[1].u.operand), getByVal);
@@ -5123,6 +5121,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             NEXT_OPCODE(op_define_accessor_property);
         }
 
+        case op_get_by_id_direct:
         case op_try_get_by_id:
         case op_get_by_id:
         case op_get_by_id_proto_load:
@@ -5138,15 +5137,25 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 m_inlineStackTop->m_profiledBlock, m_dfgCodeBlock,
                 m_inlineStackTop->m_stubInfos, m_dfgStubInfos,
                 currentCodeOrigin(), uid);
-            AccessType type = op_try_get_by_id == opcodeID ? AccessType::TryGet : AccessType::Get;
 
-            unsigned opcodeLength = opcodeID == op_try_get_by_id ? OPCODE_LENGTH(op_try_get_by_id) : OPCODE_LENGTH(op_get_by_id);
+            AccessType type = AccessType::Get;
+            unsigned opcodeLength = OPCODE_LENGTH(op_get_by_id);
+            if (opcodeID == op_try_get_by_id) {
+                type = AccessType::TryGet;
+                opcodeLength = OPCODE_LENGTH(op_try_get_by_id);
+            } else if (opcodeID == op_get_by_id_direct) {
+                type = AccessType::GetDirect;
+                opcodeLength = OPCODE_LENGTH(op_get_by_id_direct);
+            }
 
             handleGetById(
                 currentInstruction[1].u.operand, prediction, base, identifierNumber, getByIdStatus, type, opcodeLength);
 
-            if (op_try_get_by_id == opcodeID)
-                NEXT_OPCODE(op_try_get_by_id); // Opcode's length is different from others in this case.
+            // Opcode's length is different from others in try and direct cases.
+            if (opcodeID == op_try_get_by_id)
+                NEXT_OPCODE(op_try_get_by_id);
+            else if (opcodeID == op_get_by_id_direct)
+                NEXT_OPCODE(op_get_by_id_direct);
             else
                 NEXT_OPCODE(op_get_by_id);
         }
@@ -5326,6 +5335,24 @@ void ByteCodeParser::parseBlock(unsigned limit)
             LAST_OPCODE(op_jgreatereq);
         }
 
+        case op_jeq: {
+            unsigned relativeOffset = currentInstruction[3].u.operand;
+            Node* op1 = get(VirtualRegister(currentInstruction[1].u.operand));
+            Node* op2 = get(VirtualRegister(currentInstruction[2].u.operand));
+            Node* condition = addToGraph(CompareEq, op1, op2);
+            addToGraph(Branch, OpInfo(branchData(m_currentIndex + relativeOffset, m_currentIndex + OPCODE_LENGTH(op_jeq))), condition);
+            LAST_OPCODE(op_jeq);
+        }
+
+        case op_jstricteq: {
+            unsigned relativeOffset = currentInstruction[3].u.operand;
+            Node* op1 = get(VirtualRegister(currentInstruction[1].u.operand));
+            Node* op2 = get(VirtualRegister(currentInstruction[2].u.operand));
+            Node* condition = addToGraph(CompareStrictEq, op1, op2);
+            addToGraph(Branch, OpInfo(branchData(m_currentIndex + relativeOffset, m_currentIndex + OPCODE_LENGTH(op_jstricteq))), condition);
+            LAST_OPCODE(op_jstricteq);
+        }
+
         case op_jnless: {
             unsigned relativeOffset = currentInstruction[3].u.operand;
             Node* op1 = get(VirtualRegister(currentInstruction[1].u.operand));
@@ -5360,6 +5387,24 @@ void ByteCodeParser::parseBlock(unsigned limit)
             Node* condition = addToGraph(CompareGreaterEq, op1, op2);
             addToGraph(Branch, OpInfo(branchData(m_currentIndex + OPCODE_LENGTH(op_jngreatereq), m_currentIndex + relativeOffset)), condition);
             LAST_OPCODE(op_jngreatereq);
+        }
+
+        case op_jneq: {
+            unsigned relativeOffset = currentInstruction[3].u.operand;
+            Node* op1 = get(VirtualRegister(currentInstruction[1].u.operand));
+            Node* op2 = get(VirtualRegister(currentInstruction[2].u.operand));
+            Node* condition = addToGraph(CompareEq, op1, op2);
+            addToGraph(Branch, OpInfo(branchData(m_currentIndex + OPCODE_LENGTH(op_jneq), m_currentIndex + relativeOffset)), condition);
+            LAST_OPCODE(op_jneq);
+        }
+
+        case op_jnstricteq: {
+            unsigned relativeOffset = currentInstruction[3].u.operand;
+            Node* op1 = get(VirtualRegister(currentInstruction[1].u.operand));
+            Node* op2 = get(VirtualRegister(currentInstruction[2].u.operand));
+            Node* condition = addToGraph(CompareStrictEq, op1, op2);
+            addToGraph(Branch, OpInfo(branchData(m_currentIndex + OPCODE_LENGTH(op_jnstricteq), m_currentIndex + relativeOffset)), condition);
+            LAST_OPCODE(op_jnstricteq);
         }
 
         case op_jbelow: {

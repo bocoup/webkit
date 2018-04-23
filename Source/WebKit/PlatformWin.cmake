@@ -19,6 +19,12 @@ list(APPEND WebKit_SOURCES
     Platform/win/ModuleWin.cpp
     Platform/win/SharedMemoryWin.cpp
 
+    Shared/win/NativeWebKeyboardEventWin.cpp
+    Shared/win/NativeWebMouseEventWin.cpp
+    Shared/win/NativeWebTouchEventWin.cpp
+    Shared/win/NativeWebWheelEventWin.cpp
+    Shared/win/WebEventFactory.cpp
+
     StorageProcess/win/StorageProcessMainWin.cpp
 
     WebProcess/InjectedBundle/win/InjectedBundleWin.cpp
@@ -107,18 +113,19 @@ if (${WTF_PLATFORM_WIN_CAIRO})
     add_definitions(-DUSE_CAIRO=1 -DUSE_CURL=1)
 
     list(APPEND WebKit_SOURCES
+        NetworkProcess/Cookies/curl/WebCookieManagerCurl.cpp
+
         NetworkProcess/cache/NetworkCacheCodersCurl.cpp
         NetworkProcess/cache/NetworkCacheDataCurl.cpp
         NetworkProcess/cache/NetworkCacheIOChannelCurl.cpp
 
+        NetworkProcess/curl/NetworkDataTaskCurl.cpp
         NetworkProcess/curl/NetworkProcessCurl.cpp
         NetworkProcess/curl/RemoteNetworkingContextCurl.cpp
 
         Shared/Authentication/curl/AuthenticationManagerCurl.cpp
 
         Shared/curl/WebCoreArgumentCodersCurl.cpp
-
-        WebProcess/Cookies/curl/WebCookieManagerCurl.cpp
 
         WebProcess/WebCoreSupport/curl/WebFrameNetworkingContext.cpp
     )
@@ -129,9 +136,10 @@ if (${WTF_PLATFORM_WIN_CAIRO})
     )
 
     list(APPEND WebKit_LIBRARIES
-        ${OPENSSL_LIBRARIES}
-        mfuuid.lib
-        strmiids.lib
+        PRIVATE
+            ${OPENSSL_LIBRARIES}
+            mfuuid.lib
+            strmiids.lib
     )
 endif ()
 

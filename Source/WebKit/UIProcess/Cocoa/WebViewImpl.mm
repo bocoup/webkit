@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,6 +75,7 @@
 #import <WebCore/DragData.h>
 #import <WebCore/DragItem.h>
 #import <WebCore/Editor.h>
+#import <WebCore/FileSystem.h>
 #import <WebCore/KeypressCommand.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LoaderNSURLExtras.h>
@@ -101,6 +102,7 @@
 #import <pal/spi/mac/NSWindowSPI.h>
 #import <sys/stat.h>
 #import <wtf/NeverDestroyed.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/SetForScope.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/cf/TypeCastsCF.h>
@@ -1286,6 +1288,7 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
 {
     static_cast<PageClientImpl&>(*m_pageClient).setImpl(*this);
 
+    RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     [NSApp registerServicesMenuSendTypes:PasteboardTypes::forSelection() returnTypes:PasteboardTypes::forEditing()];
 
     [view addTrackingArea:m_primaryTrackingArea.get()];
@@ -1390,6 +1393,18 @@ bool WebViewImpl::drawsBackground() const
     return m_page->drawsBackground();
 }
 
+void WebViewImpl::setBackgroundColor(NSColor *backgroundColor)
+{
+    m_backgroundColor = backgroundColor;
+}
+
+NSColor *WebViewImpl::backgroundColor() const
+{
+    if (!m_backgroundColor)
+        return [NSColor whiteColor];
+    return m_backgroundColor.get();
+}
+
 bool WebViewImpl::isOpaque() const
 {
     return m_page->drawsBackground();
@@ -1407,6 +1422,7 @@ bool WebViewImpl::acceptsFirstResponder()
 
 bool WebViewImpl::becomeFirstResponder()
 {
+    RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     // If we just became first responder again, there is no need to do anything,
     // since resignFirstResponder has correctly detected this situation.
     if (m_willBecomeFirstResponderAgain) {
@@ -1606,7 +1622,11 @@ void WebViewImpl::setDrawingAreaSize(CGSize size)
 
 void WebViewImpl::updateLayer()
 {
-    [m_view layer].backgroundColor = CGColorGetConstantColor(drawsBackground() ? kCGColorWhite : kCGColorClear);
+    bool draws = drawsBackground();
+    if (!draws || !m_backgroundColor)
+        [m_view layer].backgroundColor = CGColorGetConstantColor(draws ? kCGColorWhite : kCGColorClear);
+    else
+        [m_view layer].backgroundColor = [m_backgroundColor CGColor];
 
     // If asynchronous geometry updates have been sent by forceAsyncDrawingAreaSizeUpdate,
     // then subsequent calls to setFrameSize should not result in us waiting for the did
@@ -2359,6 +2379,7 @@ bool WebViewImpl::tryHandlePluginComplexTextInputKeyDown(NSEvent *event)
 
 void WebViewImpl::pluginFocusOrWindowFocusChanged(bool pluginHasFocusAndWindowHasFocus, uint64_t pluginComplexTextInputIdentifier)
 {
+    RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     BOOL inputSourceChanged = m_pluginComplexTextInputIdentifier;
 
     if (pluginHasFocusAndWindowHasFocus) {
@@ -2668,6 +2689,7 @@ static NSToolbarItem *toolbarItem(id <NSValidatedUserInterfaceItem> item)
 
 bool WebViewImpl::validateUserInterfaceItem(id <NSValidatedUserInterfaceItem> item)
 {
+    RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     SEL action = [item action];
 
     if (action == @selector(showGuessPanel:)) {
@@ -2789,6 +2811,7 @@ void WebViewImpl::setUserInterfaceItemState(NSString *commandName, bool enabled,
 
 void WebViewImpl::startSpeaking()
 {
+    RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     m_page->getSelectionOrContentsAsString([](const String& string, WebKit::CallbackBase::Error error) {
         if (error != WebKit::CallbackBase::Error::None)
             return;
@@ -2801,6 +2824,7 @@ void WebViewImpl::startSpeaking()
 
 void WebViewImpl::stopSpeaking(id sender)
 {
+    RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     [NSApp stopSpeaking:sender];
 }
 
@@ -3613,6 +3637,7 @@ void WebViewImpl::draggedImage(NSImage *image, CGPoint endPoint, NSDragOperation
 
 static WebCore::DragApplicationFlags applicationFlagsForDrag(NSView *view, id <NSDraggingInfo> draggingInfo)
 {
+    RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     uint32_t flags = 0;
     if ([NSApp modalWindow])
         flags = WebCore::DragApplicationIsModal;
@@ -3692,57 +3717,77 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
 {
     WebCore::IntPoint client([m_view convertPoint:draggingInfo.draggingLocation fromView:nil]);
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, [m_view window]));
-    WebCore::DragData dragData(draggingInfo, client, global, static_cast<WebCore::DragOperation>(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo));
+    WebCore::DragData *dragData = new WebCore::DragData(draggingInfo, client, global, static_cast<WebCore::DragOperation>(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo));
 
     NSArray *types = draggingInfo.draggingPasteboard.types;
     SandboxExtension::Handle sandboxExtensionHandle;
     SandboxExtension::HandleArray sandboxExtensionForUpload;
 
-    if ([types containsObject:WebCore::legacyFilenamesPasteboardType()]) {
-        NSArray *files = [draggingInfo.draggingPasteboard propertyListForType:WebCore::legacyFilenamesPasteboardType()];
-        if (![files isKindOfClass:[NSArray class]])
-            return false;
-
-        Vector<String> fileNames;
-
-        for (NSString *file in files)
-            fileNames.append(file);
-        m_page->createSandboxExtensionsIfNeeded(fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
-    } else if (![types containsObject:PasteboardTypes::WebArchivePboardType] && [types containsObject:WebCore::legacyFilesPromisePasteboardType()]) {
+    if (![types containsObject:PasteboardTypes::WebArchivePboardType] && [types containsObject:WebCore::legacyFilesPromisePasteboardType()]) {
+        
+        // FIXME: legacyFilesPromisePasteboardType() contains UTIs, not path names. Also, it's not
+        // guaranteed that the count of UTIs equals the count of files, since some clients only write
+        // unique UTIs.
         NSArray *files = [draggingInfo.draggingPasteboard propertyListForType:WebCore::legacyFilesPromisePasteboardType()];
-        if (![files isKindOfClass:[NSArray class]])
+        if (![files isKindOfClass:[NSArray class]]) {
+            delete dragData;
             return false;
+        }
+
+        NSString *dropDestinationPath = WebCore::FileSystem::createTemporaryDirectory(@"WebKitDropDestination");
+        if (!dropDestinationPath) {
+            delete dragData;
+            return false;
+        }
+
         size_t fileCount = files.count;
-        Vector<String> fileNames;
-        NSURL *dropLocation = [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES];
+        Vector<String> *fileNames = new Vector<String>;
+        NSURL *dropDestination = [NSURL fileURLWithPath:dropDestinationPath isDirectory:YES];
         String pasteboardName = draggingInfo.draggingPasteboard.name;
-        [draggingInfo enumerateDraggingItemsWithOptions:0 forView:m_view.getAutoreleased() classes:@[[NSFilePromiseReceiver class]] searchOptions:@{ } usingBlock:BlockPtr<void (NSDraggingItem *, NSInteger, BOOL *)>::fromCallable([this, fileNames = WTFMove(fileNames), dropLocation = retainPtr(dropLocation), fileCount, dragData = WTFMove(dragData), pasteboardName](NSDraggingItem * __nonnull draggingItem, NSInteger idx, BOOL * __nonnull stop) mutable {
+        [draggingInfo enumerateDraggingItemsWithOptions:0 forView:m_view.getAutoreleased() classes:@[[NSFilePromiseReceiver class]] searchOptions:@{ } usingBlock:^(NSDraggingItem * __nonnull draggingItem, NSInteger idx, BOOL * __nonnull stop) {
             NSFilePromiseReceiver *item = draggingItem.item;
             NSDictionary *options = @{ };
 
             RetainPtr<NSOperationQueue> queue = adoptNS([NSOperationQueue new]);
-            [item receivePromisedFilesAtDestination:dropLocation.get() options:options operationQueue:queue.get() reader:BlockPtr<void(NSURL *, NSError *)>::fromCallable([this, fileNames = WTFMove(fileNames), fileCount, dragData = WTFMove(dragData), pasteboardName](NSURL * _Nonnull fileURL, NSError * _Nullable errorOrNil) mutable {
+            [item receivePromisedFilesAtDestination:dropDestination options:options operationQueue:queue.get() reader:^(NSURL * _Nonnull fileURL, NSError * _Nullable errorOrNil) {
                 if (errorOrNil)
                     return;
 
-                dispatch_async(dispatch_get_main_queue(), BlockPtr<void()>::fromCallable([this, path = retainPtr(fileURL.path), fileNames, fileCount, dragData = WTFMove(dragData), pasteboardName]() mutable {
-                    fileNames.append(path.get());
-                    if (fileNames.size() == fileCount) {
+                dispatch_async(dispatch_get_main_queue(), [this, path = RetainPtr<NSString>(fileURL.path), fileNames, fileCount, dragData, pasteboardName] {
+                    fileNames->append(path.get());
+                    if (fileNames->size() == fileCount) {
                         SandboxExtension::Handle sandboxExtensionHandle;
                         SandboxExtension::HandleArray sandboxExtensionForUpload;
 
-                        m_page->createSandboxExtensionsIfNeeded(fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
-                        dragData.setFileNames(fileNames);
-                        m_page->performDragOperation(dragData, pasteboardName, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionForUpload));
+                        m_page->createSandboxExtensionsIfNeeded(*fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
+                        dragData->setFileNames(*fileNames);
+                        m_page->performDragOperation(*dragData, pasteboardName, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionForUpload));
+                        delete dragData;
+                        delete fileNames;
                     }
-                }).get());
-            }).get()];
-        }).get()];
+                });
+            }];
+        }];
 
         return true;
     }
 
-    m_page->performDragOperation(dragData, draggingInfo.draggingPasteboard.name, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionForUpload));
+    if ([types containsObject:WebCore::legacyFilenamesPasteboardType()]) {
+        NSArray *files = [draggingInfo.draggingPasteboard propertyListForType:WebCore::legacyFilenamesPasteboardType()];
+        if (![files isKindOfClass:[NSArray class]]) {
+            delete dragData;
+            return false;
+        }
+        
+        Vector<String> fileNames;
+        
+        for (NSString *file in files)
+            fileNames.append(file);
+        m_page->createSandboxExtensionsIfNeeded(fileNames, sandboxExtensionHandle, sandboxExtensionForUpload);
+    }
+
+    m_page->performDragOperation(*dragData, draggingInfo.draggingPasteboard.name, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionForUpload));
+    delete dragData;
 
     return true;
 }
@@ -4205,6 +4250,7 @@ void WebViewImpl::didRestoreScrollPosition()
 
 void WebViewImpl::doneWithKeyEvent(NSEvent *event, bool eventWasHandled)
 {
+    RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
     if ([event type] != NSEventTypeKeyDown)
         return;
 
@@ -4953,6 +4999,21 @@ bool WebViewImpl::completeBackSwipeForTesting()
     if (!m_gestureController)
         return false;
     return m_gestureController->completeSimulatedSwipeInDirectionForTesting(ViewGestureController::SwipeDirection::Back);
+}
+    
+void WebViewImpl::setUseSystemAppearance(bool useSystemAppearance)
+{
+    m_page->setUseSystemAppearance(useSystemAppearance);
+}
+
+bool WebViewImpl::useSystemAppearance()
+{
+    return m_page->useSystemAppearance();
+}
+
+void WebViewImpl::setDefaultAppearance(bool defaultAppearance)
+{
+    m_page->setDefaultAppearance(defaultAppearance);
 }
 
 } // namespace WebKit

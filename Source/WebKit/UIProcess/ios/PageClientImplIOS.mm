@@ -561,14 +561,6 @@ void PageClientImpl::stopAssistingNode()
 {
     [m_contentView _stopAssistingNode];
 }
-    
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-void PageClientImpl::didUpdateBlockSelectionWithTouch(uint32_t touch, uint32_t flags, float growThreshold, float shrinkThreshold)
-{
-    [m_contentView _didUpdateBlockSelectionWithTouch:(SelectionTouch)touch withFlags:(SelectionFlags)flags growThreshold:growThreshold shrinkThreshold:shrinkThreshold];
-}
-#endif
-    
 
 void PageClientImpl::showPlaybackTargetPicker(bool hasVideo, const IntRect& elementRect)
 {
@@ -740,6 +732,11 @@ void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigatio
 void PageClientImpl::didChangeBackgroundColor()
 {
     [m_webView _updateScrollViewBackground];
+}
+
+void PageClientImpl::videoControlsManagerDidChange()
+{
+    [m_webView _videoControlsManagerDidChange];
 }
 
 void PageClientImpl::refView()

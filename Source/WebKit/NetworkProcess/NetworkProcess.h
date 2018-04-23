@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,11 +29,13 @@
 #include "ChildProcess.h"
 #include "DownloadManager.h"
 #include "MessageReceiverMap.h"
+#include "NetworkContentRuleListManager.h"
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <memory>
 #include <pal/SessionID.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
+#include <wtf/HashSet.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RetainPtr.h>
@@ -138,7 +140,8 @@ public:
     void updatePrevalentDomainsToPartitionOrBlockCookies(PAL::SessionID, const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, bool shouldClearFirst);
     void hasStorageAccessForFrame(PAL::SessionID, const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, uint64_t contextId);
     void getAllStorageAccessEntries(PAL::SessionID, uint64_t contextId);
-    void grantStorageAccessForFrame(PAL::SessionID, const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, uint64_t contextId);
+    void grantStorageAccess(PAL::SessionID, const String& resourceDomain, const String& firstPartyDomain, std::optional<uint64_t> frameID, uint64_t pageID, uint64_t contextId);
+    void removeAllStorageAccess(PAL::SessionID);
     void removePrevalentDomains(PAL::SessionID, const Vector<String>& domains);
 #endif
 
@@ -150,6 +153,13 @@ public:
 
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
     bool shouldLogCookieInformation() const { return m_logCookieInformation; }
+#endif
+
+    void setSessionIsControlledByAutomation(PAL::SessionID, bool);
+    bool sessionIsControlledByAutomation(PAL::SessionID) const;
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    NetworkContentRuleListManager& networkContentRuleListManager() { return m_NetworkContentRuleListManager; }
 #endif
 
 private:
@@ -231,6 +241,18 @@ private:
     // Platform Helpers
     void platformSetURLCacheSize(unsigned urlCacheMemoryCapacity, uint64_t urlCacheDiskCapacity);
 
+#if PLATFORM(MAC)
+    static void setSharedHTTPCookieStorage(const Vector<uint8_t>& identifier);
+#endif
+
+    void registerURLSchemeAsSecure(const String&) const;
+    void registerURLSchemeAsBypassingContentSecurityPolicy(const String&) const;
+    void registerURLSchemeAsLocal(const String&) const;
+    void registerURLSchemeAsNoAccess(const String&) const;
+    void registerURLSchemeAsDisplayIsolated(const String&) const;
+    void registerURLSchemeAsCORSEnabled(const String&) const;
+    void registerURLSchemeAsCanDisplayOnlyIfCanRequest(const String&) const;
+
     // Connections to WebProcesses.
     Vector<RefPtr<NetworkConnectionToWebProcess>> m_webProcessConnections;
 
@@ -258,6 +280,7 @@ private:
 #if ENABLE(SERVER_PRECONNECT)
     HashMap<uint64_t, WeakPtr<PreconnectTask>> m_waitingPreconnectTasks;
 #endif
+    HashSet<PAL::SessionID> m_sessionsControlledByAutomation;
 
 #if PLATFORM(COCOA)
     void platformInitializeNetworkProcessCocoa(const NetworkProcessCreationParameters&);
@@ -272,6 +295,10 @@ private:
 
 #if PLATFORM(IOS)
     WebSQLiteDatabaseTracker m_webSQLiteDatabaseTracker;
+#endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    NetworkContentRuleListManager m_NetworkContentRuleListManager;
 #endif
 };
 

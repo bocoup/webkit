@@ -315,7 +315,7 @@ enum EventThrottlingBehavior {
     unsigned long numberOfLiveNodes();
     unsigned long numberOfLiveDocuments();
     unsigned long referencingNodeCount(Document document);
-    DOMWindow? openDummyInspectorFrontend(DOMString url);
+    WindowProxy? openDummyInspectorFrontend(DOMString url);
     void closeDummyInspectorFrontend();
     [MayThrowException] void setInspectorIsUnderTest(boolean isUnderTest);
 
@@ -347,6 +347,9 @@ enum EventThrottlingBehavior {
     [Conditional=FULLSCREEN_API] void webkitDidEnterFullScreenForElement(Element element);
     [Conditional=FULLSCREEN_API] void webkitWillExitFullScreenForElement(Element element);
     [Conditional=FULLSCREEN_API] void webkitDidExitFullScreenForElement(Element element);
+
+    void setFullscreenInsetTop(double inset);
+    void setFullscreenAutoHideDelay(double delay);
 
     void setApplicationCacheOriginQuota(unsigned long long quota);
 
@@ -563,6 +566,7 @@ enum EventThrottlingBehavior {
     [Conditional=MEDIA_STREAM] void setMediaStreamTrackMuted(MediaStreamTrack track, boolean muted);
     [Conditional=MEDIA_STREAM] void removeMediaStreamTrack(MediaStream stream, MediaStreamTrack track);
     [Conditional=MEDIA_STREAM] void simulateMediaStreamTrackCaptureSourceFailure(MediaStreamTrack track);
+    [Conditional=MEDIA_STREAM] void setMediaStreamTrackIdentifier(MediaStreamTrack track, DOMString identifier);
 
     Promise<void> clearCacheStorageMemoryRepresentation();
     Promise<DOMString> cacheStorageEngineRepresentation();
@@ -584,4 +588,10 @@ enum EventThrottlingBehavior {
     [EnabledAtRuntime=WebAnimations] void setTimelineCurrentTime(AnimationTimeline timeline, double currentTime);
     [Conditional=APPLE_PAY] readonly attribute MockPaymentCoordinator mockPaymentCoordinator;
     [Conditional=WEB_AUTHN] readonly attribute MockCredentialsMessenger mockCredentialsMessenger;
+
+    DOMString systemPreviewRelType();
+    boolean isSystemPreviewLink(Element element);
+    boolean isSystemPreviewImage(Element element);
+
+    boolean usingAppleInternalSDK();
 };

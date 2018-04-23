@@ -96,9 +96,8 @@ struct WebPageCreationParameters {
 
     Vector<BackForwardListItemState> itemStates;
     PAL::SessionID sessionID;
-    uint64_t highestUsedBackForwardItemID;
 
-    uint64_t userContentControllerID;
+    UserContentControllerIdentifier userContentControllerID;
     uint64_t visitedLinkTableID;
     uint64_t websiteDataStoreID;
     bool canRunBeforeUnloadConfirmPanel;
@@ -138,13 +137,17 @@ struct WebPageCreationParameters {
 
 #if PLATFORM(MAC)
     ColorSpaceData colorSpace;
+    bool useSystemAppearance;
+    bool defaultAppearance;
 #endif
 #if PLATFORM(IOS)
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
+    WebCore::FloatSize overrideScreenSize;
     float textAutosizingWidth;
     bool ignoresViewportScaleLimits;
     WebCore::FloatSize viewportConfigurationMinimumLayoutSize;
+    WebCore::FloatSize viewportConfigurationViewSize;
     WebCore::FloatSize maximumUnobscuredSize;
 #endif
 #if PLATFORM(COCOA)

@@ -33,6 +33,7 @@
 #include "AccessibilityRenderObject.h"
 #include "AccessibilityScrollView.h"
 #include "AccessibilityTable.h"
+#include "AccessibleSetValueEvent.h"
 #include "DOMTokenList.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -53,7 +54,6 @@
 #include "HTMLParserIdioms.h"
 #include "HitTestResult.h"
 #include "LocalizedStrings.h"
-#include "MainFrame.h"
 #include "MathMLNames.h"
 #include "NodeList.h"
 #include "NodeTraversal.h"
@@ -69,6 +69,7 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "RenderedPosition.h"
+#include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include "TextCheckerClient.h"
 #include "TextCheckingHelper.h"
@@ -996,9 +997,7 @@ bool AccessibilityObject::press()
     // dispatch accessibleclick event
     if (auto* cache = axObjectCache()) {
         if (auto* pressObject = cache->getOrCreate(pressElement)) {
-            auto event = Event::create(eventNames().accessibleclickEvent, true, true);
-            pressObject->dispatchAccessibilityEvent(event);
-            if (event->defaultPrevented())
+            if (pressObject->dispatchAccessibilityEventWithType(AccessibilityEventType::Click))
                 return true;
         }
     }
@@ -1034,7 +1033,7 @@ Frame* AccessibilityObject::frame() const
     return node->document().frame();
 }
 
-MainFrame* AccessibilityObject::mainFrame() const
+Frame* AccessibilityObject::mainFrame() const
 {
     Document* document = topDocument();
     if (!document)
@@ -1450,7 +1449,7 @@ VisiblePosition AccessibilityObject::visiblePositionForBounds(const IntRect& rec
     if (rect.isEmpty())
         return VisiblePosition();
     
-    MainFrame* mainFrame = this->mainFrame();
+    auto* mainFrame = this->mainFrame();
     if (!mainFrame)
         return VisiblePosition();
     
@@ -1777,6 +1776,9 @@ unsigned AccessibilityObject::doAXLineForIndex(unsigned index)
 #if HAVE(ACCESSIBILITY)
 void AccessibilityObject::updateBackingStore()
 {
+    if (!axObjectCache())
+        return;
+    
     // Updating the layout may delete this object.
     RefPtr<AccessibilityObject> protectedThis(this);
     if (auto* document = this->document()) {
@@ -2153,15 +2155,79 @@ const AtomicString& AccessibilityObject::getAttribute(const QualifiedName& attri
     return nullAtom();
 }
 
-void AccessibilityObject::dispatchAccessibilityEvent(Event& event)
+bool AccessibilityObject::shouldDispatchAccessibilityEvent() const
 {
+    bool shouldDispatch = RuntimeEnabledFeatures::sharedFeatures().accessibilityObjectModelEnabled();
+#if ENABLE(ACCESSIBILITY_EVENTS)
+    return shouldDispatch &= this->page()->settings().accessibilityEventsEnabled();
+#endif
+    return shouldDispatch;
+}
+
+bool AccessibilityObject::dispatchAccessibilityEvent(Event& event) const
+{
+    if (!shouldDispatchAccessibilityEvent())
+        return false;
+    
     Vector<Element*> eventPath;
     for (auto* parentObject = this; parentObject; parentObject = parentObject->parentObject()) {
+        if (parentObject->isWebArea())
+            break;
         if (auto* parentElement = parentObject->element())
             eventPath.append(parentElement);
     }
     
+    if (!eventPath.size())
+        return false;
+    
     EventDispatcher::dispatchEvent(eventPath, event);
+    
+    // return true if preventDefault() was called, so that we don't execute the fallback behavior.
+    return event.defaultPrevented();
+}
+
+bool AccessibilityObject::dispatchAccessibilityEventWithType(AccessibilityEventType type) const
+{
+    AtomicString eventName;
+    switch (type) {
+    case AccessibilityEventType::ContextMenu:
+        eventName = eventNames().accessiblecontextmenuEvent;
+        break;
+    case AccessibilityEventType::Click:
+        eventName = eventNames().accessibleclickEvent;
+        break;
+    case AccessibilityEventType::Decrement:
+        eventName = eventNames().accessibledecrementEvent;
+        break;
+    case AccessibilityEventType::Dismiss:
+        eventName = eventNames().accessibledismissEvent;
+        break;
+    case AccessibilityEventType::Focus:
+        eventName = eventNames().accessiblefocusEvent;
+        break;
+    case AccessibilityEventType::Increment:
+        eventName = eventNames().accessibleincrementEvent;
+        break;
+    case AccessibilityEventType::ScrollIntoView:
+        eventName = eventNames().accessiblescrollintoviewEvent;
+        break;
+    case AccessibilityEventType::Select:
+        eventName = eventNames().accessibleselectEvent;
+        break;
+    default:
+        return false;
+    }
+    
+    auto event = Event::create(eventName, true, true);
+    return dispatchAccessibilityEvent(event);
+}
+
+bool AccessibilityObject::dispatchAccessibleSetValueEvent(const String& value) const
+{
+    if (!canSetValueAttribute())
+        return false;
+    auto event = AccessibleSetValueEvent::create(eventNames().accessiblesetvalueEvent, value);
+    return dispatchAccessibilityEvent(event);
 }
 
 // Lacking concrete evidence of orientation, horizontal means width > height. vertical is height > width;
@@ -2913,6 +2979,8 @@ bool AccessibilityObject::isOnscreen() const
 
 void AccessibilityObject::scrollToMakeVisible() const
 {
+    if (dispatchAccessibilityEventWithType(AccessibilityEventType::ScrollIntoView))
+        return;
     IntRect objectRect = snappedIntRect(boundingBoxRect());
     objectRect.setLocation(IntPoint());
     scrollToMakeVisibleWithSubFocus(objectRect);

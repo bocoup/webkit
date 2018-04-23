@@ -30,9 +30,10 @@
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/StoredCredentialsPolicy.h>
 #include <pal/SessionID.h>
-#include <wtf/Function.h>
+#include <wtf/CompletionHandler.h>
 
 namespace WebCore {
+class ResourceError;
 class SecurityOrigin;
 }
 
@@ -44,11 +45,11 @@ public:
     struct Parameters {
         WebCore::ResourceRequest originalRequest;
         Ref<WebCore::SecurityOrigin> sourceOrigin;
+        String referrer;
         PAL::SessionID sessionID;
         WebCore::StoredCredentialsPolicy storedCredentialsPolicy;
     };
-    enum class Result { Success, Failure };
-    using CompletionCallback = WTF::Function<void(Result)>;
+    using CompletionCallback = CompletionHandler<void(WebCore::ResourceError&&)>;
 
     NetworkCORSPreflightChecker(Parameters&&, CompletionCallback&&);
     ~NetworkCORSPreflightChecker();

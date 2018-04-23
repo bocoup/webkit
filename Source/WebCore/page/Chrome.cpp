@@ -30,6 +30,7 @@
 #include "FileIconLoader.h"
 #include "FileList.h"
 #include "FloatRect.h"
+#include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "Geolocation.h"
@@ -39,7 +40,6 @@
 #include "HitTestResult.h"
 #include "Icon.h"
 #include "InspectorInstrumentation.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PageGroupLoadDeferrer.h"
 #include "PopupOpeningObserver.h"
@@ -448,6 +448,11 @@ FloatSize Chrome::screenSize() const
 FloatSize Chrome::availableScreenSize() const
 {
     return m_client.availableScreenSize();
+}
+
+FloatSize Chrome::overrideScreenSize() const
+{
+    return m_client.overrideScreenSize();
 }
 
 void Chrome::dispatchViewportPropertiesDidChange(const ViewportArguments& arguments) const

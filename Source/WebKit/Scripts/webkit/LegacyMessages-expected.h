@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,16 +36,13 @@
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace IPC {
     class MachPort;
     class Connection;
     class DummyType;
-}
-
-namespace WTF {
-    class String;
 }
 
 namespace WebKit {

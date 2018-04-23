@@ -43,13 +43,22 @@ VideoTrackPrivateGStreamer::VideoTrackPrivateGStreamer(WeakPtr<MediaPlayerPrivat
     notifyTrackOfActiveChanged();
 }
 
-#if USE(GSTREAMER_PLAYBIN3)
+#if GST_CHECK_VERSION(1, 10, 0)
 VideoTrackPrivateGStreamer::VideoTrackPrivateGStreamer(WeakPtr<MediaPlayerPrivateGStreamer> player, gint index, GRefPtr<GstStream> stream)
     : TrackPrivateBaseGStreamer(this, index, stream)
     , m_player(player)
 {
     m_id = gst_stream_get_stream_id(stream.get());
+    setActive(gst_stream_get_stream_flags(stream.get()) & GST_STREAM_FLAG_SELECT);
     notifyTrackOfActiveChanged();
+}
+
+VideoTrackPrivate::Kind VideoTrackPrivateGStreamer::kind() const
+{
+    if (m_stream.get() && gst_stream_get_stream_flags(m_stream.get()) & GST_STREAM_FLAG_SELECT)
+        return VideoTrackPrivate::Kind::Main;
+
+    return VideoTrackPrivate::kind();
 }
 #endif
 

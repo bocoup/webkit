@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,13 +34,13 @@
 #include "WebProcess.h"
 #include <WebCore/Chrome.h>
 #include <WebCore/Document.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/InspectorFrontendClient.h>
 #include <WebCore/InspectorPageAgent.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/NavigationAction.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
@@ -79,7 +79,7 @@ void WebInspector::openFrontendConnection(bool underTest)
     IPC::Connection::Identifier connectionIdentifier(socketPair.server);
     IPC::Attachment connectionClientPort(socketPair.client);
 #elif OS(DARWIN)
-    mach_port_t listeningPort;
+    mach_port_t listeningPort = MACH_PORT_NULL;
     if (mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort) != KERN_SUCCESS)
         CRASH();
 
@@ -145,6 +145,8 @@ void WebInspector::close()
 
 void WebInspector::openInNewTab(const String& urlString)
 {
+    UserGestureIndicator indicator { ProcessingUserGesture };
+
     Page* inspectedPage = m_page->corePage();
     if (!inspectedPage)
         return;

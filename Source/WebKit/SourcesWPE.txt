@@ -21,6 +21,8 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
+NetworkProcess/Cookies/soup/WebCookieManagerSoup.cpp
+
 NetworkProcess/CustomProtocols/LegacyCustomProtocolManager.cpp
 
 NetworkProcess/CustomProtocols/soup/LegacyCustomProtocolManagerSoup.cpp
@@ -72,8 +74,8 @@ Shared/Plugins/Netscape/unix/NetscapePluginModuleUnix.cpp
 
 Shared/cairo/ShareableBitmapCairo.cpp
 
+Shared/glib/ProcessExecutablePathGLib.cpp
 Shared/glib/WebContextMenuItemGlib.cpp
-Shared/glib/WebErrorsGlib.cpp
 
 Shared/linux/WebMemorySamplerLinux.cpp
 
@@ -86,7 +88,6 @@ Shared/wpe/NativeWebKeyboardEventWPE.cpp
 Shared/wpe/NativeWebMouseEventWPE.cpp
 Shared/wpe/NativeWebTouchEventWPE.cpp
 Shared/wpe/NativeWebWheelEventWPE.cpp
-Shared/wpe/ProcessExecutablePathWPE.cpp
 Shared/wpe/WebEventFactory.cpp
 
 StorageProcess/glib/StorageProcessMainGLib.cpp
@@ -195,7 +196,12 @@ UIProcess/wpe/WebPasteboardProxyWPE.cpp
 UIProcess/wpe/WebPreferencesWPE.cpp
 UIProcess/wpe/WebProcessPoolWPE.cpp
 
-WebProcess/Cookies/soup/WebCookieManagerSoup.cpp
+WebProcess/InjectedBundle/API/glib/DOM/DOMObjectCache.cpp @no-unify
+WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMDocument.cpp @no-unify
+WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMElement.cpp @no-unify
+WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMNode.cpp @no-unify
+WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMObject.cpp @no-unify
+WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMPrivate.cpp @no-unify
 
 WebProcess/InjectedBundle/API/glib/WebKitConsoleMessage.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitExtensionManager.cpp @no-unify
@@ -203,6 +209,7 @@ WebProcess/InjectedBundle/API/glib/WebKitFrame.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitScriptWorld.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitWebEditor.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitWebExtension.cpp @no-unify
+WebProcess/InjectedBundle/API/glib/WebKitWebHitTestResult.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/WebKitWebPage.cpp @no-unify
 
 WebProcess/InjectedBundle/glib/InjectedBundleGlib.cpp

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -156,7 +156,7 @@ void JIT::compileSetupVarargsFrame(OpcodeID opcode, Instruction* instruction, Ca
         sizeOperation = operationSizeFrameForForwardArguments;
     else
         sizeOperation = operationSizeFrameForVarargs;
-    callOperation(sizeOperation, regT1, regT0, -firstFreeRegister, firstVarArgOffset);
+    callOperation(sizeOperation, JSValueRegs(regT1, regT0), -firstFreeRegister, firstVarArgOffset);
     move(TrustedImm32(-firstFreeRegister), regT1);
     emitSetVarargsFrame(*this, returnValueGPR, false, regT1, regT1);
     addPtr(TrustedImm32(-(sizeof(CallerFrameAndPC) + WTF::roundUpToMultipleOf(stackAlignmentBytes(), 6 * sizeof(void*)))), regT1, stackPointerRegister);
@@ -166,7 +166,7 @@ void JIT::compileSetupVarargsFrame(OpcodeID opcode, Instruction* instruction, Ca
         setupOperation = operationSetupForwardArgumentsFrame;
     else
         setupOperation = operationSetupVarargsFrame;
-    callOperation(setupOperation, regT1, regT2, regT4, firstVarArgOffset, regT0);
+    callOperation(setupOperation, regT1, JSValueRegs(regT2, regT4), firstVarArgOffset, regT0);
     move(returnValueGPR, regT1);
 
     // Profile the argument count.
@@ -278,7 +278,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     addSlowCase(branch32(NotEqual, regT1, TrustedImm32(JSValue::CellTag)));
 
     DataLabelPtr addressOfLinkedFunctionCheck;
-    Jump slowCase = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, TrustedImmPtr(0));
+    Jump slowCase = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, TrustedImmPtr(nullptr));
 
     addSlowCase(slowCase);
 
@@ -318,7 +318,7 @@ void JIT::compileOpCallSlowCase(OpcodeID opcodeID, Instruction* instruction, Vec
     if (opcodeID == op_tail_call || opcodeID == op_tail_call_varargs)
         emitRestoreCalleeSaves();
 
-    m_callCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_vm->getCTIStub(linkCallThunkGenerator).code());
+    m_callCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_vm->getCTIStub(linkCallThunkGenerator).retaggedCode<NoPtrTag>());
 
     if (opcodeID == op_tail_call || opcodeID == op_tail_call_varargs) {
         abortWithReason(JITDidReturnFromTailCall);

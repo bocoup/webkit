@@ -91,14 +91,17 @@ auto ServiceWorkerContainer::ready() -> ReadyPromise&
 
         auto& context = *scriptExecutionContext();
         auto contextIdentifier = this->contextIdentifier();
-        callOnMainThread([this, connection = makeRef(ensureSWClientConnection()), topOrigin = context.topOrigin().isolatedCopy(), clientURL = context.url().isolatedCopy(), contextIdentifier]() mutable {
-            connection->whenRegistrationReady(topOrigin, clientURL, [this, contextIdentifier](auto&& registrationData) {
-                ScriptExecutionContext::postTaskTo(contextIdentifier, [this, registrationData = crossThreadCopy(registrationData)](auto&) mutable {
-                    if (m_isStopped || !this->scriptExecutionContext()->sessionID().isValid())
+        callOnMainThread([connection = makeRef(ensureSWClientConnection()), topOrigin = context.topOrigin().isolatedCopy(), clientURL = context.url().isolatedCopy(), contextIdentifier]() mutable {
+            connection->whenRegistrationReady(topOrigin, clientURL, [contextIdentifier](auto&& registrationData) {
+                ScriptExecutionContext::postTaskTo(contextIdentifier, [registrationData = crossThreadCopy(registrationData)](auto& context) mutable {
+                    auto* serviceWorkerContainer = context.serviceWorkerContainer();
+                    if (!serviceWorkerContainer)
+                        return;
+                    if (serviceWorkerContainer->m_isStopped || !context.sessionID().isValid())
                         return;
 
-                    auto registration = ServiceWorkerRegistration::getOrCreate(*this->scriptExecutionContext(), *this, WTFMove(registrationData));
-                    m_readyPromise->resolve(WTFMove(registration));
+                    auto registration = ServiceWorkerRegistration::getOrCreate(context, *serviceWorkerContainer, WTFMove(registrationData));
+                    serviceWorkerContainer->m_readyPromise->resolve(WTFMove(registration));
                 });
             });
         });
@@ -166,10 +169,10 @@ void ServiceWorkerContainer::addRegistration(const String& relativeScriptURL, co
         return;
     }
 
-    CONTAINER_RELEASE_LOG_IF_ALLOWED("addRegistration: Registering service worker. Job ID: %llu", jobData.identifier().jobIdentifier.toUInt64());
+    CONTAINER_RELEASE_LOG_IF_ALLOWED("addRegistration: Registering service worker. Job ID: %" PRIu64, jobData.identifier().jobIdentifier.toUInt64());
 
     jobData.clientCreationURL = context->url();
-    jobData.topOrigin = SecurityOriginData::fromSecurityOrigin(context->topOrigin());
+    jobData.topOrigin = context->topOrigin().data();
     jobData.type = ServiceWorkerJobType::Register;
     jobData.registrationOptions = options;
 
@@ -193,11 +196,11 @@ void ServiceWorkerContainer::removeRegistration(const URL& scopeURL, Ref<Deferre
 
     ServiceWorkerJobData jobData(m_swConnection->serverConnectionIdentifier(), contextIdentifier());
     jobData.clientCreationURL = context->url();
-    jobData.topOrigin = SecurityOriginData::fromSecurityOrigin(context->topOrigin());
+    jobData.topOrigin = context->topOrigin().data();
     jobData.type = ServiceWorkerJobType::Unregister;
     jobData.scopeURL = scopeURL;
 
-    CONTAINER_RELEASE_LOG_IF_ALLOWED("removeRegistration: Unregistering service worker. Job ID: %llu", jobData.identifier().jobIdentifier.toUInt64());
+    CONTAINER_RELEASE_LOG_IF_ALLOWED("removeRegistration: Unregistering service worker. Job ID: %" PRIu64, jobData.identifier().jobIdentifier.toUInt64());
 
     scheduleJob(ServiceWorkerJob::create(*this, WTFMove(promise), WTFMove(jobData)));
 }
@@ -218,12 +221,12 @@ void ServiceWorkerContainer::updateRegistration(const URL& scopeURL, const URL& 
 
     ServiceWorkerJobData jobData(m_swConnection->serverConnectionIdentifier(), contextIdentifier());
     jobData.clientCreationURL = context.url();
-    jobData.topOrigin = SecurityOriginData::fromSecurityOrigin(context.topOrigin());
+    jobData.topOrigin = context.topOrigin().data();
     jobData.type = ServiceWorkerJobType::Update;
     jobData.scopeURL = scopeURL;
     jobData.scriptURL = scriptURL;
 
-    CONTAINER_RELEASE_LOG_IF_ALLOWED("removeRegistration: Updating service worker. Job ID: %llu", jobData.identifier().jobIdentifier.toUInt64());
+    CONTAINER_RELEASE_LOG_IF_ALLOWED("removeRegistration: Updating service worker. Job ID: %" PRIu64, jobData.identifier().jobIdentifier.toUInt64());
 
     scheduleJob(ServiceWorkerJob::create(*this, WTFMove(promise), WTFMove(jobData)));
 }
@@ -266,8 +269,8 @@ void ServiceWorkerContainer::getRegistration(const String& clientURL, Ref<Deferr
     m_pendingPromises.add(pendingPromiseIdentifier, WTFMove(pendingPromise));
 
     auto contextIdentifier = this->contextIdentifier();
-    callOnMainThread([connection = makeRef(ensureSWClientConnection()), this, topOrigin = context->topOrigin().isolatedCopy(), parsedURL = parsedURL.isolatedCopy(), contextIdentifier, pendingPromiseIdentifier]() mutable {
-        connection->matchRegistration(topOrigin, parsedURL, [this, contextIdentifier, pendingPromiseIdentifier] (auto&& result) mutable {
+    callOnMainThread([connection = makeRef(ensureSWClientConnection()), this, topOrigin = context->topOrigin().data().isolatedCopy(), parsedURL = parsedURL.isolatedCopy(), contextIdentifier, pendingPromiseIdentifier]() mutable {
+        connection->matchRegistration(WTFMove(topOrigin), parsedURL, [this, contextIdentifier, pendingPromiseIdentifier] (auto&& result) mutable {
             ScriptExecutionContext::postTaskTo(contextIdentifier, [this, pendingPromiseIdentifier, result = crossThreadCopy(result)](ScriptExecutionContext&) mutable {
                 this->didFinishGetRegistrationRequest(pendingPromiseIdentifier, WTFMove(result));
             });
@@ -329,8 +332,8 @@ void ServiceWorkerContainer::getRegistrations(Ref<DeferredPromise>&& promise)
 
     auto contextIdentifier = this->contextIdentifier();
     auto contextURL = context->url();
-    callOnMainThread([connection = makeRef(ensureSWClientConnection()), this, topOrigin = context->topOrigin().isolatedCopy(), contextURL = contextURL.isolatedCopy(), contextIdentifier, pendingPromiseIdentifier]() mutable {
-        connection->getRegistrations(topOrigin, contextURL, [this, contextIdentifier, pendingPromiseIdentifier] (auto&& registrationDatas) mutable {
+    callOnMainThread([connection = makeRef(ensureSWClientConnection()), this, topOrigin = context->topOrigin().data().isolatedCopy(), contextURL = contextURL.isolatedCopy(), contextIdentifier, pendingPromiseIdentifier]() mutable {
+        connection->getRegistrations(WTFMove(topOrigin), contextURL, [this, contextIdentifier, pendingPromiseIdentifier] (auto&& registrationDatas) mutable {
             ScriptExecutionContext::postTaskTo(contextIdentifier, [this, pendingPromiseIdentifier, registrationDatas = crossThreadCopy(registrationDatas)](ScriptExecutionContext&) mutable {
                 this->didFinishGetRegistrationsRequest(pendingPromiseIdentifier, WTFMove(registrationDatas));
             });
@@ -376,7 +379,7 @@ void ServiceWorkerContainer::jobFailedWithException(ServiceWorkerJob& job, const
         jobDidFinish(job);
     });
 
-    CONTAINER_RELEASE_LOG_ERROR_IF_ALLOWED("jobFailedWithException: Job %llu failed with error %s", job.identifier().toUInt64(), exception.message().utf8().data());
+    CONTAINER_RELEASE_LOG_ERROR_IF_ALLOWED("jobFailedWithException: Job %" PRIu64 " failed with error %s", job.identifier().toUInt64(), exception.message().utf8().data());
 
     if (!job.promise())
         return;
@@ -410,10 +413,10 @@ void ServiceWorkerContainer::jobResolvedWithRegistration(ServiceWorkerJob& job, 
     });
 
     if (job.data().type == ServiceWorkerJobType::Register)
-        CONTAINER_RELEASE_LOG_IF_ALLOWED("jobResolvedWithRegistration: Registration job %llu succeeded", job.identifier().toUInt64());
+        CONTAINER_RELEASE_LOG_IF_ALLOWED("jobResolvedWithRegistration: Registration job %" PRIu64 " succeeded", job.identifier().toUInt64());
     else {
         ASSERT(job.data().type == ServiceWorkerJobType::Update);
-        CONTAINER_RELEASE_LOG_IF_ALLOWED("jobResolvedWithRegistration: Update job %llu succeeded", job.identifier().toUInt64());
+        CONTAINER_RELEASE_LOG_IF_ALLOWED("jobResolvedWithRegistration: Update job %" PRIu64 " succeeded", job.identifier().toUInt64());
     }
 
     WTF::Function<void()> notifyWhenResolvedIfNeeded = [] { };
@@ -443,7 +446,7 @@ void ServiceWorkerContainer::jobResolvedWithRegistration(ServiceWorkerJob& job, 
 
         auto registration = ServiceWorkerRegistration::getOrCreate(context, *this, WTFMove(data));
 
-        CONTAINER_RELEASE_LOG_IF_ALLOWED("jobResolvedWithRegistration: Resolving promise for job %llu. Registration ID: %llu", job->identifier().toUInt64(), registration->identifier().toUInt64());
+        CONTAINER_RELEASE_LOG_IF_ALLOWED("jobResolvedWithRegistration: Resolving promise for job %" PRIu64 ". Registration ID: %" PRIu64, job->identifier().toUInt64(), registration->identifier().toUInt64());
 
         job->promise()->resolve<IDLInterface<ServiceWorkerRegistration>>(WTFMove(registration));
 
@@ -463,7 +466,7 @@ void ServiceWorkerContainer::jobResolvedWithUnregistrationResult(ServiceWorkerJo
         jobDidFinish(job);
     });
 
-    CONTAINER_RELEASE_LOG_IF_ALLOWED("jobResolvedWithUnregistrationResult: Unregister job %llu finished. Success? %d", job.identifier().toUInt64(), unregistrationResult);
+    CONTAINER_RELEASE_LOG_IF_ALLOWED("jobResolvedWithUnregistrationResult: Unregister job %" PRIu64 " finished. Success? %d", job.identifier().toUInt64(), unregistrationResult);
 
     auto* context = scriptExecutionContext();
     if (!context) {
@@ -482,7 +485,7 @@ void ServiceWorkerContainer::startScriptFetchForJob(ServiceWorkerJob& job, Fetch
     ASSERT(m_creationThread.ptr() == &Thread::current());
 #endif
 
-    CONTAINER_RELEASE_LOG_IF_ALLOWED("startScriptFetchForJob: Starting script fetch for job %llu", job.identifier().toUInt64());
+    CONTAINER_RELEASE_LOG_IF_ALLOWED("startScriptFetchForJob: Starting script fetch for job %" PRIu64, job.identifier().toUInt64());
 
     auto* context = scriptExecutionContext();
     if (!context) {
@@ -503,7 +506,7 @@ void ServiceWorkerContainer::jobFinishedLoadingScript(ServiceWorkerJob& job, con
     ASSERT(m_creationThread.ptr() == &Thread::current());
 #endif
 
-    CONTAINER_RELEASE_LOG_IF_ALLOWED("jobFinishedLoadingScript: Successfuly finished fetching script for job %llu", job.identifier().toUInt64());
+    CONTAINER_RELEASE_LOG_IF_ALLOWED("jobFinishedLoadingScript: Successfuly finished fetching script for job %" PRIu64, job.identifier().toUInt64());
 
     callOnMainThread([connection = m_swConnection, jobDataIdentifier = job.data().identifier(), registrationKey = job.data().registrationKey().isolatedCopy(), script = script.isolatedCopy(), contentSecurityPolicy = contentSecurityPolicy.isolatedCopy()] {
         connection->finishFetchingScriptInServer({ jobDataIdentifier, registrationKey, script, contentSecurityPolicy, { } });
@@ -517,7 +520,7 @@ void ServiceWorkerContainer::jobFailedLoadingScript(ServiceWorkerJob& job, const
 #endif
     ASSERT_WITH_MESSAGE(job.promise() || job.data().type == ServiceWorkerJobType::Update, "Only soft updates have no promise");
 
-    CONTAINER_RELEASE_LOG_ERROR_IF_ALLOWED("jobFinishedLoadingScript: Failed to fetch script for job %llu, error: %s", job.identifier().toUInt64(), error.localizedDescription().utf8().data());
+    CONTAINER_RELEASE_LOG_ERROR_IF_ALLOWED("jobFinishedLoadingScript: Failed to fetch script for job %" PRIu64 ", error: %s", job.identifier().toUInt64(), error.localizedDescription().utf8().data());
 
     if (exception && job.promise())
         job.promise()->reject(*exception);

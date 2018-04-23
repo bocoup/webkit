@@ -47,7 +47,7 @@ void CoordinatedBackingStoreTile::swapBuffers(TextureMapper& textureMapper)
     } else if (m_buffer->supportsAlpha() == m_texture->isOpaque())
         m_texture->reset(m_tileRect.size(), m_buffer->supportsAlpha());
 
-    m_texture->updateContents(m_buffer->data(), m_sourceRect, m_bufferOffset, m_buffer->stride(), BitmapTexture::UpdateCanModifyOriginalImageData);
+    m_texture->updateContents(m_buffer->data(), m_sourceRect, m_bufferOffset, m_buffer->stride());
     m_buffer = nullptr;
 }
 
@@ -82,17 +82,6 @@ void CoordinatedBackingStore::updateTile(uint32_t id, const IntRect& sourceRect,
     CoordinatedBackingStoreTileMap::iterator it = m_tiles.find(id);
     ASSERT(it != m_tiles.end());
     it->value.setBackBuffer(tileRect, sourceRect, WTFMove(buffer), offset);
-}
-
-RefPtr<BitmapTexture> CoordinatedBackingStore::texture() const
-{
-    for (auto& tile : m_tiles.values()) {
-        RefPtr<BitmapTexture> texture = tile.texture();
-        if (texture)
-            return texture;
-    }
-
-    return RefPtr<BitmapTexture>();
 }
 
 void CoordinatedBackingStore::setSize(const FloatSize& size)

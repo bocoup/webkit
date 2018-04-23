@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #import "WebNSAttributedStringExtras.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/HIServicesSPI.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/text/StringBuilder.h>
@@ -88,9 +89,10 @@ Pasteboard::Pasteboard()
 {
 }
 
-Pasteboard::Pasteboard(const String& pasteboardName)
+Pasteboard::Pasteboard(const String& pasteboardName, const Vector<String>& promisedFilePaths)
     : m_pasteboardName(pasteboardName)
     , m_changeCount(platformStrategies()->pasteboardStrategy()->changeCount(m_pasteboardName))
+    , m_promisedFilePaths(promisedFilePaths)
 {
     ASSERT(pasteboardName);
 }
@@ -114,7 +116,7 @@ std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop()
 
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dragData)
 {
-    return std::make_unique<Pasteboard>(dragData.pasteboardName());
+    return std::make_unique<Pasteboard>(dragData.pasteboardName(), dragData.fileNames());
 }
 #endif
 
@@ -275,6 +277,20 @@ void Pasteboard::writeMarkup(const String&)
 {
 }
 
+// FIXME: This should be a general utility function for Vectors of Strings (or things that can be
+// converted to Strings). It could also be faster by computing the total length and reserving that
+// capacity in the StringBuilder.
+static String joinPathnames(const Vector<String>& pathnames)
+{
+    StringBuilder builder;
+    for (auto& path : pathnames) {
+        if (!builder.isEmpty())
+            builder.append('\n');
+        builder.append(path);
+    }
+    return builder.toString();
+}
+
 void Pasteboard::read(PasteboardPlainText& text)
 {
     PasteboardStrategy& strategy = *platformStrategies()->pasteboardStrategy();
@@ -314,16 +330,16 @@ void Pasteboard::read(PasteboardPlainText& text)
         }
     }
 
+    if (types.contains(String(legacyFilesPromisePasteboardType()))) {
+        text.text = joinPathnames(m_promisedFilePaths);
+        text.isURL = false;
+        return;
+    }
+
     if (types.contains(String(legacyFilenamesPasteboardType()))) {
         Vector<String> pathnames;
         strategy.getPathnamesForType(pathnames, legacyFilenamesPasteboardType(), m_pasteboardName);
-        StringBuilder builder;
-        for (size_t i = 0, size = pathnames.size(); i < size; i++) {
-            if (i)
-                builder.append('\n');
-            builder.append(pathnames[i]);
-        }
-        text.text = builder.toString();
+        text.text = joinPathnames(pathnames);
         text.isURL = false;
         return;
     }
@@ -347,6 +363,11 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
             if (m_changeCount != changeCount() || reader.readWebArchive(*buffer))
                 return;
         }
+    }
+
+    if (policy == WebContentReadingPolicy::AnyType && types.contains(String(legacyFilesPromisePasteboardType()))) {
+        if (m_changeCount != changeCount() || reader.readFilePaths(m_promisedFilePaths))
+            return;
     }
 
     if (policy == WebContentReadingPolicy::AnyType && types.contains(String(legacyFilenamesPasteboardType()))) {
@@ -463,23 +484,6 @@ void Pasteboard::clear(const String& type)
     m_changeCount = platformStrategies()->pasteboardStrategy()->setStringForType(emptyString(), cocoaType, m_pasteboardName);
 }
 
-static Vector<String> absoluteURLsFromPasteboardFilenames(const String& pasteboardName, bool onlyFirstURL = false)
-{
-    Vector<String> fileList;
-    platformStrategies()->pasteboardStrategy()->getPathnamesForType(fileList, String(legacyFilenamesPasteboardType()), pasteboardName);
-
-    if (fileList.isEmpty())
-        return fileList;
-
-    size_t count = onlyFirstURL ? 1 : fileList.size();
-    Vector<String> urls;
-    for (size_t i = 0; i < count; i++) {
-        NSURL *url = [NSURL fileURLWithPath:fileList[i]];
-        urls.append(String([url absoluteString]));
-    }
-    return urls;
-}
-
 String Pasteboard::readPlatformValueAsString(const String& domType, long changeCount, const String& pasteboardName)
 {
     const String& cocoaType = cocoaTypeFromHTMLClipboardType(domType);
@@ -561,16 +565,21 @@ void Pasteboard::writeString(const String& type, const String& data)
 
 Vector<String> Pasteboard::readFilePaths()
 {
-    // FIXME: Seems silly to convert paths to URLs and then back to paths. Does that do anything helpful?
-    Vector<String> absoluteURLs = absoluteURLsFromPasteboardFilenames(m_pasteboardName);
-    Vector<String> paths;
-    paths.reserveCapacity(absoluteURLs.size());
-    for (size_t i = 0; i < absoluteURLs.size(); i++) {
-        NSURL *absoluteURL = [NSURL URLWithString:absoluteURLs[i]];
-        ASSERT([absoluteURL isFileURL]);
-        paths.uncheckedAppend([absoluteURL path]);
+    auto& strategy = *platformStrategies()->pasteboardStrategy();
+
+    Vector<String> types;
+    strategy.getTypes(types, m_pasteboardName);
+
+    if (types.contains(String(legacyFilesPromisePasteboardType())))
+        return m_promisedFilePaths;
+
+    if (types.contains(String(legacyFilenamesPasteboardType()))) {
+        Vector<String> filePaths;
+        strategy.getPathnamesForType(filePaths, legacyFilenamesPasteboardType(), m_pasteboardName);
+        return filePaths;
     }
-    return paths;
+
+    return { };
 }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -667,6 +676,7 @@ void Pasteboard::setDragImage(DragImage image, const IntPoint& location)
     // This is only relevant in WK1. Do not execute in the WebContent process, since it is now using
     // NSRunLoop, and not the NSApplication run loop.
     if ([NSApp isRunning]) {
+        RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
         NSEvent* event = [NSEvent mouseEventWithType:NSEventTypeMouseMoved location:NSZeroPoint
             modifierFlags:0 timestamp:0 windowNumber:0 context:nil eventNumber:0 clickCount:0 pressure:0];
         [NSApp postEvent:event atStart:YES];

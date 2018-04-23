@@ -31,6 +31,7 @@
 #import "RemoteLayerTreePropertyApplier.h"
 #import "RemoteLayerTreeTransaction.h"
 #import "ShareableBitmap.h"
+#import "WKAnimationDelegate.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
 #import <QuartzCore/QuartzCore.h>
@@ -87,7 +88,7 @@ bool RemoteLayerTreeHost::updateLayerTree(const RemoteLayerTreeTransaction& tran
     typedef std::pair<GraphicsLayer::PlatformLayerID, GraphicsLayer::PlatformLayerID> LayerIDPair;
     Vector<LayerIDPair> clonesToUpdate;
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || ENABLE(MINIMAL_SIMULATOR)
     // Can't use the iOS code on macOS yet: rdar://problem/31247730
     auto layerContentsType = RemoteLayerBackingStore::LayerContentsType::IOSurface;
 #else
@@ -158,7 +159,7 @@ void RemoteLayerTreeHost::layerWillBeRemoved(WebCore::GraphicsLayer::PlatformLay
     m_layers.remove(layerID);
 }
 
-void RemoteLayerTreeHost::animationDidStart(WebCore::GraphicsLayer::PlatformLayerID layerID, CAAnimation *animation, double startTime)
+void RemoteLayerTreeHost::animationDidStart(WebCore::GraphicsLayer::PlatformLayerID layerID, CAAnimation *animation, MonotonicTime startTime)
 {
     CALayer *layer = asLayer(getLayer(layerID));
     if (!layer)

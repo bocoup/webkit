@@ -229,9 +229,10 @@ public:
 
     bool startAnimation(double timeOffset, const Animation*, const KeyframeList& keyframes);
     void animationPaused(double timeOffset, const String& name);
+    void animationSeeked(double timeOffset, const String& name);
     void animationFinished(const String& name);
 
-    void suspendAnimations(double time = 0);
+    void suspendAnimations(MonotonicTime = MonotonicTime());
 
     RenderBoxModelObject* continuation() const;
     WEBCORE_EXPORT RenderInline* inlineContinuation() const;

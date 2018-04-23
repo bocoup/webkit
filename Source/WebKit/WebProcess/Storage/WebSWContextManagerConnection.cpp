@@ -128,6 +128,7 @@ void WebSWContextManagerConnection::updatePreferencesStore(const WebPreferencesS
     RuntimeEnabledFeatures::sharedFeatures().setUserTimingEnabled(store.getBoolValueForKey(WebPreferencesKey::userTimingEnabledKey()));
     RuntimeEnabledFeatures::sharedFeatures().setResourceTimingEnabled(store.getBoolValueForKey(WebPreferencesKey::resourceTimingEnabledKey()));
     RuntimeEnabledFeatures::sharedFeatures().setFetchAPIKeepAliveEnabled(store.getBoolValueForKey(WebPreferencesKey::fetchAPIKeepAliveEnabledKey()));
+    RuntimeEnabledFeatures::sharedFeatures().setRestrictedHTTPResponseAccess(store.getBoolValueForKey(WebPreferencesKey::restrictedHTTPResponseAccessKey()));
 
     m_storageBlockingPolicy = static_cast<SecurityOrigin::StorageBlockingPolicy>(store.getUInt32ValueForKey(WebPreferencesKey::storageBlockingPolicyKey()));
 }
@@ -325,6 +326,12 @@ void WebSWContextManagerConnection::didFinishSkipWaiting(uint64_t callbackID)
 {
     if (auto callback = m_skipWaitingRequests.take(callbackID))
         callback();
+}
+
+NO_RETURN void WebSWContextManagerConnection::terminateProcess()
+{
+    RELEASE_LOG(ServiceWorker, "Service worker process is exiting because it is no longer needed");
+    _exit(EXIT_SUCCESS);
 }
 
 } // namespace WebCore

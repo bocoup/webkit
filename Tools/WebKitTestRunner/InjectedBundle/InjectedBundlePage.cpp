@@ -499,7 +499,7 @@ static inline void dumpRequestDescriptionSuitableForTestResult(WKURLRequestRef r
     stringBuilder.append('>');
 }
 
-static inline void dumpResponseDescriptionSuitableForTestResult(WKURLResponseRef response, StringBuilder& stringBuilder)
+static inline void dumpResponseDescriptionSuitableForTestResult(WKURLResponseRef response, StringBuilder& stringBuilder, bool shouldDumpResponseHeaders = false)
 {
     WKRetainPtr<WKURLRef> url = adoptWK(WKURLResponseCopyURL(response));
     if (!url) {
@@ -510,8 +510,23 @@ static inline void dumpResponseDescriptionSuitableForTestResult(WKURLResponseRef
     stringBuilder.append(pathSuitableForTestResult(url.get()));
     stringBuilder.appendLiteral(", http status code ");
     stringBuilder.appendNumber(WKURLResponseHTTPStatusCode(response));
+
+    if (shouldDumpResponseHeaders) {
+        stringBuilder.appendLiteral(", ");
+        stringBuilder.appendNumber(InjectedBundlePage::responseHeaderCount(response));
+        stringBuilder.appendLiteral(" headers");
+    }
     stringBuilder.append('>');
 }
+
+#if !PLATFORM(COCOA)
+// FIXME: Implement this for non cocoa ports.
+//        [GTK][WPE] https://bugs.webkit.org/show_bug.cgi?id=184295
+uint64_t InjectedBundlePage::responseHeaderCount(WKURLResponseRef response)
+{
+    return 0;
+}
+#endif
 
 static inline void dumpErrorDescriptionSuitableForTestResult(WKErrorRef error, StringBuilder& stringBuilder)
 {
@@ -995,7 +1010,9 @@ void InjectedBundlePage::didClearWindowForFrame(WKBundleFrameRef frame, WKBundle
     injectedBundle.gcController()->makeWindowObject(context, window, &exception);
     injectedBundle.eventSendingController()->makeWindowObject(context, window, &exception);
     injectedBundle.textInputController()->makeWindowObject(context, window, &exception);
+#if HAVE(ACCESSIBILITY)
     injectedBundle.accessibilityController()->makeWindowObject(context, window, &exception);
+#endif
 
     WebCoreTestSupport::injectInternalsObject(context);
 }
@@ -1006,10 +1023,10 @@ void InjectedBundlePage::didCancelClientRedirectForFrame(WKBundleFrameRef frame)
     if (!injectedBundle.isTestRunning())
         return;
 
-    if (!injectedBundle.testRunner()->shouldDumpFrameLoadCallbacks())
-        return;
+    if (injectedBundle.testRunner()->shouldDumpFrameLoadCallbacks())
+        dumpLoadEvent(frame, "didCancelClientRedirectForFrame");
 
-    dumpLoadEvent(frame, "didCancelClientRedirectForFrame");
+    injectedBundle.testRunner()->setDidCancelClientRedirect(true);
 }
 
 void InjectedBundlePage::willPerformClientRedirectForFrame(WKBundlePageRef, WKBundleFrameRef frame, WKURLRef url, double delay, double date)
@@ -1131,7 +1148,7 @@ WKURLRequestRef InjectedBundlePage::willSendRequestForFrame(WKBundlePageRef page
         stringBuilder.appendLiteral(" - willSendRequest ");
         dumpRequestDescriptionSuitableForTestResult(request, stringBuilder);
         stringBuilder.appendLiteral(" redirectResponse ");
-        dumpResponseDescriptionSuitableForTestResult(response, stringBuilder);
+        dumpResponseDescriptionSuitableForTestResult(response, stringBuilder, injectedBundle.testRunner()->shouldDumpAllHTTPRedirectedResponseHeaders());
         stringBuilder.append('\n');
         injectedBundle.outputText(stringBuilder.toString());
     }
@@ -1321,9 +1338,6 @@ WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForNavigationAction(WKB
         injectedBundle.outputText(stringBuilder.toString());
     }
 
-    if (injectedBundle.testRunner()->shouldDecideNavigationPolicyAfterDelay())
-        return WKBundlePagePolicyActionPassThrough;
-
     if (!injectedBundle.testRunner()->isPolicyDelegateEnabled()) {
         WKRetainPtr<WKStringRef> downloadAttributeRef(AdoptWK, WKBundleNavigationActionCopyDownloadAttribute(navigationAction));
         String downloadAttribute = toWTFString(downloadAttributeRef);
@@ -1353,6 +1367,10 @@ WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForNavigationAction(WKB
 
     stringBuilder.append('\n');
     injectedBundle.outputText(stringBuilder.toString());
+
+    if (injectedBundle.testRunner()->shouldDecideNavigationPolicyAfterDelay())
+        return WKBundlePagePolicyActionPassThrough;
+
     injectedBundle.testRunner()->notifyDone();
 
     if (injectedBundle.testRunner()->isPolicyDelegatePermissive())
@@ -1367,7 +1385,8 @@ WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForNewWindowAction(WKBu
 
 WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForResponse(WKBundlePageRef page, WKBundleFrameRef, WKURLResponseRef response, WKURLRequestRef, WKTypeRef*)
 {
-    if (InjectedBundle::singleton().testRunner()->isPolicyDelegateEnabled() && WKURLResponseIsAttachment(response)) {
+    auto& injectedBundle = InjectedBundle::singleton();
+    if (injectedBundle.testRunner() && injectedBundle.testRunner()->isPolicyDelegateEnabled() && WKURLResponseIsAttachment(response)) {
         StringBuilder stringBuilder;
         WKRetainPtr<WKStringRef> filename = adoptWK(WKURLResponseCopySuggestedFilename(response));
         stringBuilder.appendLiteral("Policy delegate: resource is an attachment, suggested file name \'");
@@ -1375,6 +1394,9 @@ WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForResponse(WKBundlePag
         stringBuilder.appendLiteral("\'\n");
         InjectedBundle::singleton().outputText(stringBuilder.toString());
     }
+
+    if (injectedBundle.testRunner() && injectedBundle.testRunner()->shouldDecideResponsePolicyAfterDelay())
+        return WKBundlePagePolicyActionPassThrough;
 
     WKRetainPtr<WKStringRef> mimeType = adoptWK(WKURLResponseCopyMIMEType(response));
     return WKBundlePageCanShowMIMEType(page, mimeType.get()) ? WKBundlePagePolicyActionUse : WKBundlePagePolicyActionPassThrough;

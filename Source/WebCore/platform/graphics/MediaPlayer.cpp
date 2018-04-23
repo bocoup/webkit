@@ -207,7 +207,7 @@ struct MediaPlayerFactory {
 
 static void addMediaEngine(CreateMediaEnginePlayer&&, MediaEngineSupportedTypes, MediaEngineSupportsType, MediaEngineOriginsInMediaCache, MediaEngineClearMediaCache, MediaEngineClearMediaCacheForOrigins, MediaEngineSupportsKeySystem);
 
-static StaticLock mediaEngineVectorLock;
+static Lock mediaEngineVectorLock;
 
 static bool& haveMediaEnginesVector()
 {
@@ -703,6 +703,11 @@ PlatformLayer* MediaPlayer::platformLayer() const
 void MediaPlayer::setVideoFullscreenLayer(PlatformLayer* layer, WTF::Function<void()>&& completionHandler)
 {
     m_private->setVideoFullscreenLayer(layer, WTFMove(completionHandler));
+}
+
+void MediaPlayer::updateVideoFullscreenInlineImage()
+{
+    m_private->updateVideoFullscreenInlineImage();
 }
 
 void MediaPlayer::setVideoFullscreenFrame(FloatRect frame)

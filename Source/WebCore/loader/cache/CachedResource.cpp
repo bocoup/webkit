@@ -33,13 +33,13 @@
 #include "DiagnosticLoggingKeys.h"
 #include "Document.h"
 #include "DocumentLoader.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTTPHeaderNames.h"
 #include "InspectorInstrumentation.h"
 #include "LoaderStrategy.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "MemoryCache.h"
 #include "PlatformStrategies.h"
 #include "ProgressTracker.h"
@@ -49,7 +49,6 @@
 #include "SubresourceLoader.h"
 #include "URL.h"
 #include <wtf/CompletionHandler.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
@@ -92,12 +91,8 @@ ResourceLoadPriority CachedResource::defaultPriorityForResourceType(Type type)
         return ResourceLoadPriority::Low;
     case CachedResource::Beacon:
         return ResourceLoadPriority::VeryLow;
-#if ENABLE(LINK_PREFETCH)
     case CachedResource::LinkPrefetch:
         return ResourceLoadPriority::VeryLow;
-    case CachedResource::LinkSubresource:
-        return ResourceLoadPriority::VeryLow;
-#endif
 #if ENABLE(VIDEO_TRACK)
     case CachedResource::TextTrackResource:
         return ResourceLoadPriority::Low;
@@ -244,10 +239,8 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
         }
     }
 
-#if ENABLE(LINK_PREFETCH)
-    if (type() == CachedResource::LinkPrefetch || type() == CachedResource::LinkSubresource)
+    if (type() == CachedResource::LinkPrefetch)
         m_resourceRequest.setHTTPHeaderField(HTTPHeaderName::Purpose, "prefetch");
-#endif
     m_resourceRequest.setPriority(loadPriority());
 
     // Navigation algorithm is setting up the request before sending it to CachedResourceLoader?CachedResource.
@@ -586,6 +579,12 @@ void CachedResource::removeClient(CachedResourceClient& client)
     memoryCache.pruneSoon();
 }
 
+void CachedResource::allClientsRemoved()
+{
+    if (isLinkPreload() && m_loader)
+        m_loader->cancelIfNotFinishing();
+}
+
 void CachedResource::destroyDecodedDataIfNeeded()
 {
     if (!m_decodedSize)
@@ -672,7 +671,7 @@ void CachedResource::setEncodedSize(unsigned size)
     }
 }
 
-void CachedResource::didAccessDecodedData(double timeStamp)
+void CachedResource::didAccessDecodedData(MonotonicTime timeStamp)
 {
     m_lastDecodedAccessTime = timeStamp;
     

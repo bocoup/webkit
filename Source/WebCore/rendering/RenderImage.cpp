@@ -49,6 +49,7 @@
 #include "PaintInfo.h"
 #include "RenderFragmentedFlow.h"
 #include "RenderImageResourceStyleImage.h"
+#include "RenderTheme.h"
 #include "RenderView.h"
 #include "SVGImage.h"
 #include <wtf/IsoMallocInlines.h>
@@ -543,7 +544,7 @@ void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPo
 
 #if PLATFORM(MAC)
     bool needsRepaint;
-    paintInfo.context().drawFocusRing(path, page().focusController().timeSinceFocusWasSet(), needsRepaint);
+    paintInfo.context().drawFocusRing(path, page().focusController().timeSinceFocusWasSet().seconds(), needsRepaint);
     if (needsRepaint)
         page().focusController().setFocusedElementNeedsRepaint();
 #else
@@ -591,6 +592,10 @@ ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect
     auto drawResult = paintInfo.context().drawImage(*img, rect, ImagePaintingOptions(compositeOperator, BlendModeNormal, decodingMode, orientationDescription, interpolation));
     if (drawResult == ImageDrawResult::DidRequestDecoding)
         imageResource().cachedImage()->addPendingImageDrawingClient(*this);
+
+    if (imageElement && imageElement->isSystemPreviewImage())
+        theme().paintSystemPreviewBadge(*img, paintInfo, rect);
+
     return drawResult;
 }
 
@@ -699,6 +704,12 @@ bool RenderImage::canHaveChildren() const
 
 void RenderImage::layout()
 {
+    // Recomputing overflow is required only when child content is present. 
+    if (needsSimplifiedNormalFlowLayout() && !m_hasShadowControls) {
+        clearNeedsLayout();
+        return;
+    }
+
     StackStats::LayoutCheckPoint layoutCheckPoint;
 
     LayoutSize oldSize = contentBoxRect().size();

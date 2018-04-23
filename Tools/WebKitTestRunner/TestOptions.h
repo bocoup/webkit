@@ -55,6 +55,8 @@ struct TestOptions {
     bool shouldShowTouches { false };
     bool dumpJSConsoleLogInStdErr { false };
     bool allowCrossOriginSubresourcesToAskForCredentials { false };
+    bool enableCSSAnimationsAndCSSTransitionsBackedByWebAnimations { false };
+    bool enableProcessSwapOnNavigation { false };
 
     float deviceScaleFactor { 1 };
     Vector<String> overrideLanguages;
@@ -84,7 +86,9 @@ struct TestOptions {
             || enableInspectorAdditions != options.enableInspectorAdditions
             || dumpJSConsoleLogInStdErr != options.dumpJSConsoleLogInStdErr
             || applicationManifest != options.applicationManifest
-            || allowCrossOriginSubresourcesToAskForCredentials != options.allowCrossOriginSubresourcesToAskForCredentials)
+            || allowCrossOriginSubresourcesToAskForCredentials != options.allowCrossOriginSubresourcesToAskForCredentials
+            || enableCSSAnimationsAndCSSTransitionsBackedByWebAnimations != options.enableCSSAnimationsAndCSSTransitionsBackedByWebAnimations
+            || enableProcessSwapOnNavigation != options.enableProcessSwapOnNavigation)
             return false;
 
         return true;

@@ -33,6 +33,7 @@
 #include "NetworkCache.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkLoad.h"
+#include "NetworkMDNSRegisterMessages.h"
 #include "NetworkProcess.h"
 #include "NetworkProcessConnectionMessages.h"
 #include "NetworkRTCMonitorMessages.h"
@@ -51,10 +52,10 @@
 #include "WebsiteDataStore.h"
 #include "WebsiteDataStoreParameters.h"
 #include <WebCore/NetworkStorageSession.h>
-#include <WebCore/PingHandle.h>
 #include <WebCore/PlatformCookieJar.h>
 #include <WebCore/ResourceLoaderOptions.h>
 #include <WebCore/ResourceRequest.h>
+#include <WebCore/SecurityPolicy.h>
 #include <pal/SessionID.h>
 
 using namespace WebCore;
@@ -68,6 +69,9 @@ Ref<NetworkConnectionToWebProcess> NetworkConnectionToWebProcess::create(IPC::Co
 
 NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(IPC::Connection::Identifier connectionIdentifier)
     : m_connection(IPC::Connection::createServerConnection(connectionIdentifier, *this))
+#if ENABLE(WEB_RTC)
+    , m_mdnsRegister(*this)
+#endif
 {
     m_connection->open();
 }
@@ -123,6 +127,12 @@ void NetworkConnectionToWebProcess::didReceiveMessage(IPC::Connection& connectio
     }
     if (decoder.messageReceiverName() == Messages::NetworkRTCProvider::messageReceiverName()) {
         rtcProvider().didReceiveMessage(connection, decoder);
+        return;
+    }
+#endif
+#if ENABLE(WEB_RTC)
+    if (decoder.messageReceiverName() == Messages::NetworkMDNSRegister::messageReceiverName()) {
+        mdnsRegister().didReceiveMessage(connection, decoder);
         return;
     }
 #endif
@@ -219,28 +229,34 @@ void NetworkConnectionToWebProcess::endSuspension()
 #endif
 }
 
-void NetworkConnectionToWebProcess::scheduleResourceLoad(const NetworkResourceLoadParameters& loadParameters)
+void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadParameters&& loadParameters)
 {
-    auto loader = NetworkResourceLoader::create(loadParameters, *this);
-    m_networkResourceLoaders.add(loadParameters.identifier, loader.ptr());
+    auto identifier = loadParameters.identifier;
+    ASSERT(!m_networkResourceLoaders.contains(identifier));
+
+    auto loader = NetworkResourceLoader::create(WTFMove(loadParameters), *this);
+    m_networkResourceLoaders.add(identifier, loader.ptr());
     loader->start();
 }
 
-void NetworkConnectionToWebProcess::performSynchronousLoad(const NetworkResourceLoadParameters& loadParameters, Ref<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply>&& reply)
+void NetworkConnectionToWebProcess::performSynchronousLoad(NetworkResourceLoadParameters&& loadParameters, Ref<Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply>&& reply)
 {
-    auto loader = NetworkResourceLoader::create(loadParameters, *this, WTFMove(reply));
-    m_networkResourceLoaders.add(loadParameters.identifier, loader.ptr());
+    auto identifier = loadParameters.identifier;
+    ASSERT(!m_networkResourceLoaders.contains(identifier));
+
+    auto loader = NetworkResourceLoader::create(WTFMove(loadParameters), *this, WTFMove(reply));
+    m_networkResourceLoaders.add(identifier, loader.ptr());
     loader->start();
 }
 
-void NetworkConnectionToWebProcess::loadPing(NetworkResourceLoadParameters&& loadParameters, HTTPHeaderMap&& originalRequestHeaders)
+void NetworkConnectionToWebProcess::loadPing(NetworkResourceLoadParameters&& loadParameters)
 {
     auto completionHandler = [this, protectedThis = makeRef(*this), identifier = loadParameters.identifier] (const ResourceError& error, const ResourceResponse& response) {
         didFinishPingLoad(identifier, error, response);
     };
 
     // PingLoad manages its own lifetime, deleting itself when its purpose has been fulfilled.
-    new PingLoad(WTFMove(loadParameters), WTFMove(originalRequestHeaders), WTFMove(completionHandler));
+    new PingLoad(WTFMove(loadParameters), WTFMove(completionHandler));
 }
 
 void NetworkConnectionToWebProcess::didFinishPingLoad(uint64_t pingLoadIdentifier, const ResourceError& error, const ResourceResponse& response)
@@ -249,6 +265,11 @@ void NetworkConnectionToWebProcess::didFinishPingLoad(uint64_t pingLoadIdentifie
         return;
 
     m_connection->send(Messages::NetworkProcessConnection::DidFinishPingLoad(pingLoadIdentifier, error, response), 0);
+}
+
+void NetworkConnectionToWebProcess::setOnLineState(bool isOnLine)
+{
+    m_connection->send(Messages::NetworkProcessConnection::SetOnLineState(isOnLine), 0);
 }
 
 void NetworkConnectionToWebProcess::removeLoadIdentifier(ResourceLoadIdentifier identifier)
@@ -338,7 +359,12 @@ void NetworkConnectionToWebProcess::convertMainResourceLoadToDownload(PAL::Sessi
 
 void NetworkConnectionToWebProcess::cookiesForDOM(PAL::SessionID sessionID, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeSecureCookies includeSecureCookies, String& cookieString, bool& secureCookiesAccessed)
 {
-    std::tie(cookieString, secureCookiesAccessed) = WebCore::cookiesForDOM(storageSession(sessionID), firstParty, url, frameID, pageID, includeSecureCookies);
+    auto& networkStorageSession = storageSession(sessionID);
+    std::tie(cookieString, secureCookiesAccessed) = WebCore::cookiesForDOM(networkStorageSession, firstParty, url, frameID, pageID, includeSecureCookies);
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+    if (NetworkProcess::singleton().shouldLogCookieInformation())
+        NetworkResourceLoader::logCookieInformation("NetworkConnectionToWebProcess::cookiesForDOM", reinterpret_cast<const void*>(this), networkStorageSession, firstParty, url, emptyString(), frameID, pageID, std::nullopt);
+#endif
 }
 
 void NetworkConnectionToWebProcess::setCookiesFromDOM(PAL::SessionID sessionID, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String& cookieString)
@@ -346,10 +372,8 @@ void NetworkConnectionToWebProcess::setCookiesFromDOM(PAL::SessionID sessionID, 
     auto& networkStorageSession = storageSession(sessionID);
     WebCore::setCookiesFromDOM(networkStorageSession, firstParty, url, frameID, pageID, cookieString);
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
-    if (NetworkProcess::singleton().shouldLogCookieInformation()) {
-        auto partition = WebCore::URL(ParsedURLString, networkStorageSession.cookieStoragePartition(firstParty, url, frameID, pageID));
-        NetworkResourceLoader::logCookieInformation("NetworkConnectionToWebProcess::setCookiesFromDOM", reinterpret_cast<const void*>(this), networkStorageSession, partition, url, emptyString(), frameID, pageID, std::nullopt);
-    }
+    if (NetworkProcess::singleton().shouldLogCookieInformation())
+        NetworkResourceLoader::logCookieInformation("NetworkConnectionToWebProcess::setCookiesFromDOM", reinterpret_cast<const void*>(this), networkStorageSession, firstParty, url, emptyString(), frameID, pageID, std::nullopt);
 #endif
 }
 
@@ -460,6 +484,8 @@ void NetworkConnectionToWebProcess::storeDerivedDataToCache(const WebKit::Networ
 void NetworkConnectionToWebProcess::setCaptureExtraNetworkLoadMetricsEnabled(bool enabled)
 {
     m_captureExtraNetworkLoadMetricsEnabled = enabled;
+    if (!m_captureExtraNetworkLoadMetricsEnabled)
+        m_networkLoadInformationByID.clear();
 }
 
 void NetworkConnectionToWebProcess::ensureLegacyPrivateBrowsingSession()
@@ -488,6 +514,21 @@ void NetworkConnectionToWebProcess::removeStorageAccessForAllFramesOnPage(PAL::S
     UNUSED_PARAM(sessionID);
     UNUSED_PARAM(pageID);
 #endif
+}
+
+void NetworkConnectionToWebProcess::addOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
+{
+    SecurityPolicy::addOriginAccessWhitelistEntry(SecurityOrigin::createFromString(sourceOrigin).get(), destinationProtocol, destinationHost, allowDestinationSubdomains);
+}
+
+void NetworkConnectionToWebProcess::removeOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
+{
+    SecurityPolicy::removeOriginAccessWhitelistEntry(SecurityOrigin::createFromString(sourceOrigin).get(), destinationProtocol, destinationHost, allowDestinationSubdomains);
+}
+
+void NetworkConnectionToWebProcess::resetOriginAccessWhitelists()
+{
+    SecurityPolicy::resetOriginAccessWhitelists();
 }
 
 } // namespace WebKit

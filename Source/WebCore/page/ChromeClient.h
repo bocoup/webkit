@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple, Inc. All rights reserved.
+ * Copyright (C) 2006-2018 Apple, Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  * Copyright (C) 2012 Samsung Electronics. All rights reserved.
  *
@@ -166,7 +166,6 @@ public:
 
 #if USE(COORDINATED_GRAPHICS)
     virtual void delegatedScrollRequested(const IntPoint&) = 0;
-    virtual void resetUpdateAtlasForTesting() = 0;
 #endif
 
     virtual IntPoint screenToRootView(const IntPoint&) const = 0;
@@ -186,6 +185,7 @@ public:
 
     virtual FloatSize screenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
     virtual FloatSize availableScreenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
+    virtual FloatSize overrideScreenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
 
     virtual void dispatchViewportPropertiesDidChange(const ViewportArguments&) const { }
 
@@ -446,6 +446,8 @@ public:
     virtual bool shouldDispatchFakeMouseMoveEvents() const { return true; }
 
     virtual void handleAutoFillButtonClick(HTMLInputElement&) { }
+
+    virtual void inputElementDidResignStrongPasswordAppearance(HTMLInputElement&) { };
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     virtual void addPlaybackTargetPickerClient(uint64_t /*contextId*/) { }

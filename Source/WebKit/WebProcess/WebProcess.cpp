@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,6 @@
 #include "WebAutomationSessionProxy.h"
 #include "WebCacheStorageProvider.h"
 #include "WebConnectionToUIProcess.h"
-#include "WebCookieManager.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebFrameNetworkingContext.h"
@@ -99,7 +98,6 @@
 #include <WebCore/GlyphPage.h>
 #include <WebCore/HTMLMediaElement.h>
 #include <WebCore/JSDOMWindow.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/MemoryRelease.h>
 #include <WebCore/MessagePort.h>
@@ -117,9 +115,10 @@
 #include <WebCore/Settings.h>
 #include <WebCore/URLParser.h>
 #include <WebCore/UserGestureIndicator.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/Language.h>
+#include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/text/StringHash.h>
 
 #if !OS(WINDOWS)
@@ -188,7 +187,6 @@ WebProcess::WebProcess()
     // so that ports have a chance to customize, and ifdefs in this file are
     // limited.
     addSupplement<WebGeolocationManager>();
-    addSupplement<WebCookieManager>();
 
 #if ENABLE(NOTIFICATIONS)
     addSupplement<WebNotificationManager>();
@@ -209,6 +207,10 @@ WebProcess::WebProcess()
         parentProcessConnection()->send(Messages::WebResourceLoadStatisticsStore::ResourceLoadStatisticsUpdated(WTFMove(statistics)), 0);
     });
 
+    ResourceLoadObserver::shared().setRequestStorageAccessUnderOpenerCallback([this] (const String& domainInNeedOfStorageAccess, uint64_t openerPageID, const String& openerDomain, bool isTriggeredByUserGesture) {
+        parentProcessConnection()->send(Messages::WebResourceLoadStatisticsStore::RequestStorageAccessUnderOpener(domainInNeedOfStorageAccess, openerPageID, openerDomain, isTriggeredByUserGesture), 0);
+    });
+    
     Gigacage::disableDisablingPrimitiveGigacageIfShouldBeEnabled();
 }
 
@@ -218,12 +220,26 @@ WebProcess::~WebProcess()
 
 void WebProcess::initializeProcess(const ChildProcessInitializationParameters& parameters)
 {
+    WTF::setProcessPrivileges({ });
+
     MessagePortChannelProvider::setSharedProvider(WebMessagePortChannelProvider::singleton());
     
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+#if PLATFORM(MAC)
+#if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    // Deny the WebContent process access to the WindowServer.
+    // We cannot call setApplicationIsDaemon here, since Activity Monitor will not show the
+    // url of the WebContent process, then.
+    // This call will not succeed if there are open WindowServer connections at this point.
+    CGError error = CGSSetDenyWindowServerConnections(true);
+    ASSERT(error == kCGErrorSuccess);
+    if (error != kCGErrorSuccess)
+        WTFLogAlways("Failed to deny WindowServer connections, error = %d", error);
+#endif
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
     // This call is needed when the WebProcess is not running the NSApplication event loop.
     // Otherwise, calling enableSandboxStyleFileQuarantine() will fail.
     launchServicesCheckIn();
+#endif
 #endif
     platformInitializeProcess(parameters);
 }
@@ -264,6 +280,8 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
 
 void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 {    
+    TraceScope traceScope(InitializeWebProcessStart, InitializeWebProcessEnd);
+
     ASSERT(m_pageMap.isEmpty());
 
     WebCore::setPresentingApplicationPID(parameters.presentingApplicationPID);
@@ -370,6 +388,9 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
     for (auto& scheme : parameters.urlSchemesServiceWorkersCanHandle)
         registerURLSchemeServiceWorkersCanHandle(scheme);
 
+    for (auto& scheme : parameters.urlSchemesRegisteredAsCanDisplayOnlyIfCanRequest)
+        registerURLSchemeAsCanDisplayOnlyIfCanRequest(scheme);
+
     setDefaultRequestTimeoutInterval(parameters.defaultRequestTimeoutInterval);
 
     setResourceLoadStatisticsEnabled(parameters.resourceLoadStatisticsEnabled);
@@ -474,6 +495,11 @@ void WebProcess::registerURLSchemeAsAlwaysRevalidated(const String& urlScheme) c
 void WebProcess::registerURLSchemeAsCachePartitioned(const String& urlScheme) const
 {
     SchemeRegistry::registerURLSchemeAsCachePartitioned(urlScheme);
+}
+
+void WebProcess::registerURLSchemeAsCanDisplayOnlyIfCanRequest(const String& urlScheme) const
+{
+    SchemeRegistry::registerAsCanDisplayOnlyIfCanRequest(urlScheme);
 }
 
 void WebProcess::setDefaultRequestTimeoutInterval(double timeoutInterval)
@@ -663,10 +689,12 @@ void WebProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& de
 
 void WebProcess::didClose(IPC::Connection&)
 {
-#ifndef NDEBUG
+#if !defined(NDEBUG) || PLATFORM(GTK) || PLATFORM(WPE)
     for (auto& page : copyToVector(m_pageMap.values()))
         page->close();
+#endif
 
+#ifndef NDEBUG
     GCController::singleton().garbageCollectSoon();
     FontCache::singleton().invalidate();
     MemoryCache::singleton().setDisabled(true);
@@ -1132,7 +1160,7 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
 #else
         ASSERT_NOT_REACHED();
 #endif
-        if (IPC::Connection::identifierIsNull(connectionIdentifier))
+        if (!IPC::Connection::identifierIsValid(connectionIdentifier))
             CRASH();
         m_networkProcessConnection = NetworkProcessConnection::create(connectionIdentifier);
     }
@@ -1206,8 +1234,9 @@ WebToStorageProcessConnection& WebProcess::ensureWebToStorageProcessConnection(P
 #else
         ASSERT_NOT_REACHED();
 #endif
-        if (IPC::Connection::identifierIsNull(connectionIdentifier))
+        if (!IPC::Connection::identifierIsValid(connectionIdentifier))
             CRASH();
+
         m_webToStorageProcessConnection = WebToStorageProcessConnection::create(connectionIdentifier);
 
     }
@@ -1264,7 +1293,7 @@ void WebProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDat
 {
     if (websiteDataTypes.contains(WebsiteDataType::MemoryCache)) {
         for (auto& origin : MemoryCache::singleton().originsWithCache(sessionID))
-            websiteData.entries.append(WebsiteData::Entry { SecurityOriginData::fromSecurityOrigin(*origin), WebsiteDataType::MemoryCache, 0 });
+            websiteData.entries.append(WebsiteData::Entry { origin->data(), WebsiteDataType::MemoryCache, 0 });
     }
 
     if (websiteDataTypes.contains(WebsiteDataType::Credentials)) {
@@ -1648,14 +1677,12 @@ bool WebProcess::hasVisibleWebPage() const
     return false;
 }
 
-#if USE(LIBWEBRTC)
 LibWebRTCNetwork& WebProcess::libWebRTCNetwork()
 {
     if (!m_libWebRTCNetwork)
         m_libWebRTCNetwork = std::make_unique<LibWebRTCNetwork>();
     return *m_libWebRTCNetwork;
 }
-#endif
 
 #if ENABLE(SERVICE_WORKER)
 void WebProcess::establishWorkerContextConnectionToStorageProcess(uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore& store, PAL::SessionID initialSessionID)
@@ -1667,17 +1694,19 @@ void WebProcess::establishWorkerContextConnectionToStorageProcess(uint64_t pageG
     SWContextManager::singleton().setConnection(std::make_unique<WebSWContextManagerConnection>(ipcConnection, pageGroupID, pageID, store));
 }
 
-void WebProcess::registerServiceWorkerClients(PAL::SessionID sessionID)
+void WebProcess::registerServiceWorkerClients()
 {
-    ServiceWorkerProvider::singleton().registerServiceWorkerClients(sessionID);
+    // We do not want to register service worker dummy documents.
+    ASSERT(!SWContextManager::singleton().connection());
+    ServiceWorkerProvider::singleton().registerServiceWorkerClients();
 }
 
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
-void WebProcess::setScreenProperties(const HashMap<uint32_t, WebCore::ScreenProperties>& properties)
+#if PLATFORM(MAC)
+void WebProcess::setScreenProperties(uint32_t primaryScreenID, const HashMap<uint32_t, WebCore::ScreenProperties>& properties)
 {
-    WebCore::setScreenProperties(properties);
+    WebCore::setScreenProperties(primaryScreenID, properties);
 }
 #endif
 

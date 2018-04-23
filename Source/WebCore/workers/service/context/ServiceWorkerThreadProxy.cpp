@@ -29,8 +29,10 @@
 #if ENABLE(SERVICE_WORKER)
 
 #include "CacheStorageProvider.h"
+#include "Frame.h"
 #include "FrameLoader.h"
-#include "MainFrame.h"
+#include "LoaderStrategy.h"
+#include "PlatformStrategies.h"
 #include "Settings.h"
 #include <pal/SessionID.h>
 #include <wtf/MainThread.h>
@@ -95,7 +97,7 @@ ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(PageConfiguration&& pageConfi
 {
     static bool addedListener;
     if (!addedListener) {
-        NetworkStateNotifier::singleton().addListener(&networkStateChanged);
+        platformStrategies()->loaderStrategy()->addOnlineStateChangeListener(&networkStateChanged);
         addedListener = true;
     }
 

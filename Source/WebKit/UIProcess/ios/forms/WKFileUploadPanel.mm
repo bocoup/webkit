@@ -42,7 +42,6 @@
 #import "WebPageProxy.h"
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebKit/WebNSFileManagerExtras.h>
 #import <wtf/RetainPtr.h>
 
 using namespace WebKit;
@@ -243,6 +242,11 @@ static inline UIImage *cameraIcon()
 #if ENABLE(MEDIA_CAPTURE)
     _mediaCaptureType = parameters->mediaCaptureType();
 #endif
+
+    if (![self platformSupportsPickerViewController]) {
+        [self _cancel];
+        return;
+    }
 
     if ([self _shouldMediaCaptureOpenMediaDevice]) {
         [self _adjustMediaCaptureType];
@@ -608,8 +612,7 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
     NSString * const kTemporaryDirectoryName = @"WKWebFileUpload";
 
     // Build temporary file path.
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSString *temporaryDirectory = [fileManager _webkit_createTemporaryDirectoryWithTemplatePrefix:kTemporaryDirectoryName];
+    NSString *temporaryDirectory = WebCore::FileSystem::createTemporaryDirectory(kTemporaryDirectoryName);
     NSString *filePath = [temporaryDirectory stringByAppendingPathComponent:imageName];
     if (!filePath) {
         LOG_ERROR("WKFileUploadPanel: Failed to create temporary directory to save image");
@@ -702,6 +705,15 @@ static NSArray *UTIsForMIMETypes(NSArray *mimeTypes)
 
     // Photos taken with the camera will not have an image URL. Fall back to a JPEG representation.
     [self _uploadItemForJPEGRepresentationOfImage:originalImage successBlock:successBlock failureBlock:failureBlock];
+}
+
+- (BOOL)platformSupportsPickerViewController
+{
+#if ENABLE(EXTRA_ZOOM_MODE)
+    return NO;
+#else
+    return YES;
+#endif
 }
 
 @end

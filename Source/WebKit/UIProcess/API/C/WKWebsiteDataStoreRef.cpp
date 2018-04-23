@@ -89,6 +89,18 @@ void WKWebsiteDataStoreSetStatisticsPrevalentResource(WKWebsiteDataStoreRef data
         store->clearPrevalentResource(WebCore::URL(WebCore::URL(), WebKit::toImpl(host)->string()));
 }
 
+void WKWebsiteDataStoreSetStatisticsVeryPrevalentResource(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, bool value)
+{
+    auto* store = WebKit::toImpl(dataStoreRef)->websiteDataStore().resourceLoadStatistics();
+    if (!store)
+        return;
+    
+    if (value)
+        store->setVeryPrevalentResource(WebCore::URL(WebCore::URL(), WebKit::toImpl(host)->string()));
+    else
+        store->clearPrevalentResource(WebCore::URL(WebCore::URL(), WebKit::toImpl(host)->string()));
+}
+
 void WKWebsiteDataStoreIsStatisticsPrevalentResource(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreIsStatisticsPrevalentResourceFunction callback)
 {
     auto* store = WebKit::toImpl(dataStoreRef)->websiteDataStore().resourceLoadStatistics();
@@ -99,6 +111,19 @@ void WKWebsiteDataStoreIsStatisticsPrevalentResource(WKWebsiteDataStoreRef dataS
 
     store->isPrevalentResource(WebCore::URL(WebCore::URL(), WebKit::toImpl(host)->string()), [context, callback](bool isPrevalentResource) {
         callback(isPrevalentResource, context);
+    });
+}
+
+void WKWebsiteDataStoreIsStatisticsVeryPrevalentResource(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreIsStatisticsPrevalentResourceFunction callback)
+{
+    auto* store = WebKit::toImpl(dataStoreRef)->websiteDataStore().resourceLoadStatistics();
+    if (!store) {
+        callback(false, context);
+        return;
+    }
+    
+    store->isVeryPrevalentResource(WebCore::URL(WebCore::URL(), WebKit::toImpl(host)->string()), [context, callback](bool isVeryPrevalentResource) {
+        callback(isVeryPrevalentResource, context);
     });
 }
 
@@ -411,7 +436,7 @@ void WKWebsiteDataStoreRemoveAllFetchCaches(WKWebsiteDataStoreRef dataStoreRef, 
 void WKWebsiteDataStoreRemoveFetchCacheForOrigin(WKWebsiteDataStoreRef dataStoreRef, WKSecurityOriginRef origin, void* context, WKWebsiteDataStoreRemoveFetchCacheRemovalFunction callback)
 {
     WebKit::WebsiteDataRecord dataRecord;
-    dataRecord.add(WebKit::WebsiteDataType::DOMCache, WebCore::SecurityOriginData::fromSecurityOrigin(WebKit::toImpl(origin)->securityOrigin()));
+    dataRecord.add(WebKit::WebsiteDataType::DOMCache, WebKit::toImpl(origin)->securityOrigin().data());
     Vector<WebKit::WebsiteDataRecord> dataRecords = { WTFMove(dataRecord) };
 
     OptionSet<WebKit::WebsiteDataType> dataTypes = WebKit::WebsiteDataType::DOMCache;
@@ -455,7 +480,7 @@ void WKWebsiteDataStoreGetFetchCacheSizeForOrigin(WKWebsiteDataStoreRef dataStor
     OptionSet<WebKit::WebsiteDataFetchOption> fetchOptions = WebKit::WebsiteDataFetchOption::ComputeSizes;
 
     WebKit::toImpl(dataStoreRef)->websiteDataStore().fetchData(WebKit::WebsiteDataType::DOMCache, fetchOptions, [origin, context, callback] (auto dataRecords) {
-        auto originData = WebCore::SecurityOriginData::fromSecurityOrigin(WebCore::SecurityOrigin::createFromString(WebKit::toImpl(origin)->string()));
+        auto originData = WebCore::SecurityOrigin::createFromString(WebKit::toImpl(origin)->string())->data();
         for (auto& dataRecord : dataRecords) {
             for (const auto& recordOrigin : dataRecord.origins) {
                 if (originData == recordOrigin) {
@@ -467,4 +492,14 @@ void WKWebsiteDataStoreGetFetchCacheSizeForOrigin(WKWebsiteDataStoreRef dataStor
         }
         callback(0, context);
     });
+}
+
+WKStringRef WKWebsiteDataStoreCopyServiceWorkerRegistrationDirectory(WKWebsiteDataStoreRef dataStoreRef)
+{
+    return WebKit::toCopiedAPI(WebKit::toImpl(dataStoreRef)->websiteDataStore().serviceWorkerRegistrationDirectory());
+}
+
+void WKWebsiteDataStoreSetServiceWorkerRegistrationDirectory(WKWebsiteDataStoreRef dataStoreRef, WKStringRef serviceWorkerRegistrationDirectory)
+{
+    WebKit::toImpl(dataStoreRef)->websiteDataStore().setServiceWorkerRegistrationDirectory(WebKit::toImpl(serviceWorkerRegistrationDirectory)->string());
 }

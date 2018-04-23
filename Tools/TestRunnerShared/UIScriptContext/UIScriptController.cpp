@@ -270,6 +270,10 @@ void UIScriptController::sendEventStream(JSStringRef eventsJSON, JSValueRef call
 {
 }
 
+void UIScriptController::enterText(JSStringRef)
+{
+}
+
 void UIScriptController::typeCharacterUsingHardwareKeyboard(JSStringRef, JSValueRef)
 {
 }
@@ -296,6 +300,11 @@ void UIScriptController::dismissFormAccessoryView()
 
 void UIScriptController::selectFormAccessoryPickerRow(long)
 {
+}
+
+JSRetainPtr<JSStringRef> UIScriptController::selectFormPopoverTitle() const
+{
+    return nullptr;
 }
 
 void UIScriptController::scrollToOffset(long x, long y)

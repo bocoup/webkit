@@ -120,7 +120,7 @@ void RunLoop::stop()
 
 void RunLoop::wakeUp()
 {
-    g_source_set_ready_time(m_source.get(), g_get_monotonic_time());
+    g_source_set_ready_time(m_source.get(), 0);
 }
 
 class DispatchAfterContext {
@@ -205,9 +205,9 @@ void RunLoop::TimerBase::updateReadyTime()
     g_source_set_ready_time(m_source.get(), targetTime);
 }
 
-void RunLoop::TimerBase::start(double fireInterval, bool repeat)
+void RunLoop::TimerBase::start(Seconds fireInterval, bool repeat)
 {
-    m_fireInterval = Seconds(fireInterval);
+    m_fireInterval = fireInterval;
     m_isRepeating = repeat;
     updateReadyTime();
 }

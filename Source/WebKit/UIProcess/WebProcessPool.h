@@ -45,6 +45,7 @@
 #include "WebContextClient.h"
 #include "WebContextConnectionClient.h"
 #include "WebProcessProxy.h"
+#include <WebCore/SecurityOriginHash.h>
 #include <WebCore/SharedStringHash.h>
 #include <pal/SessionID.h>
 #include <wtf/Forward.h>
@@ -77,6 +78,7 @@ class DownloadClient;
 class HTTPCookieStore;
 class InjectedBundleClient;
 class LegacyContextHistoryClient;
+class Navigation;
 class PageConfiguration;
 }
 
@@ -202,7 +204,7 @@ public:
     const HashMap<String, HashMap<String, HashMap<String, uint8_t>>>& pluginLoadClientPolicies() const { return m_pluginLoadClientPolicies; }
 #endif
 
-    void addSupportedPlugin(WebCore::SecurityOrigin*, String&& name, HashSet<String>&& mimeTypes, HashSet<String> extensions);
+    void addSupportedPlugin(String&& matchingDomain, String&& name, HashSet<String>&& mimeTypes, HashSet<String> extensions);
     void clearSupportedPlugins();
 
     ProcessID networkProcessIdentifier();
@@ -224,6 +226,8 @@ public:
     void registerURLSchemeAsCORSEnabled(const String&);
     void registerURLSchemeAsCachePartitioned(const String&);
     void registerURLSchemeServiceWorkersCanHandle(const String&);
+    void registerURLSchemeAsCanDisplayOnlyIfCanRequest(const String&);
+
     void preconnectToServer(const WebCore::URL&);
 
     VisitedLinkStore& visitedLinkStore() { return m_visitedLinkStore.get(); }
@@ -268,7 +272,8 @@ public:
     void clearCachedCredentials();
     void terminateStorageProcess();
     void terminateNetworkProcess();
-    void terminateServiceWorkerProcess();
+    void terminateServiceWorkerProcesses();
+    void disableServiceWorkerProcessTerminationDelay();
 
     void syncNetworkProcessCookies();
 
@@ -326,12 +331,12 @@ public:
 
     void ensureStorageProcessAndWebsiteDataStore(WebsiteDataStore* relevantDataStore);
     StorageProcessProxy* storageProcess() { return m_storageProcess.get(); }
-    void getStorageProcessConnection(bool isServiceWorkerProcess, PAL::SessionID initialSessionID, Ref<Messages::WebProcessProxy::GetStorageProcessConnection::DelayedReply>&&);
+    void getStorageProcessConnection(WebProcessProxy&, PAL::SessionID initialSessionID, Ref<Messages::WebProcessProxy::GetStorageProcessConnection::DelayedReply>&&);
     void storageProcessCrashed(StorageProcessProxy*);
 #if ENABLE(SERVICE_WORKER)
-    void establishWorkerContextConnectionToStorageProcess(StorageProcessProxy&, std::optional<PAL::SessionID>);
-    bool isServiceWorker(uint64_t pageID) const { return m_serviceWorkerProcess && m_serviceWorkerProcess->pageID() == pageID; }
-    ServiceWorkerProcessProxy* serviceWorkerProxy() const { return m_serviceWorkerProcess; }
+    void establishWorkerContextConnectionToStorageProcess(StorageProcessProxy&, WebCore::SecurityOriginData&&, std::optional<PAL::SessionID>);
+    ServiceWorkerProcessProxy* serviceWorkerProcessProxyFromPageID(uint64_t pageID) const;
+    const HashMap<WebCore::SecurityOriginData, ServiceWorkerProcessProxy*>& serviceWorkerProxies() const { return m_serviceWorkerProcesses; }
     void setAllowsAnySSLCertificateForServiceWorker(bool allows) { m_allowsAnySSLCertificateForServiceWorker = allows; }
     bool allowsAnySSLCertificateForServiceWorker() const { return m_allowsAnySSLCertificateForServiceWorker; }
     void updateServiceWorkerUserAgent(const String& userAgent);
@@ -441,6 +446,10 @@ public:
     BackgroundWebProcessToken backgroundWebProcessToken() const { return BackgroundWebProcessToken(m_backgroundWebProcessCounter.count()); }
 #endif
 
+    Ref<WebProcessProxy> processForNavigation(WebPageProxy&, const API::Navigation&, WebCore::PolicyAction&);
+    void registerSuspendedPageProxy(SuspendedPageProxy&);
+    void unregisterSuspendedPageProxy(SuspendedPageProxy&);
+
 private:
     void platformInitialize();
 
@@ -511,9 +520,10 @@ private:
 
     WebProcessProxy* m_processWithPageCache { nullptr };
 #if ENABLE(SERVICE_WORKER)
-    ServiceWorkerProcessProxy* m_serviceWorkerProcess { nullptr };
+    HashMap<WebCore::SecurityOriginData, ServiceWorkerProcessProxy*> m_serviceWorkerProcesses;
     bool m_waitingForWorkerContextProcessConnection { false };
     bool m_allowsAnySSLCertificateForServiceWorker { false };
+    bool m_shouldDisableServiceWorkerProcessTerminationDelay { false };
     String m_serviceWorkerUserAgent;
     std::optional<WebPreferencesStore> m_serviceWorkerPreferences;
     HashMap<String, bool> m_mayHaveRegisteredServiceWorkers;
@@ -552,6 +562,7 @@ private:
     HashSet<String> m_schemesToRegisterAsAlwaysRevalidated;
     HashSet<String> m_schemesToRegisterAsCachePartitioned;
     HashSet<String> m_schemesServiceWorkersCanHandle;
+    HashSet<String> m_schemesToRegisterAsCanDisplayOnlyIfCanRequest;
 
     bool m_alwaysUsesComplexTextCodePath { false };
     bool m_shouldUseFontSmoothing { true };
@@ -582,6 +593,9 @@ private:
     RetainPtr<NSObject> m_automaticSpellingCorrectionNotificationObserver;
     RetainPtr<NSObject> m_automaticQuoteSubstitutionNotificationObserver;
     RetainPtr<NSObject> m_automaticDashSubstitutionNotificationObserver;
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    RetainPtr<NSObject> m_scrollerStyleNotificationObserver;
+#endif
 
     std::unique_ptr<HighPerformanceGraphicsUsageSampler> m_highPerformanceGraphicsUsageSampler;
     std::unique_ptr<PerActivityStateCPUUsageSampler> m_perActivityStateCPUUsageSampler;
@@ -658,7 +672,7 @@ private:
     Paths m_resolvedPaths;
 
     HashMap<PAL::SessionID, HashSet<WebPageProxy*>> m_sessionToPagesMap;
-    RunLoop::Timer<WebProcessPool> m_serviceWorkerProcessTerminationTimer;
+    RunLoop::Timer<WebProcessPool> m_serviceWorkerProcessesTerminationTimer;
 
 #if PLATFORM(IOS)
     ForegroundWebProcessCounter m_foregroundWebProcessCounter;
@@ -666,10 +680,12 @@ private:
     ProcessThrottler::ForegroundActivityToken m_foregroundTokenForNetworkProcess;
     ProcessThrottler::BackgroundActivityToken m_backgroundTokenForNetworkProcess;
 #if ENABLE(SERVICE_WORKER)
-    ProcessThrottler::ForegroundActivityToken m_foregroundTokenForServiceWorkerProcess;
-    ProcessThrottler::BackgroundActivityToken m_backgroundTokenForServiceWorkerProcess;
+    HashMap<WebCore::SecurityOriginData, ProcessThrottler::ForegroundActivityToken> m_foregroundTokensForServiceWorkerProcesses;
+    HashMap<WebCore::SecurityOriginData, ProcessThrottler::BackgroundActivityToken> m_backgroundTokensForServiceWorkerProcesses;
 #endif
 #endif
+
+    HashMap<WebCore::SecurityOriginData, Vector<SuspendedPageProxy*>> m_suspendedPages;
 };
 
 template<typename T>

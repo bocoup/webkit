@@ -387,6 +387,11 @@ void WKContextRegisterURLSchemeAsCachePartitioned(WKContextRef contextRef, WKStr
     toImpl(contextRef)->registerURLSchemeAsCachePartitioned(toImpl(urlScheme)->string());
 }
 
+void WKContextRegisterURLSchemeAsCanDisplayOnlyIfCanRequest(WKContextRef contextRef, WKStringRef urlScheme)
+{
+    toImpl(contextRef)->registerURLSchemeAsCanDisplayOnlyIfCanRequest(toImpl(urlScheme)->string());
+}
+
 void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef contextRef, WKStringRef urlScheme)
 {
     toImpl(contextRef)->setDomainRelaxationForbiddenForURLScheme(toImpl(urlScheme)->string());
@@ -608,7 +613,7 @@ void WKContextTerminateNetworkProcess(WKContextRef context)
 
 void WKContextTerminateServiceWorkerProcess(WKContextRef context)
 {
-    toImpl(context)->terminateServiceWorkerProcess();
+    toImpl(context)->terminateServiceWorkerProcesses();
 }
 
 ProcessID WKContextGetNetworkProcessIdentifier(WKContextRef contextRef)
@@ -621,7 +626,7 @@ ProcessID WKContextGetDatabaseProcessIdentifier(WKContextRef contextRef)
     return toImpl(contextRef)->storageProcessIdentifier();
 }
 
-void WKContextAddSupportedPlugin(WKContextRef contextRef, WKStringRef originRef, WKStringRef nameRef, WKArrayRef mimeTypesRef, WKArrayRef extensionsRef)
+void WKContextAddSupportedPlugin(WKContextRef contextRef, WKStringRef domainRef, WKStringRef nameRef, WKArrayRef mimeTypesRef, WKArrayRef extensionsRef)
 {
 #if ENABLE(NETSCAPE_PLUGIN_API)
     HashSet<String> mimeTypes;
@@ -634,10 +639,7 @@ void WKContextAddSupportedPlugin(WKContextRef contextRef, WKStringRef originRef,
     for (size_t i = 0; i < count; ++i)
         extensions.add(toWTFString(static_cast<WKStringRef>(WKArrayGetItemAtIndex(extensionsRef, i))));
 
-    RefPtr<SecurityOrigin> origin;
-    if (!WKStringIsEmpty(originRef))
-        origin = SecurityOrigin::createFromString(toWTFString(originRef));
-    toImpl(contextRef)->addSupportedPlugin(origin.get(), toWTFString(nameRef), WTFMove(mimeTypes), WTFMove(extensions));
+    toImpl(contextRef)->addSupportedPlugin(toWTFString(domainRef), toWTFString(nameRef), WTFMove(mimeTypes), WTFMove(extensions));
 #endif
 }
 

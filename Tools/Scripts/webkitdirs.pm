@@ -92,6 +92,7 @@ BEGIN {
        &shutDownIOSSimulatorDevice
        &willUseIOSDeviceSDK
        &willUseIOSSimulatorSDK
+       DO_NOT_USE_OPEN_COMMAND
        SIMULATOR_DEVICE_SUFFIX_FOR_WEBKIT_DEVELOPMENT
        USE_OPEN_COMMAND
    );
@@ -114,6 +115,7 @@ use constant {
 };
 
 use constant USE_OPEN_COMMAND => 1; # Used in runMacWebKitApp().
+use constant DO_NOT_USE_OPEN_COMMAND => 2;
 use constant SIMULATOR_DEVICE_STATE_SHUTDOWN => "1";
 use constant SIMULATOR_DEVICE_STATE_BOOTED => "3";
 use constant SIMULATOR_DEVICE_SUFFIX_FOR_WEBKIT_DEVELOPMENT  => "For WebKit Development";
@@ -1034,7 +1036,7 @@ sub builtDylibPathForName
         }
     }
     if (isWPE()) {
-        return "$configurationProductDir/lib/libWPEWebKit.so";
+        return "$configurationProductDir/lib/libWPEWebKit-0.1.so";
     }
 
     die "Unsupported platform, can't determine built library locations.\nTry `build-webkit --help` for more information.\n";

@@ -263,12 +263,13 @@ void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
     if (!oldStyle) {
         m_useBackslashAsYenSymbol = computeUseBackslashAsYenSymbol();
         needsResetText = m_useBackslashAsYenSymbol;
-        // It should really be computed in the c'tor, but during construction we don't have parent yet -and RenderText style == parent()->style()
-        m_canUseSimplifiedTextMeasuring = computeCanUseSimplifiedTextMeasuring();
     } else if (oldStyle->fontCascade().useBackslashAsYenSymbol() != newStyle.fontCascade().useBackslashAsYenSymbol()) {
         m_useBackslashAsYenSymbol = computeUseBackslashAsYenSymbol();
         needsResetText = true;
     }
+
+    if (!oldStyle || oldStyle->fontCascade() != newStyle.fontCascade())
+        m_canUseSimplifiedTextMeasuring = computeCanUseSimplifiedTextMeasuring();
 
     ETextTransform oldTransform = oldStyle ? oldStyle->textTransform() : TTNONE;
     ETextSecurity oldSecurity = oldStyle ? oldStyle->textSecurity() : TSNONE;
@@ -1242,7 +1243,7 @@ bool RenderText::computeCanUseSimplifiedTextMeasuring() const
         return false;
 
     // Additional check on the font codepath.
-    TextRun run(text());
+    TextRun run(m_text);
     run.setCharacterScanForCodePath(false);
     if (font.codePath(run) != FontCascade::Simple)
         return false;

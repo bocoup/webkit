@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -198,11 +198,11 @@ void AccessGenerationState::emitExplicitExceptionHandler()
                 linkBuffer.link(jumpToOSRExitExceptionHandler, originalHandler.nativeCode);
             });
     } else {
-        jit->setupArguments(CCallHelpers::TrustedImmPtr(&m_vm), GPRInfo::callFrameRegister);
-        CCallHelpers::Call lookupExceptionHandlerCall = jit->call();
+        jit->setupArguments<decltype(lookupExceptionHandler)>(CCallHelpers::TrustedImmPtr(&m_vm), GPRInfo::callFrameRegister);
+        CCallHelpers::Call lookupExceptionHandlerCall = jit->call(OperationPtrTag);
         jit->addLinkTask(
             [=] (LinkBuffer& linkBuffer) {
-                linkBuffer.link(lookupExceptionHandlerCall, lookupExceptionHandler);
+                linkBuffer.link(lookupExceptionHandlerCall, FunctionPtr<OperationPtrTag>(lookupExceptionHandler));
             });
         jit->jumpToExceptionHandler(m_vm);
     }
@@ -538,7 +538,7 @@ AccessGenerationResult PolymorphicAccess::regenerate(
                 linkBuffer.link(jumpToOSRExitExceptionHandler, oldHandler.nativeCode);
 
                 HandlerInfo handlerToRegister = oldHandler;
-                handlerToRegister.nativeCode = linkBuffer.locationOf(makeshiftCatchHandler);
+                handlerToRegister.nativeCode = linkBuffer.locationOf<ExceptionHandlerPtrTag>(makeshiftCatchHandler);
                 handlerToRegister.start = newExceptionHandlingCallSite.bits();
                 handlerToRegister.end = newExceptionHandlingCallSite.bits() + 1;
                 codeBlock->appendExceptionHandler(handlerToRegister);
@@ -558,8 +558,8 @@ AccessGenerationResult PolymorphicAccess::regenerate(
         return AccessGenerationResult::GaveUp;
     }
 
-    CodeLocationLabel successLabel = stubInfo.doneLocation();
-        
+    CodeLocationLabel<JSInternalPtrTag> successLabel = stubInfo.doneLocation();
+
     linkBuffer.link(state.success, successLabel);
 
     linkBuffer.link(failure, stubInfo.slowPathStartLocation());
@@ -567,9 +567,9 @@ AccessGenerationResult PolymorphicAccess::regenerate(
     if (PolymorphicAccessInternal::verbose)
         dataLog(FullCodeOrigin(codeBlock, stubInfo.codeOrigin), ": Generating polymorphic access stub for ", listDump(cases), "\n");
 
-    MacroAssemblerCodeRef code = FINALIZE_CODE_FOR(
-        codeBlock, linkBuffer,
-        ("%s", toCString("Access stub for ", *codeBlock, " ", stubInfo.codeOrigin, " with return point ", successLabel, ": ", listDump(cases)).data()));
+    MacroAssemblerCodeRef<JITStubRoutinePtrTag> code = FINALIZE_CODE_FOR(
+        codeBlock, linkBuffer, JITStubRoutinePtrTag,
+        "%s", toCString("Access stub for ", *codeBlock, " ", stubInfo.codeOrigin, " with return point ", successLabel, ": ", listDump(cases)).data());
 
     bool doesCalls = false;
     Vector<JSCell*> cellsToMark;

@@ -185,6 +185,8 @@ namespace JSC { namespace DFG {
     macro(GetById, NodeResultJS | NodeMustGenerate) \
     macro(GetByIdFlush, NodeResultJS | NodeMustGenerate) \
     macro(GetByIdWithThis, NodeResultJS | NodeMustGenerate) \
+    macro(GetByIdDirect, NodeResultJS | NodeMustGenerate) \
+    macro(GetByIdDirectFlush, NodeResultJS | NodeMustGenerate) \
     macro(PutById, NodeMustGenerate) \
     macro(PutByIdFlush, NodeMustGenerate) \
     macro(PutByIdDirect, NodeMustGenerate) \
@@ -220,7 +222,6 @@ namespace JSC { namespace DFG {
     macro(PutByOffset, NodeMustGenerate) \
     macro(MultiPutByOffset, NodeMustGenerate) \
     macro(GetArrayLength, NodeResultInt32) \
-    macro(GetArrayMask, NodeResultInt32) \
     macro(GetVectorLength, NodeResultInt32) \
     macro(GetTypedArrayByteOffset, NodeResultInt32) \
     macro(GetScope, NodeResultJS) \
@@ -274,13 +275,14 @@ namespace JSC { namespace DFG {
     macro(RegExpExecNonGlobalOrSticky, NodeResultJS) \
     macro(RegExpTest, NodeResultJS | NodeMustGenerate) \
     macro(RegExpMatchFast, NodeResultJS | NodeMustGenerate) \
+    macro(RegExpMatchFastGlobal, NodeResultJS) \
     macro(StringReplace, NodeResultJS | NodeMustGenerate) \
     macro(StringReplaceRegExp, NodeResultJS | NodeMustGenerate) \
     \
     /* Optimizations for string access */ \
     macro(StringCharCodeAt, NodeResultInt32) \
     macro(StringCharAt, NodeResultJS) \
-    macro(StringFromCharCode, NodeResultJS) \
+    macro(StringFromCharCode, NodeResultJS | NodeMustGenerate) \
     \
     /* Nodes for comparison operations. */\
     macro(CompareLess, NodeResultBoolean | NodeMustGenerate) \

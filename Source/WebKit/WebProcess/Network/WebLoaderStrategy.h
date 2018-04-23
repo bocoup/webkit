@@ -48,7 +48,7 @@ public:
     ~WebLoaderStrategy() final;
     
     void loadResource(WebCore::Frame&, WebCore::CachedResource&, WebCore::ResourceRequest&&, const WebCore::ResourceLoaderOptions&, CompletionHandler<void(RefPtr<WebCore::SubresourceLoader>&&)>&&) final;
-    void loadResourceSynchronously(WebCore::NetworkingContext*, unsigned long resourceLoadIdentifier, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, WebCore::ClientCredentialPolicy, WebCore::ResourceError&, WebCore::ResourceResponse&, Vector<char>& data) final;
+    void loadResourceSynchronously(WebCore::FrameLoader&, unsigned long resourceLoadIdentifier, const WebCore::ResourceRequest&, WebCore::ClientCredentialPolicy, const WebCore::FetchOptions&, const WebCore::HTTPHeaderMap&, WebCore::ResourceError&, WebCore::ResourceResponse&, Vector<char>& data) final;
 
     void remove(WebCore::ResourceLoader*) final;
     void setDefersLoading(WebCore::ResourceLoader*, bool) final;
@@ -62,7 +62,7 @@ public:
     void startPingLoad(WebCore::Frame&, WebCore::ResourceRequest&, const WebCore::HTTPHeaderMap& originalRequestHeaders, const WebCore::FetchOptions&, PingLoadCompletionHandler&&) final;
     void didFinishPingLoad(uint64_t pingLoadIdentifier, WebCore::ResourceError&&, WebCore::ResourceResponse&&);
 
-    void preconnectTo(WebCore::NetworkingContext&, const WebCore::URL&, WebCore::StoredCredentialsPolicy, PreconnectCompletionHandler&&) final;
+    void preconnectTo(WebCore::FrameLoader&, const WebCore::URL&, WebCore::StoredCredentialsPolicy, PreconnectCompletionHandler&&) final;
     void didFinishPreconnection(uint64_t preconnectionIdentifier, WebCore::ResourceError&&);
 
     void storeDerivedDataToCache(const SHA1::Digest& bodyHash, const String& type, const String& partition, WebCore::SharedBuffer&) final;
@@ -79,12 +79,21 @@ public:
 
     void scheduleLoadFromNetworkProcess(WebCore::ResourceLoader&, const WebCore::ResourceRequest&, const WebResourceLoader::TrackingParameters&, PAL::SessionID, bool shouldClearReferrerOnHTTPSToHTTPRedirect, Seconds maximumBufferingTime);
 
+    bool isOnLine() const final;
+    void addOnlineStateChangeListener(Function<void(bool)>&&) final;
+    void setOnLineState(bool);
+
+    bool isDoingLoadingSecurityChecks() const final { return true; }
+
 private:
     void scheduleLoad(WebCore::ResourceLoader&, WebCore::CachedResource*, bool shouldClearReferrerOnHTTPSToHTTPRedirect);
     void scheduleInternallyFailedLoad(WebCore::ResourceLoader&);
     void internallyFailedLoadTimerFired();
     void startLocalLoad(WebCore::ResourceLoader&);
     bool tryLoadingUsingURLSchemeHandler(WebCore::ResourceLoader&);
+
+    WebCore::ResourceResponse responseFromResourceLoadIdentifier(uint64_t resourceLoadIdentifier) final;
+    WebCore::NetworkLoadMetrics networkMetricsFromResourceLoadIdentifier(uint64_t resourceLoadIdentifier) final;
 
     HashSet<RefPtr<WebCore::ResourceLoader>> m_internallyFailedResourceLoaders;
     RunLoop::Timer<WebLoaderStrategy> m_internallyFailedLoadTimer;
@@ -93,6 +102,8 @@ private:
     HashMap<unsigned long, WebURLSchemeTaskProxy*> m_urlSchemeTasks;
     HashMap<unsigned long, PingLoadCompletionHandler> m_pingLoadCompletionHandlers;
     HashMap<unsigned long, PreconnectCompletionHandler> m_preconnectCompletionHandlers;
+    Vector<Function<void(bool)>> m_onlineStateChangeListeners;
+    bool m_isOnLine { true };
 };
 
 } // namespace WebKit

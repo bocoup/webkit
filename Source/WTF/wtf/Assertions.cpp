@@ -150,12 +150,12 @@ static void vprintf_stderr_with_prefix(const char* prefix, const char* format, v
 {
     size_t prefixLength = strlen(prefix);
     size_t formatLength = strlen(format);
-    auto formatWithPrefix = std::make_unique<char[]>(prefixLength + formatLength + 1);
-    memcpy(formatWithPrefix.get(), prefix, prefixLength);
-    memcpy(formatWithPrefix.get() + prefixLength, format, formatLength);
+    Vector<char> formatWithPrefix(prefixLength + formatLength + 1);
+    memcpy(formatWithPrefix.data(), prefix, prefixLength);
+    memcpy(formatWithPrefix.data() + prefixLength, format, formatLength);
     formatWithPrefix[prefixLength + formatLength] = 0;
 
-    vprintf_stderr_common(formatWithPrefix.get(), args);
+    vprintf_stderr_common(formatWithPrefix.data(), args);
 }
 
 static void vprintf_stderr_with_trailing_newline(const char* format, va_list args)
@@ -166,12 +166,12 @@ static void vprintf_stderr_with_trailing_newline(const char* format, va_list arg
         return;
     }
 
-    auto formatWithNewline = std::make_unique<char[]>(formatLength + 2);
-    memcpy(formatWithNewline.get(), format, formatLength);
+    Vector<char> formatWithNewline(formatLength + 2);
+    memcpy(formatWithNewline.data(), format, formatLength);
     formatWithNewline[formatLength] = '\n';
     formatWithNewline[formatLength + 1] = 0;
 
-    vprintf_stderr_common(formatWithNewline.get(), args);
+    vprintf_stderr_common(formatWithNewline.data(), args);
 }
 
 #if COMPILER(GCC_OR_CLANG)
@@ -251,19 +251,9 @@ void WTFPrintBacktrace(void** stack, int size)
     out.print(stackTrace);
 }
 
-static WTFCrashHookFunction globalHook = 0;
-
-void WTFSetCrashHook(WTFCrashHookFunction function)
-{
-    globalHook = function;
-}
-
 #if !defined(NDEBUG) || !OS(DARWIN)
 void WTFCrash()
 {
-    if (globalHook)
-        globalHook();
-
     WTFReportBacktrace();
 #if ASAN_ENABLED
     __builtin_trap();
@@ -290,42 +280,6 @@ void WTFCrash()
 void WTFCrashWithSecurityImplication()
 {
     CRASH();
-}
-
-#if HAVE(SIGNAL_H)
-static NO_RETURN void dumpBacktraceSignalHandler(int sig)
-{
-    WTFReportBacktrace();
-    exit(128 + sig);
-}
-
-static void installSignalHandlersForFatalErrors(void (*handler)(int))
-{
-    signal(SIGILL, handler); //    4: illegal instruction (not reset when caught).
-    signal(SIGTRAP, handler); //   5: trace trap (not reset when caught).
-    signal(SIGFPE, handler); //    8: floating point exception.
-    signal(SIGBUS, handler); //   10: bus error.
-    signal(SIGSEGV, handler); //  11: segmentation violation.
-    signal(SIGSYS, handler); //   12: bad argument to system call.
-    signal(SIGPIPE, handler); //  13: write on a pipe with no reader.
-    signal(SIGXCPU, handler); //  24: exceeded CPU time limit.
-    signal(SIGXFSZ, handler); //  25: exceeded file size limit.
-}
-
-static void resetSignalHandlersForFatalErrors()
-{
-    installSignalHandlersForFatalErrors(SIG_DFL);
-}
-#endif
-
-void WTFInstallReportBacktraceOnCrashHook()
-{
-#if HAVE(SIGNAL_H)
-    // Needed otherwise we are going to dump the stack trace twice
-    // in case we hit an assertion.
-    WTFSetCrashHook(&resetSignalHandlersForFatalErrors);
-    installSignalHandlersForFatalErrors(&dumpBacktraceSignalHandler);
-#endif
 }
 
 bool WTFIsDebuggerAttached()

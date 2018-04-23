@@ -69,7 +69,6 @@
 #import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PDFDocumentImage.h>
 #import <WebCore/Page.h>
@@ -83,7 +82,6 @@
 #import <WebCore/WheelEventTestTrigger.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/NSMenuSPI.h>
-#import <wtf/CurrentTime.h>
 #import <wtf/UUID.h>
 
 using namespace WebCore;

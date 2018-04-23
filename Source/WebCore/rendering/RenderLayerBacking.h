@@ -167,9 +167,10 @@ public:
 
     bool startAnimation(double timeOffset, const Animation* anim, const KeyframeList& keyframes);
     void animationPaused(double timeOffset, const String& name);
+    void animationSeeked(double timeOffset, const String& name);
     void animationFinished(const String& name);
 
-    void suspendAnimations(double time = 0);
+    void suspendAnimations(MonotonicTime = MonotonicTime());
     void resumeAnimations();
 
     LayoutRect compositedBounds() const;
@@ -191,7 +192,7 @@ public:
 
     // GraphicsLayerClient interface
     void tiledBackingUsageChanged(const GraphicsLayer*, bool /*usingTiledBacking*/) override;
-    void notifyAnimationStarted(const GraphicsLayer*, const String& animationKey, double startTime) override;
+    void notifyAnimationStarted(const GraphicsLayer*, const String& animationKey, MonotonicTime startTime) override;
     void notifyFlushRequired(const GraphicsLayer*) override;
     void notifyFlushBeforeDisplayRefresh(const GraphicsLayer*) override;
 

@@ -33,15 +33,14 @@
 #include "DisplayRefreshMonitorManager.h"
 #include "Document.h"
 #include "DocumentLoader.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "InspectorInstrumentation.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "RequestAnimationFrameCallback.h"
 #include "Settings.h"
 #include <algorithm>
-#include <wtf/CurrentTime.h>
 #include <wtf/Ref.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/text/StringBuilder.h>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #import "config.h"
 #import "NetworkProcess.h"
 
+#import "CookieStorageUtilsCF.h"
 #import "NetworkCache.h"
 #import "NetworkProcessCreationParameters.h"
 #import "NetworkResourceLoader.h"
@@ -40,6 +41,7 @@
 #import <WebCore/SecurityOriginData.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/ProcessPrivilege.h>
 
 namespace WebKit {
 
@@ -152,7 +154,7 @@ void NetworkProcess::platformSetURLCacheSize(unsigned urlCacheMemoryCapacity, ui
 
 RetainPtr<CFDataRef> NetworkProcess::sourceApplicationAuditData() const
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && !ENABLE(MINIMAL_SIMULATOR)
     audit_token_t auditToken;
     ASSERT(parentProcessConnection());
     if (!parentProcessConnection() || !parentProcessConnection()->getAuditToken(auditToken))
@@ -204,6 +206,14 @@ void NetworkProcess::clearDiskCache(WallTime modifiedSince, Function<void ()>&& 
     clearNSURLCache(m_clearCacheDispatchGroup, modifiedSince, WTFMove(completionHandler));
 }
 
+#if PLATFORM(MAC)
+void NetworkProcess::setSharedHTTPCookieStorage(const Vector<uint8_t>& identifier)
+{
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+    [NSHTTPCookieStorage _setSharedHTTPCookieStorage:adoptNS([[NSHTTPCookieStorage alloc] _initWithCFHTTPCookieStorage:cookieStorageFromIdentifyingData(identifier).get()]).get()];
+}
+#endif
+
 void NetworkProcess::setCookieStoragePartitioningEnabled(bool enabled)
 {
     WebCore::NetworkStorageSession::setCookieStoragePartitioningEnabled(enabled);
@@ -216,6 +226,7 @@ void NetworkProcess::setStorageAccessAPIEnabled(bool enabled)
 
 void NetworkProcess::syncAllCookies()
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     _CFHTTPCookieStorageFlushCookieStores();

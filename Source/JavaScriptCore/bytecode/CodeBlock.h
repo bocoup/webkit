@@ -36,7 +36,6 @@
 #include "CodeBlockHash.h"
 #include "CodeOrigin.h"
 #include "CodeType.h"
-#include "CompactJITCodeMap.h"
 #include "CompilationResult.h"
 #include "ConcurrentJSLock.h"
 #include "DFGCommon.h"
@@ -48,6 +47,7 @@
 #include "HandlerInfo.h"
 #include "Instruction.h"
 #include "JITCode.h"
+#include "JITCodeMap.h"
 #include "JITMathICForwards.h"
 #include "JSCPoison.h"
 #include "JSCast.h"
@@ -248,22 +248,22 @@ public:
     void getByValInfoMap(ByValInfoMap& result);
     
 #if ENABLE(JIT)
-    JITAddIC* addJITAddIC(ArithProfile*);
-    JITMulIC* addJITMulIC(ArithProfile*);
-    JITNegIC* addJITNegIC(ArithProfile*);
-    JITSubIC* addJITSubIC(ArithProfile*);
+    JITAddIC* addJITAddIC(ArithProfile*, Instruction*);
+    JITMulIC* addJITMulIC(ArithProfile*, Instruction*);
+    JITNegIC* addJITNegIC(ArithProfile*, Instruction*);
+    JITSubIC* addJITSubIC(ArithProfile*, Instruction*);
 
     template <typename Generator, typename = typename std::enable_if<std::is_same<Generator, JITAddGenerator>::value>::type>
-    JITAddIC* addMathIC(ArithProfile* profile) { return addJITAddIC(profile); }
+    JITAddIC* addMathIC(ArithProfile* profile, Instruction* instruction) { return addJITAddIC(profile, instruction); }
 
     template <typename Generator, typename = typename std::enable_if<std::is_same<Generator, JITMulGenerator>::value>::type>
-    JITMulIC* addMathIC(ArithProfile* profile) { return addJITMulIC(profile); }
+    JITMulIC* addMathIC(ArithProfile* profile, Instruction* instruction) { return addJITMulIC(profile, instruction); }
 
     template <typename Generator, typename = typename std::enable_if<std::is_same<Generator, JITNegGenerator>::value>::type>
-    JITNegIC* addMathIC(ArithProfile* profile) { return addJITNegIC(profile); }
+    JITNegIC* addMathIC(ArithProfile* profile, Instruction* instruction) { return addJITNegIC(profile, instruction); }
 
     template <typename Generator, typename = typename std::enable_if<std::is_same<Generator, JITSubGenerator>::value>::type>
-    JITSubIC* addMathIC(ArithProfile* profile) { return addJITSubIC(profile); }
+    JITSubIC* addMathIC(ArithProfile* profile, Instruction* instruction) { return addJITSubIC(profile, instruction); }
 
     StructureStubInfo* addStubInfo(AccessType);
     auto stubInfoBegin() { return m_stubInfos.begin(); }
@@ -301,15 +301,20 @@ public:
 
     void linkIncomingCall(ExecState* callerFrame, LLIntCallLinkInfo*);
 
-    void setJITCodeMap(std::unique_ptr<CompactJITCodeMap> jitCodeMap)
+#if ENABLE(JIT)
+    void setJITCodeMap(JITCodeMap&& jitCodeMap)
     {
         m_jitCodeMap = WTFMove(jitCodeMap);
     }
-    CompactJITCodeMap* jitCodeMap()
+    const JITCodeMap& jitCodeMap() const
     {
-        return m_jitCodeMap.get();
+        return m_jitCodeMap;
     }
-    
+#endif
+
+    typedef JSC::Instruction Instruction;
+    typedef PoisonedRefCountedArray<CodeBlockPoison, Instruction>& UnpackedInstructions;
+
     static void clearLLIntGetByIdCache(Instruction*);
 
     unsigned bytecodeOffset(Instruction* returnAddress)
@@ -317,9 +322,6 @@ public:
         RELEASE_ASSERT(returnAddress >= instructions().begin() && returnAddress < instructions().end());
         return static_cast<Instruction*>(returnAddress) - instructions().begin();
     }
-
-    typedef JSC::Instruction Instruction;
-    typedef PoisonedRefCountedArray<CodeBlockPoison, Instruction>& UnpackedInstructions;
 
     unsigned numberOfInstructions() const { return m_instructions.size(); }
     PoisonedRefCountedArray<CodeBlockPoison, Instruction>& instructions() { return m_instructions; }
@@ -986,8 +988,8 @@ private:
     SentinelLinkedList<CallLinkInfo, BasicRawSentinelNode<CallLinkInfo>> m_incomingCalls;
     SentinelLinkedList<PolymorphicCallNode, BasicRawSentinelNode<PolymorphicCallNode>> m_incomingPolymorphicCalls;
     std::unique_ptr<PCToCodeOriginMap> m_pcToCodeOriginMap;
+    JITCodeMap m_jitCodeMap;
 #endif
-    std::unique_ptr<CompactJITCodeMap> m_jitCodeMap;
 #if ENABLE(DFG_JIT)
     // This is relevant to non-DFG code blocks that serve as the profiled code block
     // for DFG code blocks.

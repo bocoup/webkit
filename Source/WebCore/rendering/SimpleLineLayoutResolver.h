@@ -56,6 +56,7 @@ public:
         String textWithHyphen() const;
         bool isEndOfLine() const;
         bool hasHyphen() const { return m_iterator.simpleRun().hasHyphen; }
+        const SimpleLineLayout::Run& simpleRun() const { return m_iterator.simpleRun(); }
 
         unsigned lineIndex() const;
 
@@ -103,6 +104,7 @@ public:
 
     WTF::IteratorRange<Iterator> rangeForRect(const LayoutRect&) const;
     WTF::IteratorRange<Iterator> rangeForRenderer(const RenderObject&) const;
+    WTF::IteratorRange<Iterator> rangeForLine(unsigned lineIndex) const;
     Iterator runForPoint(const LayoutPoint&) const;
     WTF::IteratorRange<Iterator> rangeForRendererWithOffsets(const RenderObject&, unsigned start, unsigned end) const;
 

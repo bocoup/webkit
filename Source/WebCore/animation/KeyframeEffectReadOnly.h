@@ -46,6 +46,7 @@ class KeyframeEffectReadOnly : public AnimationEffectReadOnly
 public:
     static ExceptionOr<Ref<KeyframeEffectReadOnly>> create(JSC::ExecState&, Element*, JSC::Strong<JSC::JSObject>&&, std::optional<Variant<double, KeyframeEffectOptions>>&&);
     static ExceptionOr<Ref<KeyframeEffectReadOnly>> create(JSC::ExecState&, Ref<KeyframeEffectReadOnly>&&);
+    static Ref<KeyframeEffectReadOnly> create(const Element&);
     ~KeyframeEffectReadOnly() { }
 
     struct BasePropertyIndexedKeyframe {
@@ -97,17 +98,29 @@ public:
     void getAnimatedStyle(std::unique_ptr<RenderStyle>& animatedStyle);
     void apply(RenderStyle&) override;
     void invalidate() override;
-    void startOrStopAccelerated();
+    void animationPlayStateDidChange(WebAnimation::PlayState) final;
+    void animationDidSeek() final;
+    void applyPendingAcceleratedActions();
     bool isRunningAccelerated() const { return m_startedAccelerated; }
 
     RenderElement* renderer() const override;
     const RenderStyle& currentStyle() const override;
-    bool isAccelerated() const override { return false; }
-    bool filterFunctionListsMatch() const override { return false; }
-    bool transformFunctionListsMatch() const override { return false; }
+    bool isAccelerated() const override { return m_startedAccelerated; }
+    bool filterFunctionListsMatch() const override { return m_filterFunctionListsMatch; }
+    bool transformFunctionListsMatch() const override { return m_transformFunctionListsMatch; }
 #if ENABLE(FILTERS_LEVEL_2)
-    bool backdropFilterFunctionListsMatch() const override { return false; }
+    bool backdropFilterFunctionListsMatch() const override { return m_backdropFilterFunctionListsMatch; }
 #endif
+
+    void computeDeclarativeAnimationBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle);
+    bool stylesWouldYieldNewCSSTransitionsBlendingKeyframes(const RenderStyle& oldStyle, const RenderStyle& newStyle) const;
+    bool hasBlendingKeyframes() const { return m_blendingKeyframes.size(); }
+    const HashSet<CSSPropertyID>& animatedProperties() const { return m_blendingKeyframes.properties(); }
+
+    bool computeExtentOfTransformAnimation(LayoutRect&) const;
+    bool computeTransformedExtentViaTransformList(const FloatRect&, const RenderStyle&, LayoutRect&) const;
+    bool computeTransformedExtentViaMatrix(const FloatRect&, const RenderStyle&, LayoutRect&) const;
+    bool forceLayoutIfNeeded();
 
 protected:
     void copyPropertiesFromSource(Ref<KeyframeEffectReadOnly>&&);
@@ -119,18 +132,40 @@ protected:
     KeyframeEffectReadOnly(ClassType, Ref<AnimationEffectTimingReadOnly>&&, Element*);
 
 private:
+    enum class AcceleratedAction { Play, Pause, Seek };
+    void addPendingAcceleratedAction(AcceleratedAction);
     void setAnimatedPropertiesInStyle(RenderStyle&, double);
+    TimingFunction* timingFunctionForKeyframeAtIndex(size_t);
+    Ref<const Animation> backingAnimationForCompositedRenderer() const;
+    void computedNeedsForcedLayout();
     void computeStackingContextImpact();
     void updateBlendingKeyframes();
-    bool shouldRunAccelerated();
+    void computeCSSAnimationBlendingKeyframes();
+    void computeCSSTransitionBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle);
+    void computeShouldRunAccelerated();
+    void setBlendingKeyframes(KeyframeList&);
+    void checkForMatchingTransformFunctionLists();
+    void checkForMatchingFilterFunctionLists();
+#if ENABLE(FILTERS_LEVEL_2)
+    void checkForMatchingBackdropFilterFunctionLists();
+#endif
 
+    bool m_shouldRunAccelerated { false };
+    bool m_needsForcedLayout { false };
     bool m_triggersStackingContext { false };
     bool m_started { false };
     bool m_startedAccelerated { false };
+    bool m_transformFunctionListsMatch { false };
+    bool m_filterFunctionListsMatch { false };
+#if ENABLE(FILTERS_LEVEL_2)
+    bool m_backdropFilterFunctionListsMatch { false };
+#endif
 
     RefPtr<Element> m_target;
     KeyframeList m_blendingKeyframes;
     Vector<ParsedKeyframe> m_parsedKeyframes;
+
+    Vector<AcceleratedAction> m_pendingAcceleratedActions;
 };
 
 } // namespace WebCore

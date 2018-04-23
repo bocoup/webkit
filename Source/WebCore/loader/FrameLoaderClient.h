@@ -71,6 +71,7 @@ class AuthenticationChallenge;
 class CachedFrame;
 class CachedResourceRequest;
 class Color;
+class DOMWindow;
 class DOMWindowExtension;
 class DOMWrapperWorld;
 class DocumentLoader;
@@ -102,6 +103,7 @@ class SubstituteData;
 class URL;
 class Widget;
 
+enum class PolicyDecisionMode;
 struct StringWithDirection;
 
 typedef WTF::Function<void (PolicyAction)> FramePolicyFunction;
@@ -189,7 +191,7 @@ public:
 
     virtual void dispatchDecidePolicyForResponse(const ResourceResponse&, const ResourceRequest&, FramePolicyFunction&&) = 0;
     virtual void dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest&, FormState*, const String& frameName, FramePolicyFunction&&) = 0;
-    virtual void dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, bool didReceiveRedirectResponse, FormState*, FramePolicyFunction&&) = 0;
+    virtual void dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, bool didReceiveRedirectResponse, FormState*, PolicyDecisionMode, FramePolicyFunction&&) = 0;
     virtual void cancelPolicyCheck() = 0;
 
     virtual void dispatchUnableToImplementPolicy(const ResourceError&) = 0;
@@ -302,7 +304,7 @@ public:
 #if PLATFORM(COCOA)
     // Allow an accessibility object to retrieve a Frame parent if there's no PlatformWidget.
     virtual RemoteAXObjectRef accessibilityRemoteObject() = 0;
-    virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*) const = 0;
+    virtual void willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*, CompletionHandler<void(NSCachedURLResponse *)>&&) const = 0;
     virtual NSDictionary *dataDetectionContext() { return nullptr; }
 #endif
 
@@ -362,6 +364,8 @@ public:
 
     virtual void getLoadDecisionForIcons(const Vector<std::pair<WebCore::LinkIcon&, uint64_t>>&) { }
     virtual void finishedLoadingIcon(uint64_t, SharedBuffer*) { }
+
+    virtual void didCreateWindow(DOMWindow&) { }
 
 #if ENABLE(APPLICATION_MANIFEST)
     virtual void finishedLoadingApplicationManifest(uint64_t, const std::optional<ApplicationManifest>&) { }

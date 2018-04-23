@@ -26,9 +26,11 @@
 #include "config.h"
 #include "DocumentTimeline.h"
 
+#include "AnimationPlaybackEvent.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DOMWindow.h"
+#include "DeclarativeAnimation.h"
 #include "DisplayRefreshMonitor.h"
 #include "DisplayRefreshMonitorManager.h"
 #include "Document.h"
@@ -36,7 +38,8 @@
 #include "Page.h"
 #include "RenderElement.h"
 
-static const Seconds animationInterval { 15_ms };
+static const Seconds defaultAnimationInterval { 15_ms };
+static const Seconds throttledAnimationInterval { 30_ms };
 
 namespace WebCore {
 
@@ -67,9 +70,68 @@ void DocumentTimeline::detachFromDocument()
     m_document = nullptr;
 }
 
+void DocumentTimeline::updateThrottlingState()
+{
+    m_needsUpdateAnimationSchedule = false;
+    timingModelDidChange();
+}
+
+Seconds DocumentTimeline::animationInterval() const
+{
+    if (!m_document || !m_document->page())
+        return Seconds::infinity();
+    return m_document->page()->isLowPowerModeEnabled() ? throttledAnimationInterval : defaultAnimationInterval;
+}
+
+void DocumentTimeline::suspendAnimations()
+{
+    if (animationsAreSuspended())
+        return;
+
+    m_isSuspended = true;
+
+    m_invalidationTaskQueue.cancelAllTasks();
+    if (m_animationScheduleTimer.isActive())
+        m_animationScheduleTimer.stop();
+
+    for (const auto& animation : animations())
+        animation->setSuspended(true);
+
+    applyPendingAcceleratedAnimations();
+}
+
+void DocumentTimeline::resumeAnimations()
+{
+    if (!animationsAreSuspended())
+        return;
+
+    m_isSuspended = false;
+
+    for (const auto& animation : animations())
+        animation->setSuspended(false);
+
+    m_needsUpdateAnimationSchedule = false;
+    timingModelDidChange();
+}
+
+bool DocumentTimeline::animationsAreSuspended()
+{
+    return m_isSuspended;
+}
+
+unsigned DocumentTimeline::numberOfActiveAnimationsForTesting() const
+{
+    unsigned count = 0;
+    for (const auto& animation : animations()) {
+        if (!animation->isSuspended())
+            ++count;
+    }
+    return count;
+}
+
 std::optional<Seconds> DocumentTimeline::currentTime()
 {
-    if (m_paused || !m_document || !m_document->domWindow())
+    if (m_paused || m_isSuspended || !m_document || !m_document->domWindow())
         return AnimationTimeline::currentTime();
 
     if (!m_cachedCurrentTime) {
@@ -86,7 +148,7 @@ void DocumentTimeline::pause()
 
 void DocumentTimeline::timingModelDidChange()
 {
-    if (m_needsUpdateAnimationSchedule)
+    if (m_needsUpdateAnimationSchedule || m_isSuspended)
         return;
 
     m_needsUpdateAnimationSchedule = true;
@@ -108,6 +170,14 @@ void DocumentTimeline::scheduleInvalidationTaskIfNeeded()
 
 void DocumentTimeline::performInvalidationTask()
 {
+    // Now that the timing model has changed we can see if there are DOM events to dispatch for declarative animations.
+    for (auto& animation : animations()) {
+        if (is<DeclarativeAnimation>(animation))
+            downcast<DeclarativeAnimation>(*animation).invalidateDOMEvents();
+    }
+
+    applyPendingAcceleratedAnimations();
+
     updateAnimationSchedule();
     m_cachedCurrentTime = std::nullopt;
 }
@@ -119,12 +189,16 @@ void DocumentTimeline::updateAnimationSchedule()
 
     m_needsUpdateAnimationSchedule = false;
 
-    Seconds now = currentTime().value();
+    if (!m_acceleratedAnimationsPendingRunningStateChange.isEmpty()) {
+        scheduleAnimationResolution();
+        return;
+    }
+
     Seconds scheduleDelay = Seconds::infinity();
 
     for (const auto& animation : animations()) {
-        auto animationTimeToNextRequiredTick = animation->timeToNextRequiredTick(now);
-        if (animationTimeToNextRequiredTick < animationInterval) {
+        auto animationTimeToNextRequiredTick = animation->timeToNextRequiredTick();
+        if (animationTimeToNextRequiredTick < animationInterval()) {
             scheduleAnimationResolution();
             return;
         }
@@ -147,7 +221,7 @@ void DocumentTimeline::scheduleAnimationResolution()
 #else
     // FIXME: We need to use the same logic as ScriptedAnimationController here,
     // which will be addressed by the refactor tracked by webkit.org/b/179293.
-    m_animationResolutionTimer.startOneShot(animationInterval);
+    m_animationResolutionTimer.startOneShot(animationInterval());
 #endif
 }
 
@@ -162,21 +236,76 @@ void DocumentTimeline::animationResolutionTimerFired()
 
 void DocumentTimeline::updateAnimations()
 {
-    if (m_document && !elementToAnimationsMap().isEmpty()) {
+    if (m_document && hasElementAnimations()) {
         for (const auto& elementToAnimationsMapItem : elementToAnimationsMap())
             elementToAnimationsMapItem.key->invalidateStyleAndLayerComposition();
+        for (const auto& elementToCSSAnimationsMapItem : elementToCSSAnimationsMap())
+            elementToCSSAnimationsMapItem.key->invalidateStyleAndLayerComposition();
+        for (const auto& elementToCSSTransitionsMapItem : elementToCSSTransitionsMap())
+            elementToCSSTransitionsMapItem.key->invalidateStyleAndLayerComposition();
         m_document->updateStyleIfNeeded();
     }
 
-    for (auto animation : m_acceleratedAnimationsPendingRunningStateChange)
-        animation->startOrStopAccelerated();
-    m_acceleratedAnimationsPendingRunningStateChange.clear();
-
-    for (const auto& animation : animations())
-        animation->updateFinishedState(WebAnimation::DidSeek::No, WebAnimation::SynchronouslyNotify::No);
-
     // Time has advanced, the timing model requires invalidation now.
     timingModelDidChange();
+}
+
+bool DocumentTimeline::computeExtentOfAnimation(RenderElement& renderer, LayoutRect& bounds) const
+{
+    if (!renderer.element())
+        return true;
+
+    KeyframeEffectReadOnly* matchingEffect = nullptr;
+    for (const auto& animation : animationsForElement(*renderer.element())) {
+        auto* effect = animation->effect();
+        if (is<KeyframeEffectReadOnly>(effect)) {
+            auto* keyframeEffect = downcast<KeyframeEffectReadOnly>(effect);
+            if (keyframeEffect->animatedProperties().contains(CSSPropertyTransform))
+                matchingEffect = downcast<KeyframeEffectReadOnly>(effect);
+        }
+    }
+
+    if (matchingEffect)
+        return matchingEffect->computeExtentOfTransformAnimation(bounds);
+
+    return true;
+}
+
+bool DocumentTimeline::isRunningAnimationOnRenderer(RenderElement& renderer, CSSPropertyID property) const
+{
+    if (!renderer.element())
+        return false;
+
+    for (const auto& animation : animationsForElement(*renderer.element())) {
+        auto playState = animation->playState();
+        if (playState != WebAnimation::PlayState::Running && playState != WebAnimation::PlayState::Paused)
+            continue;
+        auto* effect = animation->effect();
+        if (is<KeyframeEffectReadOnly>(effect) && downcast<KeyframeEffectReadOnly>(effect)->animatedProperties().contains(property))
+            return true;
+    }
+
+    return false;
+}
+
+bool DocumentTimeline::isRunningAcceleratedAnimationOnRenderer(RenderElement& renderer, CSSPropertyID property) const
+{
+    if (!renderer.element())
+        return false;
+
+    for (const auto& animation : animationsForElement(*renderer.element())) {
+        auto playState = animation->playState();
+        if (playState != WebAnimation::PlayState::Running && playState != WebAnimation::PlayState::Paused)
+            continue;
+        auto* effect = animation->effect();
+        if (is<KeyframeEffectReadOnly>(effect)) {
+            auto* keyframeEffect = downcast<KeyframeEffectReadOnly>(effect);
+            if (keyframeEffect->isRunningAccelerated() && keyframeEffect->animatedProperties().contains(property))
+                return true;
+        }
+    }
+
+    return false;
 }
 
 std::unique_ptr<RenderStyle> DocumentTimeline::animatedStyleForRenderer(RenderElement& renderer)
@@ -184,9 +313,9 @@ std::unique_ptr<RenderStyle> DocumentTimeline::animatedStyleForRenderer(RenderEl
     std::unique_ptr<RenderStyle> result;
 
     if (auto* element = renderer.element()) {
-        for (auto animation : animationsForElement(*element)) {
-            if (animation->effect() && animation->effect()->isKeyframeEffect())
-                downcast<KeyframeEffect>(animation->effect())->getAnimatedStyle(result);
+        for (const auto& animation : animationsForElement(*element)) {
+            if (is<KeyframeEffectReadOnly>(animation->effect()))
+                downcast<KeyframeEffectReadOnly>(animation->effect())->getAnimatedStyle(result);
         }
     }
 
@@ -201,6 +330,21 @@ void DocumentTimeline::animationAcceleratedRunningStateDidChange(WebAnimation& a
     m_acceleratedAnimationsPendingRunningStateChange.add(&animation);
 }
 
+void DocumentTimeline::applyPendingAcceleratedAnimations()
+{
+    bool hasForcedLayout = false;
+    for (auto& animation : m_acceleratedAnimationsPendingRunningStateChange) {
+        if (!hasForcedLayout) {
+            auto* effect = animation->effect();
+            if (is<KeyframeEffectReadOnly>(effect))
+                hasForcedLayout |= downcast<KeyframeEffectReadOnly>(effect)->forceLayoutIfNeeded();
+        }
+        animation->applyPendingAcceleratedActions();
+    }
+
+    m_acceleratedAnimationsPendingRunningStateChange.clear();
+}
+
 bool DocumentTimeline::runningAnimationsForElementAreAllAccelerated(Element& element)
 {
     // FIXME: This will let animations run using hardware compositing even if later in the active
@@ -208,7 +352,7 @@ bool DocumentTimeline::runningAnimationsForElementAreAllAccelerated(Element& ele
     // disabled (webkit.org/b/179974).
     auto animations = animationsForElement(element);
     for (const auto& animation : animations) {
-        if (animation->effect() && animation->effect()->isKeyframeEffect() && !downcast<KeyframeEffect>(animation->effect())->isRunningAccelerated())
+        if (is<KeyframeEffectReadOnly>(animation->effect()) && !downcast<KeyframeEffectReadOnly>(animation->effect())->isRunningAccelerated())
             return false;
     }
     return !animations.isEmpty();

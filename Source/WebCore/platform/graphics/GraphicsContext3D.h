@@ -37,6 +37,7 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/UniqueArray.h>
 #include <wtf/text/WTFString.h>
 
 #if USE(CA)
@@ -1143,17 +1144,17 @@ public:
 
 #if PLATFORM(COCOA)
     bool texImageIOSurface2D(GC3Denum target, GC3Denum internalFormat, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, IOSurfaceRef, GC3Duint plane);
-#endif
 
-#if PLATFORM(IOS)
+#if USE(OPENGL_ES)
     void presentRenderbuffer();
 #endif
 
-#if PLATFORM(MAC)
+#if USE(OPENGL)
     void allocateIOSurfaceBackingStore(IntSize);
     void updateFramebufferTextureBackingStoreFromLayer();
     void updateCGLContext();
 #endif
+#endif // PLATFORM(COCOA)
 
     void setContextVisibility(bool);
 
@@ -1261,7 +1262,7 @@ public:
         RetainPtr<CGImageRef> m_cgImage;
         RetainPtr<CGImageRef> m_decodedImage;
         RetainPtr<CFDataRef> m_pixelData;
-        std::unique_ptr<uint8_t[]> m_formalizedRGBA8Data;
+        UniqueArray<uint8_t> m_formalizedRGBA8Data;
 #endif
         Image* m_image;
         ImageHtmlDomSource m_imageHtmlDomSource;
@@ -1280,6 +1281,11 @@ public:
     GC3Denum currentBoundTexture() const { return m_state.currentBoundTexture(); }
     GC3Denum currentBoundTarget() const { return m_state.currentBoundTarget(); }
     unsigned textureSeed(GC3Duint texture) { return m_state.textureSeedCount.count(texture); }
+
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    WEBCORE_EXPORT static void setOpenGLDisplayMask(CGOpenGLDisplayMask);
+    WEBCORE_EXPORT static CGOpenGLDisplayMask getOpenGLDisplayMask();
+#endif
 
 private:
     GraphicsContext3D(GraphicsContext3DAttributes, HostWindow*, RenderStyle = RenderOffscreen, GraphicsContext3D* sharedContext = nullptr);
@@ -1313,6 +1319,10 @@ private:
     bool reshapeFBOs(const IntSize&);
     void resolveMultisamplingIfNecessary(const IntRect& = IntRect());
     void attachDepthAndStencilBufferIfNeeded(GLuint internalDepthStencilFormat, int width, int height);
+
+#if PLATFORM(COCOA)
+    bool allowOfflineRenderers() const;
+#endif
 
     int m_currentWidth { 0 };
     int m_currentHeight { 0 };
@@ -1492,6 +1502,9 @@ private:
     Platform3DObject m_vao { 0 };
 #endif
 
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    static std::optional<CGOpenGLDisplayMask> m_displayMask;
+#endif
 };
 
 } // namespace WebCore

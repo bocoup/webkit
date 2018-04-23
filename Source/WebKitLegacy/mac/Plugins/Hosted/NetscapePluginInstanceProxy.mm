@@ -839,7 +839,7 @@ bool NetscapePluginInstanceProxy::getWindowNPObject(uint32_t& objectID)
     if (!frame->script().canExecuteScripts(NotAboutToExecuteScript))
         objectID = 0;
     else
-        objectID = m_localObjects.idForObject(pluginWorld().vm(), frame->script().windowProxy(pluginWorld())->window());
+        objectID = m_localObjects.idForObject(pluginWorld().vm(), frame->windowProxy().jsWindowProxy(pluginWorld()).window());
         
     return true;
 }
@@ -1453,7 +1453,7 @@ void NetscapePluginInstanceProxy::demarshalValues(ExecState* exec, data_t values
 
 void NetscapePluginInstanceProxy::retainLocalObject(JSC::JSValue value)
 {
-    if (!value.isObject() || value.inherits(*value.getObject()->vm(), ProxyRuntimeObject::info()))
+    if (!value.isObject() || value.inherits<ProxyRuntimeObject>(*value.getObject()->vm()))
         return;
 
     m_localObjects.retain(asObject(value));
@@ -1461,7 +1461,7 @@ void NetscapePluginInstanceProxy::retainLocalObject(JSC::JSValue value)
 
 void NetscapePluginInstanceProxy::releaseLocalObject(JSC::JSValue value)
 {
-    if (!value.isObject() || value.inherits(*value.getObject()->vm(), ProxyRuntimeObject::info()))
+    if (!value.isObject() || value.inherits<ProxyRuntimeObject>(*value.getObject()->vm()))
         return;
 
     m_localObjects.release(asObject(value));
@@ -1616,7 +1616,7 @@ bool NetscapePluginInstanceProxy::getProxy(data_t urlData, mach_msg_type_number_
     if (!url)
         return false;
 
-    Vector<ProxyServer> proxyServers = proxyServersForURL(url, 0);
+    Vector<ProxyServer> proxyServers = proxyServersForURL(url);
     WTF::CString proxyStringUTF8 = toString(proxyServers).utf8();
 
     proxyLength = proxyStringUTF8.length();

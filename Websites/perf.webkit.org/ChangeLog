@@ -1,3 +1,318 @@
+2018-04-19  Dewei Zhu  <dewei_zhu@apple.com>
+
+        Add a bisect button to automatically schedule bisecting A/B tasks.
+        https://bugs.webkit.org/show_bug.cgi?id=183888
+
+        Reviewed by Ryosuke Niwa.
+
+        Extended AnalysisTask's ability to figure out bisecting A/B tasks based on existing data points and test groups.
+        Updated analysis page UI to show bisect button which will only appear when the middle commit set of the range in
+        test group can be found.
+
+        Finding middle commit set algorithm is described as follows:
+        1. Find all commits from multiple repositories among the ranges specified by two commit sets in test group. In
+        the meanwhile, merge all commits that have commit time into a single list. For commits only have commit order,
+        put those commits into separate lists.
+        2. Filter all the available commit sets in current analysis task by keeping the ones have exact repositories
+        as the two commit sets in specified test group, and every commit of a commit set is in side the commit range.
+        After filtering the commit sets, sort the remaining ones and only keep one commit set if multiple commit sets
+        are equal to each other.
+        3. Among commits processed by step 2, find the commit sets that have the commit which is closest to the middle of
+        all commits that have commit time created from step 1.
+        4. Among commits processed by step 3, find the commit sets that have the commit which is closest to the middle of
+        commits that only have commit order and categorized by repository. We have to iterate through repository as commit
+        order is not granted to be comparable between different repositories.
+        5. If more than one commit sets are found, choose the middle commit set.
+
+        * public/v3/commit-set-range-bisector.js: Added.
+        (CommitSetRangeBisector.async.commitSetClosestToMiddleOfAllCommits): Instead of naively returning the middle of
+        existing commit set array, this function selects a bisect bisection points that is closest to actually middle of
+        the revision range based on all revisions reported to performance dashboard.
+        (CommitSetRangeBisector._findCommitSetsWithinRange): Helper function to find commit sets those are in specified range.
+        (CommitSetRangeBisector._orderCommitSetsByTimeAndOrderThenDeduplicate): Helper function to sort and deduplicate commit sets.
+        (CommitSetRangeBisector._closestCommitSetsToBisectingCommitByTime): Helper function to find the commit sets those
+        are closest to the middle of among all the commits in the range that have commit time.
+        (CommitSetRangeBisector._findCommitSetsClosestToMiddleOfCommitsWithOrder): Helper function which goes through all
+        repositories the commit of which has commit order, and find the commit sets those are closest to the middle of
+        commits for each repository.
+        (CommitSetRangeBisector._buildCommitToCommitSetMap): Helper function to builder mapping from a commit to commit
+        sets those contain this commit.
+        (CommitSetRangeBisector._findCommitClosestToMiddleIndex): Helper function to find closest commit to the middle of index.
+        (CommitSetRangeBisector):
+        * public/v3/index.html: Imports 'public/v3/commit-set-range-bisector.js'.
+        * public/v3/models/analysis-task.js:
+        (AnalysisTask.prototype.async.commitSetsFromTestGroupsAndMeasurementSet): Aggregates all existing commit sets in
+        test groups of current analysis tasks.
+        * public/v3/models/commit-log.js:
+        (CommitLog.prototype.hasCommitTime): A helper function determine whether a commit has a commit time. For commit
+        that does not have time, server will return commit time as zero. As it is unrealistic for a commit has commit time
+        0, it would be safe to assume a valid commit time is greater than 0.
+        (CommitLog.prototype.hasCommitOrder): Returns whether a commit has a commit oder.
+        (CommitLog.hasOrdering): Determine whether we can order two commits by commit time or commit order.
+        (CommitLog.orderTwoCommits): Order two commits incrementally.
+        * public/v3/models/commit-set.js:
+        (CommitSet.prototype.hasSameRepositories): A helper function to determine whether a commit set has same repositories
+        as current repository.
+        (CommitSet.containsRootOrPatchOrOwnedCommit): A helper function to determine whether current commit set has root,
+        patch or owned commit.
+        (CommitSet.commitForRepository): This function defined twice identically, remove one of them.
+        * public/v3/models/test-group.js: Make '_computeRequestedCommitSets' a static function as it does not use any
+        instance variables.
+        * public/v3/pages/analysis-task-page.js: Added bisect button.
+        (AnalysisTaskTestGroupPane):
+        (AnalysisTaskTestGroupPane.prototype.didConstructShadowTree):
+        (AnalysisTaskTestGroupPane.prototype.setTestGroups): Update 'setTestGroups' to update _bisectingCommitSetByTestGroup
+        when the test groups changes.
+        (AnalysisTaskTestGroupPane.prototype._renderCurrentTestGroup): Added code to conditionally show bisect button.
+        Bisect button will only show when there is a middle commit set for that test group.
+        (AnalysisTaskTestGroupPane.htmlTemplate):
+        (AnalysisTaskTestGroupPane.cssTemplate):
+        (AnalysisTaskPage.prototype.didConstructShadowTree):
+        (AnalysisTaskPage.prototype._retryCurrentTestGroup):
+        (AnalysisTaskPage.prototype.async._bisectCurrentTestGroup): A callback when bisect button is clicked.
+        * tools/js/v3-models.js:
+        * unit-tests/commit-log-tests.js: Added unit tests for 'CommitLog.hasCommitTime', 'CommitLog.hasCommitOrder',
+        'CommitLog.orderTwoCommits', 'CommitLog.hasOrdering'.
+        * unit-tests/commit-set-range-bisector-tests.js: Unit tests for 'CommitSetRangeBisector.commitSetClosestToMiddleOfAllCommits'.
+        * unit-tests/commit-set-tests.js: Added unit tests for 'CommitSet.hasSameRepositories' and 'CommitSet.containsRootOrPatchOrOwnedCommit'.
+
+2018-04-16  Dewei Zhu  <dewei_zhu@apple.com>
+
+        Commit order should always be returned by api.
+        https://bugs.webkit.org/show_bug.cgi?id=184674
+
+        Reviewed by Ryosuke Niwa.
+
+        Commit order sometimes missing in CommitLog object before this change.
+        This makes ordering commits logic become unnecessarily complicate.
+        This change will ensure commit order is always fetched for a CommitLog object.
+        Change measurement-set API to contain commit order information.
+        Change commits API to contain commit order information.
+
+        * public/api/measurement-set.php: Includes commit order information.
+        * public/include/commit-log-fetcher.php:
+        * public/v3/models/commit-log.js: Added a function to return order information.
+        (CommitLog.prototype.updateSingleton): This function should update commit order.
+        (CommitLog.prototype.order): Returns the order of commit.
+        * public/v3/models/commit-set.js:
+        (MeasurementCommitSet): Update MeasurementCommitSet to contain commit order information when creating CommitLog object.
+        * server-tests/api-measurement-set-tests.js: Updated unit tests.
+        * unit-tests/analysis-task-tests.js: Update unit tests to contain commit order information in mock data.
+        (measurementCluster):
+        * unit-tests/commit-log-tests.js: Added unit tests for CommitLog.order.
+        * unit-tests/commit-set-tests.js: Added commit order in MeasurementCommitSet.
+        * unit-tests/measurement-adaptor-tests.js: Updated unit tests to contain commit order information in mock data.
+        * unit-tests/measurement-set-tests.js: Updated unit tests to contain commit order information in mock data.
+
+2018-04-15  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Make it possible to hide some repository groups
+        https://bugs.webkit.org/show_bug.cgi?id=184632
+
+        Reviewed by Saam Barati.
+
+        Added the ability to hide repository groups in the custom analysis task configurator from the admin page.
+        Hidden repositroy groups will continue to function for existing test groups. This is purely an UI change.
+
+        * init-database.sql: Added repositorygroup_hidden as a new column to triggerable_repository_groups.
+        * public/admin/triggerables.php: Added a form field to hide a repository group.
+        * public/include/manifest-generator.php: Include hidden state in the manifest file.
+        * public/v3/components/custom-analysis-task-configurator.js:
+        (CustomAnalysisTaskConfigurator.prototype._renderRepositoryPanes): Filter out hidden repository groups.
+        * public/v3/models/triggerable.js:
+        (prototype.isHidden): Added.
+        * server-tests/api-manifest-tests.js: Updated an existing test case to test a hidden repository group.
+
+2018-04-06  Dewei Zhu  <dewei_zhu@apple.com>
+
+        Added 'CommitSet.diff' which will be shared between multiple independent incoming changes.
+        https://bugs.webkit.org/show_bug.cgi?id=184368
+
+        Reviewed by Ryosuke Niwa.
+
+        'CommitSet.diff' will be used in multiple independent incoming changes.
+        It would be easier to make this a separate change to parallelize the changes depends on this API.
+
+        * public/v3/models/commit-set.js:
+        (CommitSet.prototype.createNameWithoutCollision): Moved from 'AnalysisTaskPage' and make it more generic.
+        (CommitSet.prototype.diff): Describe differences between 2 commit sets including commit, root and patch differences.
+        * public/v3/pages/analysis-task-page.js: Move 'AnalysisTaskPage._createRetryNameForTestGroup' to CommitSet in a more generic form.
+        (AnalysisTaskPage.prototype._retryCurrentTestGroup): Use 'CommitSet.withoutRootPatchOrOwnedCommit' instead.
+        (AnalysisTaskPage.prototype._createRetryNameForTestGroup): Moved to CommitSet in a more generic form.
+        * unit-tests/commit-set-tests.js: Added unit tests for 'CommitSet.diff'.
+
+2018-04-05  Dewei Zhu  <dewei_zhu@apple.com>
+
+        Fix a bug introduced in r230295 that A/B test result is not shown.
+        https://bugs.webkit.org/show_bug.cgi?id=184350
+
+        Reviewed by Ryosuke Niwa.
+
+        result.label should be assigned in `TestGroup._computeRequestedCommitSets`.
+
+        * public/v3/models/test-group.js:
+        (TestGroup.prototype._computeRequestedCommitSets):
+
+2018-03-29  Dewei Zhu  <dewei_zhu@apple.com>
+
+        Added UI to show potential regressions in chart with t-testing against segmentations.
+        https://bugs.webkit.org/show_bug.cgi?id=184131
+
+        Reviewed by Ryosuke Niwa.
+
+        Added UI in the chart-pane so that user can use new option in trendline which not only
+        shows the segmentation, but also t-test against potential changes indicated by segmentation.
+
+        Fix a bug in AnalysisTaskPage that chart is not updated when change type of task changes.
+
+        * browser-tests/interactive-time-series-chart-tests.js: Fix a unit tests.
+        * browser-tests/time-series-chart-tests.js: Fix a unit tests.
+        * public/shared/statistics.js: Added a function to t-test certain range based on segmentation results.
+        (Statistics.supportedOneSideTTestProbabilities):
+        (Statistics.findRangesForChangeDetectionsWithWelchsTTest): The argument `segmentations`, every 2 items in the list defines 
+        segmentation, that is why the index incremental is 2 in this funcion.
+        * public/v3/components/chart-pane-base.js: Will select the range if user clicks on a suggested annotation.
+        (ChartPaneBase.prototype.configure):
+        (ChartPaneBase.prototype._didClickAnnotation):
+        * public/v3/components/chart-styles.js:
+        (ChartStyles.annotationFillStyleForTask): Added 'annotationFillStyleForTask' to determine the fillStyle for annotation based on change type of a analysis task.
+        * public/v3/components/interactive-time-series-chart.js:
+        (InteractiveTimeSeriesChart.prototype._findAnnotation): Also need to search among suggested annotaions.
+        * public/v3/components/time-series-chart.js: Introduced 'suggested annotaion' which does not have an existing task and is suggested by t-test based on segmentation.
+        (TimeSeriesChart):
+        (TimeSeriesChart.prototype.setSuggestedAnnotations):
+        (TimeSeriesChart.prototype.allAnnotations): Returns both annotations with and without analysis task.
+        (TimeSeriesChart.prototype._layoutAnnotationBars): Should take all annotations in the calculation.
+        * public/v3/models/measurement-set.js:
+        (MeasurementSet.prototype.metricId): Returns metric id.
+        * public/v3/models/metric.js:
+        (Metric.prototype.summarizeForValues): Added helper function to summarize a given value
+        * public/v3/models/test-group.js:
+        (TestGroup.prototype.compareTestResults): Adapted to use 'Metric.summarizeForValues'.
+        * public/v3/pages/chart-pane.js: Added 'Segmentation with t-test analysis' to 'ChartTrendLineTypes'.
+        (ChartPane.prototype._renderTrendLinePopover):
+        (ChartPane.prototype.async._updateTrendLine): make it an async function.
+        * unit-tests/statistics-tests.js: Added unit tests for 'findRangesForChangeDetectionsWithWelchsTTest'.
+
+2018-04-02  Aakash Jain  <aakash_jain@apple.com>
+
+        Remove deprecated Buildbot 0.8 code from Perf syncing scripts
+        https://bugs.webkit.org/show_bug.cgi?id=183915
+
+        Reviewed by Ryosuke Niwa.
+
+        * server-tests/resources/mock-data.js:
+        (MockData.buildbotBuildersURLDeprecated): Deleted.
+        (MockData.mockBuildbotBuildersDeprecated): Deleted.
+        (MockData.pendingBuildDeprecated): Deleted.
+        (MockData.runningBuildDeprecated): Deleted.
+        (MockData.finishedBuildDeprecated): Deleted.
+        * tools/js/buildbot-syncer.js:
+        (BuildbotBuildEntryDeprecated): Deleted.
+        (BuildbotBuildEntryDeprecated.prototype.initialize): Deleted.
+        (BuildbotBuildEntryDeprecated.prototype.url): Deleted.
+        (BuildbotSyncer.prototype.scheduleBuildOnBuildbotDeprecated): Deleted.
+        (BuildbotSyncer.prototype._pullRecentBuildsDeprecated): Deleted.
+        (BuildbotSyncer.prototype.pathForPendingBuildsJSONDeprecated): Deleted.
+        (BuildbotSyncer.prototype.pathForBuildJSONDeprecated): Deleted.
+        (BuildbotSyncer.prototype.pathForForceBuildDeprecated): Deleted.
+        (BuildbotSyncer.prototype.url): Deleted.
+        (BuildbotSyncer.prototype.urlForBuildNumberDeprecated): Deleted.
+        * tools/js/buildbot-triggerable.js:
+        (BuildbotTriggerable.prototype.getBuilderNameToIDMapDeprecated): Deleted.
+        * unit-tests/buildbot-syncer-tests.js:
+        (smallPendingBuildDeprecated): Deleted.
+        (smallInProgressBuildDeprecated): Deleted.
+        (smallFinishedBuildDeprecated): Deleted.
+        (samplePendingBuildRequestDeprecated): Deleted.
+        (sampleInProgressBuildDeprecated): Deleted.
+        (sampleFinishedBuildDeprecated): Deleted.
+
+2018-03-19  Aakash Jain  <aakash_jain@apple.com>
+
+        Update Perf buildbot syncing scripts for Buildbot 0.9
+        https://bugs.webkit.org/show_bug.cgi?id=175969
+
+        Reviewed by Ryosuke Niwa.
+
+        * tools/js/buildbot-triggerable.js:
+        (BuildbotTriggerable.prototype.initSyncers): Switch from Deprecated version to new version of getBuilderNameToIDMap.
+        * tools/js/buildbot-syncer.js:
+        (BuildbotSyncer.prototype.scheduleRequestInGroupIfAvailable): Switch from Deprecated version to new version of scheduleRequest.
+        (BuildbotSyncer.prototype.pullBuildbot): Switch from Deprecated version to new version of pathForPendingBuilds, _pullRecentBuilds 
+        and BuildbotBuildEntry. Parse the pending build-requests data in Buildbot 0.9 format.
+        * unit-tests/buildbot-syncer-tests.js: Updated as per Buildbot 0.9 code.
+        * server-tests/tools-sync-buildbot-integration-tests.js: Ditto.
+        * server-tests/tools-buildbot-triggerable-tests.js: Ditto.
+        * server-tests/resources/mock-data.js: Ditto.
+        (MockData.pendingBuildsUrl): Method to construct pendingBuildsUrl in Buildbot 0.9 format.
+        (MockData.recentBuildsUrl): Ditto for recent builds url.
+        (MockData.statusUrl): Ditto for status url.
+        (MockData.builderIDForName): Method to get builder ID from builder name.
+
+2018-03-15  Aakash Jain  <aakash_jain@apple.com>
+
+        BuildbotBuildEntry creates an incorrect url for pending builds
+        https://bugs.webkit.org/show_bug.cgi?id=183670
+
+        Reviewed by Ryosuke Niwa.
+
+        * tools/js/buildbot-syncer.js:
+        (BuildbotBuildEntry.prototype.initialize): Fetch buildrequestid from Buildbot.
+        (BuildbotBuildEntry.prototype.url): Construct url for pending build using buildrequestid from Buildbot.
+        * unit-tests/buildbot-syncer-tests.js: Updated unit-test.
+
+2018-03-14  Aakash Jain  <aakash_jain@apple.com>
+
+        Add support for boolean properties in BuildbotSyncer while submitting build request to Buildbot 0.9 server
+        https://bugs.webkit.org/show_bug.cgi?id=183638
+
+        Reviewed by Ryosuke Niwa.
+
+        * tools/js/buildbot-syncer.js:
+        (BuildbotSyncer._parseRepositoryGroupPropertyTemplate): Allow boolean properties.
+        * server-tests/tools-sync-buildbot-integration-tests.js: Tests for boolean properties.
+        * unit-tests/buildbot-syncer-tests.js: Ditto.
+
+2018-03-04  Dewei Zhu  <dewei_zhu@apple.com>
+
+        Create analysis task should use build time as fallback when commit time is not available.
+        https://bugs.webkit.org/show_bug.cgi?id=183309
+
+        Reviewed by Ryosuke Niwa.
+
+        Added the ability to schedule analysis task for the range without commit time.
+
+        * public/privileged-api/create-analysis-task.php: Use build time as fallback.
+        * server-tests/privileged-api-create-analysis-task-tests.js: Added a unit test for this change.
+
+2018-03-04  Aakash Jain  <aakash_jain@apple.com>
+
+        BuildbotBuildEntry for buildbot 0.9 uses incorrect buildrequestid
+        https://bugs.webkit.org/show_bug.cgi?id=183194
+
+        Reviewed by Ryosuke Niwa.
+
+        * tools/js/buildbot-syncer.js:
+        (BuildbotBuildEntry.prototype.initialize): Updated _buildRequestId to use correct build-request-id, as set in syncer._buildRequestPropertyName.
+        (BuildbotSyncer.prototype.pathForPendingBuilds): Updated url to fetch properties for build-requests.
+        * unit-tests/buildbot-syncer-tests.js:
+        (sampleBuildData): Updated sampleBuildData with correct build-request-id in properties. Added
+        properties to samplePendingBuildRequestData.
+
+2018-02-28  Aakash Jain  <aakash_jain@apple.com>
+
+        Rename samplePendingBuild to samplePendingBuildRequest
+        https://bugs.webkit.org/show_bug.cgi?id=183171
+
+        Reviewed by Ryosuke Niwa.
+
+        * unit-tests/buildbot-syncer-tests.js:
+        (samplePendingBuildRequests): Renamed from samplePendingBuild.
+        (samplePendingBuildRequestDeprecated): Renamed from samplePendingBuildDeprecated.
+        (samplePendingBuild): Deleted.
+        (samplePendingBuildDeprecated): Deleted.
+
 2018-02-02  Aakash Jain  <aakash_jain@apple.com>
 
         Add support for submitting build request to Buildbot 0.9 server in BuildbotSyncer

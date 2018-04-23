@@ -100,6 +100,7 @@ public:
     ExceptionOr<void> setShouldMockBoldSystemFontForAccessibility(bool);
     ExceptionOr<void> setShouldManageAudioSessionCategory(bool);
     ExceptionOr<void> setCustomPasteboardDataEnabled(bool);
+    ExceptionOr<void> setAccessibilityEventsEnabled(bool);
 
     using FrameFlatteningValue = FrameFlattening;
     ExceptionOr<void> setFrameFlattening(FrameFlatteningValue);
@@ -119,11 +120,12 @@ public:
 
     // RuntimeEnabledFeatures.
     static void setIndexedDBWorkersEnabled(bool);
-    static void setCSSGridLayoutEnabled(bool);
     static void setWebGL2Enabled(bool);
     static void setWebGPUEnabled(bool);
     static void setWebVREnabled(bool);
     static void setScreenCaptureEnabled(bool);
+
+    static bool cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled();
 
 private:
     explicit InternalSettings(Page*);
@@ -188,7 +190,9 @@ private:
         bool m_inlineMediaPlaybackRequiresPlaysInlineAttribute;
         bool m_deferredCSSParserEnabled;
         bool m_inputEventsEnabled;
-
+#if ENABLE(ACCESSIBILITY_EVENTS)
+        bool m_accessibilityEventsEnabled;
+#endif
         UserInterfaceDirectionPolicy m_userInterfaceDirectionPolicy;
         TextDirection m_systemLayoutDirection;
         PDFImageCachingPolicy m_pdfImageCachingPolicy;
@@ -200,7 +204,6 @@ private:
 
         // Runtime enabled settings.
         bool m_indexedDBWorkersEnabled;
-        bool m_cssGridLayoutEnabled;
         bool m_webGL2Enabled;
         bool m_webGPUEnabled;
         bool m_webVREnabled;

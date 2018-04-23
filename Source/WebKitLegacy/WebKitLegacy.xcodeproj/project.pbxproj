@@ -149,6 +149,7 @@
 		598AD9281201CF3200ABAE4E /* WebDeviceOrientationProviderMock.mm in Sources */ = {isa = PBXBuildFile; fileRef = 598AD9271201CF3200ABAE4E /* WebDeviceOrientationProviderMock.mm */; };
 		598AD92A1201CF3B00ABAE4E /* WebDeviceOrientationProviderMockInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 598AD9291201CF3B00ABAE4E /* WebDeviceOrientationProviderMockInternal.h */; };
 		598ADA461202275000ABAE4E /* WebDeviceOrientationProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 598ADA451202275000ABAE4E /* WebDeviceOrientationProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		5CE44F4A206D70EA003EFD01 /* PingHandle.h in Headers */ = {isa = PBXBuildFile; fileRef = 5CE44F49206D70E9003EFD01 /* PingHandle.h */; };
 		5D7BF8140C2A1D90008CE06D /* WebInspector.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D7BF8120C2A1D90008CE06D /* WebInspector.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5D7BF8150C2A1D90008CE06D /* WebInspector.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5D7BF8130C2A1D90008CE06D /* WebInspector.mm */; };
 		5DE83A7A0D0F7F9400CAD12A /* WebJavaScriptTextInputPanel.nib in Resources */ = {isa = PBXBuildFile; fileRef = 5DE83A740D0F7F9400CAD12A /* WebJavaScriptTextInputPanel.nib */; };
@@ -988,6 +989,7 @@
 		598AD9271201CF3200ABAE4E /* WebDeviceOrientationProviderMock.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebDeviceOrientationProviderMock.mm; sourceTree = "<group>"; };
 		598AD9291201CF3B00ABAE4E /* WebDeviceOrientationProviderMockInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebDeviceOrientationProviderMockInternal.h; sourceTree = "<group>"; };
 		598ADA451202275000ABAE4E /* WebDeviceOrientationProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebDeviceOrientationProvider.h; sourceTree = "<group>"; };
+		5CE44F49206D70E9003EFD01 /* PingHandle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PingHandle.h; path = WebCoreSupport/PingHandle.h; sourceTree = SOURCE_ROOT; };
 		5D7BF8120C2A1D90008CE06D /* WebInspector.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = WebInspector.h; sourceTree = "<group>"; };
 		5D7BF8130C2A1D90008CE06D /* WebInspector.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = WebInspector.mm; sourceTree = "<group>"; };
 		5DE83A750D0F7F9400CAD12A /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/WebJavaScriptTextInputPanel.nib; sourceTree = SOURCE_ROOT; };
@@ -2560,6 +2562,7 @@
 				A10C1D4418202FFB0036883A /* ios */,
 				B82958D1132707D0000D0E79 /* CorrectionPanel.h */,
 				B82958D2132707D0000D0E79 /* CorrectionPanel.mm */,
+				5CE44F49206D70E9003EFD01 /* PingHandle.h */,
 				7C01CB81173435C900C5D807 /* PopupMenuMac.h */,
 				7C01CB82173435C900C5D807 /* PopupMenuMac.mm */,
 				7C01CB83173435C900C5D807 /* SearchPopupMenuMac.h */,
@@ -2938,6 +2941,7 @@
 				1AAF5CEE0EDDE1FE008D883D /* NetscapePluginInstanceProxy.h in Headers */,
 				93D4379B1D57ABEF00AB85EA /* ObjCEventListener.h in Headers */,
 				93D4379D1D57ABEF00AB85EA /* ObjCNodeFilterCondition.h in Headers */,
+				5CE44F4A206D70EA003EFD01 /* PingHandle.h in Headers */,
 				A10C1D5F1820300E0036883A /* PopupMenuIOS.h in Headers */,
 				7C01CB85173435C900C5D807 /* PopupMenuMac.h in Headers */,
 				1A2DBE9F0F251E3A0036F8A6 /* ProxyInstance.h in Headers */,
@@ -3272,7 +3276,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [[ ${PLATFORM_NAME} != \"macosx\" ]]; then\n    exit 0\nfi\n\n[[ -h \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginHost.app\" ]] || ln -s Versions/Current/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginHost.app\"\n[[ -h \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginAgent\" ]] || ln -s Versions/Current/WebKitPluginAgent \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginAgent\"\n\nif [[ \"${CONFIGURATION}\" != \"Production\" && ${ACTION} == \"build\"  && ! -e \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\" ]]; then\n    if [[ -e \"/System/Library/Frameworks/WebKit.framework/WebKitPluginHost.app\" ]]; then\n        ln -s /System/Library/Frameworks/WebKit.framework/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\"\n    else\n        ln -s /System/Library/Frameworks/WebKit.framework/Versions/A/Frameworks/WebKitLegacy.framework/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\"\n    fi\nfi\n";
+			shellScript = "if [[ ${WK_PLATFORM_NAME} != \"macosx\" ]]; then\n    exit 0\nfi\n\n[[ -h \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginHost.app\" ]] || ln -s Versions/Current/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginHost.app\"\n[[ -h \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginAgent\" ]] || ln -s Versions/Current/WebKitPluginAgent \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/WebKitPluginAgent\"\n\nif [[ \"${CONFIGURATION}\" != \"Production\" && ${ACTION} == \"build\"  && ! -e \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\" ]]; then\n    if [[ -e \"/System/Library/Frameworks/WebKit.framework/WebKitPluginHost.app\" ]]; then\n        ln -s /System/Library/Frameworks/WebKit.framework/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\"\n    else\n        ln -s /System/Library/Frameworks/WebKit.framework/Versions/A/Frameworks/WebKitLegacy.framework/WebKitPluginHost.app \"${TARGET_BUILD_DIR}/WebKitLegacy.framework/Versions/A/WebKitPluginHost.app\"\n    fi\nfi\n";
 		};
 		1C395DE20C6BE8E0000D1E52 /* Generate Export Files */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3293,7 +3297,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy\"\n\nif [[ \"${PLATFORM_NAME}\" != \"macosx\" ]]; then\n    cat \"${PROJECT_DIR}/mac/WebKit.exp\" \"${PROJECT_DIR}/ios/WebKit.iOS.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nelse\n    cat \"${PROJECT_DIR}/mac/WebKit.exp\" \"${PROJECT_DIR}/mac/WebKit.mac.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nfi\n\nif [ -f \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/ReexportedWebCoreSymbols_${CURRENT_ARCH}.exp\" ]; then\n    cat \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/ReexportedWebCoreSymbols_${CURRENT_ARCH}.exp\" >> \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nfi\n\n# exclude Carbon functions on 64-bit\nsed -e s/^_HIWebViewCreate$// -e s/^_HIWebViewGetWebView$// -e s/^_WebConvertNSImageToCGImageRef$// -e s/^_WebInitForCarbon$// \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.LP64.exp\"\n\n# exclude OBJC_IVAR for i386\ngrep -v \"_OBJC_IVAR\" \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.i386.exp\"";
+			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy\"\n\nif [[ \"${WK_PLATFORM_NAME}\" != \"macosx\" ]]; then\n    cat \"${PROJECT_DIR}/mac/WebKit.exp\" \"${PROJECT_DIR}/ios/WebKit.iOS.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nelse\n    cat \"${PROJECT_DIR}/mac/WebKit.exp\" \"${PROJECT_DIR}/mac/WebKit.mac.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nfi\n\nif [ -f \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/ReexportedWebCoreSymbols_${CURRENT_ARCH}.exp\" ]; then\n    cat \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/ReexportedWebCoreSymbols_${CURRENT_ARCH}.exp\" >> \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\"\nfi\n\n# exclude Carbon functions on 64-bit\nsed -e s/^_HIWebViewCreate$// -e s/^_HIWebViewGetWebView$// -e s/^_WebConvertNSImageToCGImageRef$// -e s/^_WebInitForCarbon$// \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.LP64.exp\"\n\n# exclude OBJC_IVAR for i386\ngrep -v \"_OBJC_IVAR\" \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.generated.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/WebKitLegacy/WebKitLegacy.i386.exp\"";
 		};
 		1C6CB0510AA63EB000D23BFD /* Migrate Headers */ = {
 			isa = PBXShellScriptBuildPhase;

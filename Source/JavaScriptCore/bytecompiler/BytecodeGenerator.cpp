@@ -1397,6 +1397,18 @@ void BytecodeGenerator::emitJumpIfTrue(RegisterID* cond, Label& target)
     } else if (m_lastOpcodeID == op_greatereq) {
         if (fuseCompareAndJump(op_jgreatereq))
             return;
+    } else if (m_lastOpcodeID == op_eq) {
+        if (fuseCompareAndJump(op_jeq))
+            return;
+    } else if (m_lastOpcodeID == op_stricteq) {
+        if (fuseCompareAndJump(op_jstricteq))
+            return;
+    } else if (m_lastOpcodeID == op_neq) {
+        if (fuseCompareAndJump(op_jneq))
+            return;
+    } else if (m_lastOpcodeID == op_nstricteq) {
+        if (fuseCompareAndJump(op_jnstricteq))
+            return;
     } else if (m_lastOpcodeID == op_below) {
         if (fuseCompareAndJump(op_jbelow))
             return;
@@ -1478,6 +1490,18 @@ void BytecodeGenerator::emitJumpIfFalse(RegisterID* cond, Label& target)
             return;
     } else if (m_lastOpcodeID == op_greatereq && target.isForward()) {
         if (fuseCompareAndJump(op_jngreatereq, false))
+            return;
+    } else if (m_lastOpcodeID == op_eq && target.isForward()) {
+        if (fuseCompareAndJump(op_jneq, false))
+            return;
+    } else if (m_lastOpcodeID == op_stricteq && target.isForward()) {
+        if (fuseCompareAndJump(op_jnstricteq, false))
+            return;
+    } else if (m_lastOpcodeID == op_neq && target.isForward()) {
+        if (fuseCompareAndJump(op_jeq, false))
+            return;
+    } else if (m_lastOpcodeID == op_nstricteq && target.isForward()) {
+        if (fuseCompareAndJump(op_jstricteq, false))
             return;
     } else if (m_lastOpcodeID == op_below && target.isForward()) {
         if (fuseCompareAndJump(op_jbeloweq, true))
@@ -2697,6 +2721,22 @@ RegisterID* BytecodeGenerator::emitGetById(RegisterID* dst, RegisterID* base, Re
     return dst;
 }
 
+RegisterID* BytecodeGenerator::emitDirectGetById(RegisterID* dst, RegisterID* base, const Identifier& property)
+{
+    ASSERT_WITH_MESSAGE(!parseIndex(property), "Indexed properties should be handled with get_by_val_direct.");
+
+    m_codeBlock->addPropertyAccessInstruction(instructions().size());
+
+    UnlinkedValueProfile profile = emitProfiledOpcode(op_get_by_id_direct);
+    instructions().append(kill(dst));
+    instructions().append(base->index());
+    instructions().append(addConstant(property));
+    instructions().append(0);
+    instructions().append(0);
+    instructions().append(profile);
+    return dst;
+}
+
 RegisterID* BytecodeGenerator::emitPutById(RegisterID* base, const Identifier& property, RegisterID* value)
 {
     ASSERT_WITH_MESSAGE(!parseIndex(property), "Indexed properties should be handled with put_by_val.");
@@ -2951,15 +2991,6 @@ RegisterID* BytecodeGenerator::emitDeleteByVal(RegisterID* dst, RegisterID* base
     return dst;
 }
 
-RegisterID* BytecodeGenerator::emitPutByIndex(RegisterID* base, unsigned index, RegisterID* value)
-{
-    emitOpcode(op_put_by_index);
-    instructions().append(base->index());
-    instructions().append(index);
-    instructions().append(value->index());
-    return value;
-}
-
 void BytecodeGenerator::emitSuperSamplerBegin()
 {
     emitOpcode(op_super_sampler_begin);
@@ -3146,40 +3177,17 @@ RegisterID* BytecodeGenerator::addTemplateObjectConstant(Ref<TemplateObjectDescr
     return &m_constantPoolRegisters[index];
 }
 
+RegisterID* BytecodeGenerator::emitNewArrayBuffer(RegisterID* dst, JSFixedArray* array)
+{
+    emitOpcode(op_new_array_buffer);
+    instructions().append(dst->index());
+    instructions().append(addConstantValue(array)->index());
+    instructions().append(newArrayAllocationProfile());
+    return dst;
+}
+
 RegisterID* BytecodeGenerator::emitNewArray(RegisterID* dst, ElementNode* elements, unsigned length)
 {
-#if !ASSERT_DISABLED
-    unsigned checkLength = 0;
-#endif
-    bool hadVariableExpression = false;
-    if (length) {
-        for (ElementNode* n = elements; n; n = n->next()) {
-            if (!n->value()->isConstant()) {
-                hadVariableExpression = true;
-                break;
-            }
-            if (n->elision())
-                break;
-#if !ASSERT_DISABLED
-            checkLength++;
-#endif
-        }
-        if (!hadVariableExpression) {
-            ASSERT(length == checkLength);
-            auto* array = JSFixedArray::create(*m_vm, length);
-            unsigned index = 0;
-            for (ElementNode* n = elements; index < length; n = n->next()) {
-                ASSERT(n->value()->isConstant());
-                array->set(*m_vm, index++, static_cast<ConstantNode*>(n->value())->jsValue(*this));
-            }
-            emitOpcode(op_new_array_buffer);
-            instructions().append(dst->index());
-            instructions().append(addConstantValue(array)->index());
-            instructions().append(newArrayAllocationProfile());
-            return dst;
-        }
-    }
-
     Vector<RefPtr<RegisterID>, 16, UnsafeVectorOverflow> argv;
     for (ElementNode* n = elements; n; n = n->next()) {
         if (!length)

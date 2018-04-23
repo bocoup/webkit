@@ -24,6 +24,7 @@
 #include "PaintInfo.h"
 #include "PopupMenuStyle.h"
 #include "ScrollTypes.h"
+#include "StyleColor.h"
 #include "ThemeTypes.h"
 
 namespace WebCore {
@@ -140,7 +141,7 @@ public:
     // List box selection colors
     Color activeListBoxSelectionBackgroundColor() const;
     Color activeListBoxSelectionForegroundColor() const;
-    Color inactiveListBoxSelectionBackgroundColor() const;
+    Color inactiveListBoxSelectionBackgroundColor(bool) const;
     Color inactiveListBoxSelectionForegroundColor() const;
 
     // Highlighting colors for TextMatches.
@@ -149,8 +150,8 @@ public:
 
     virtual Color disabledTextColor(const Color& textColor, const Color& backgroundColor) const;
 
-    static Color focusRingColor();
-    virtual Color platformFocusRingColor() const { return Color(0, 0, 0); }
+    static Color focusRingColor(OptionSet<StyleColor::Options>);
+    virtual Color platformFocusRingColor(OptionSet<StyleColor::Options>) const { return Color(0, 0, 0); }
     static void setCustomFocusRingColor(const Color&);
     static float platformFocusRingWidth() { return 3; }
     static float platformFocusRingOffset(float outlineWidth) { return std::max<float>(outlineWidth - platformFocusRingWidth(), 0); }
@@ -164,7 +165,7 @@ public:
 
     // System fonts and colors for CSS.
     void systemFont(CSSValueID, FontCascadeDescription&) const;
-    virtual Color systemColor(CSSValueID) const;
+    virtual Color systemColor(CSSValueID, OptionSet<StyleColor::Options>) const;
 
     virtual int minimumMenuListSize(const RenderStyle&) const { return 0; }
 
@@ -179,7 +180,7 @@ public:
     // Returns the repeat interval of the animation for the progress bar.
     virtual Seconds animationRepeatIntervalForProgressBar(RenderProgress&) const;
     // Returns the duration of the animation for the progress bar.
-    virtual double animationDurationForProgressBar(RenderProgress&) const;
+    virtual Seconds animationDurationForProgressBar(RenderProgress&) const;
     virtual IntRect progressBarRectForBounds(const RenderObject&, const IntRect&) const;
 
 #if ENABLE(VIDEO)
@@ -245,6 +246,8 @@ public:
     virtual bool shouldMockBoldSystemFontForAccessibility() const { return false; }
     virtual void setShouldMockBoldSystemFontForAccessibility(bool) { }
 
+    virtual void paintSystemPreviewBadge(Image&, const PaintInfo&, const FloatRect&);
+
 protected:
     virtual FontCascadeDescription& cachedSystemFontDescription(CSSValueID systemFontID) const;
     virtual void updateCachedSystemFontDescription(CSSValueID systemFontID, FontCascadeDescription&) const = 0;
@@ -256,7 +259,7 @@ protected:
     virtual Color platformInactiveSelectionForegroundColor() const;
 
     virtual Color platformActiveListBoxSelectionBackgroundColor() const;
-    virtual Color platformInactiveListBoxSelectionBackgroundColor() const;
+    virtual Color platformInactiveListBoxSelectionBackgroundColor(bool) const;
     virtual Color platformActiveListBoxSelectionForegroundColor() const;
     virtual Color platformInactiveListBoxSelectionForegroundColor() const;
 

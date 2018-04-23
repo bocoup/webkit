@@ -87,14 +87,17 @@ void NetworkResourceLoadParameters::encode(IPC::Encoder& encoder) const
 
     encoder << static_cast<bool>(sourceOrigin);
     if (sourceOrigin)
-        encoder << SecurityOriginData::fromSecurityOrigin(*sourceOrigin);
-    encoder.encodeEnum(mode);
+        encoder << *sourceOrigin;
+    encoder << options;
     encoder << cspResponseHeaders;
+    encoder << originalRequestHeaders;
 
 #if ENABLE(CONTENT_EXTENSIONS)
     encoder << mainDocumentURL;
-    encoder << contentRuleLists;
+    encoder << userContentControllerIdentifier;
 #endif
+
+    encoder << shouldRestrictHTTPResponseAccess;
 }
 
 bool NetworkResourceLoadParameters::decode(IPC::Decoder& decoder, NetworkResourceLoadParameters& result)
@@ -168,28 +171,38 @@ bool NetworkResourceLoadParameters::decode(IPC::Decoder& decoder, NetworkResourc
     if (!decoder.decode(hasSourceOrigin))
         return false;
     if (hasSourceOrigin) {
-        std::optional<SecurityOriginData> sourceOriginData;
-        decoder >> sourceOriginData;
-        if (!sourceOriginData)
+        result.sourceOrigin = SecurityOrigin::decode(decoder);
+        if (!result.sourceOrigin)
             return false;
-        ASSERT(!sourceOriginData->isEmpty());
-        result.sourceOrigin = sourceOriginData->securityOrigin();
     }
-    if (!decoder.decodeEnum(result.mode))
+
+    std::optional<FetchOptions> options;
+    decoder >> options;
+    if (!options)
         return false;
+    result.options = *options;
+
     if (!decoder.decode(result.cspResponseHeaders))
+        return false;
+    if (!decoder.decode(result.originalRequestHeaders))
         return false;
 
 #if ENABLE(CONTENT_EXTENSIONS)
     if (!decoder.decode(result.mainDocumentURL))
         return false;
 
-    std::optional<Vector<std::pair<String, WebCompiledContentRuleListData>>> contentRuleLists;
-    decoder >> contentRuleLists;
-    if (!contentRuleLists)
+    std::optional<std::optional<UserContentControllerIdentifier>> userContentControllerIdentifier;
+    decoder >> userContentControllerIdentifier;
+    if (!userContentControllerIdentifier)
         return false;
-    result.contentRuleLists = WTFMove(*contentRuleLists);
+    result.userContentControllerIdentifier = *userContentControllerIdentifier;
 #endif
+
+    std::optional<bool> shouldRestrictHTTPResponseAccess;
+    decoder >> shouldRestrictHTTPResponseAccess;
+    if (!shouldRestrictHTTPResponseAccess)
+        return false;
+    result.shouldRestrictHTTPResponseAccess = *shouldRestrictHTTPResponseAccess;
 
     return true;
 }

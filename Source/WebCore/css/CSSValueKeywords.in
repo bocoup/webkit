@@ -222,6 +222,14 @@ threedshadow
 window
 windowframe
 windowtext
+-apple-system-header-text
+-apple-system-text-background
+-apple-system-alternate-selected-text
+-apple-system-label
+-apple-system-secondary-label
+-apple-system-tertiary-label
+-apple-system-quaternary-label
+-apple-system-grid
 -apple-wireless-playback-target-active
 -apple-system-blue
 -apple-system-brown
@@ -1332,6 +1340,10 @@ rec2020
 // color() function
 sRGB
 display-p3
+
+// prefers-default-appearance
+prefers
+// no-preference
 
 // prefers-reduced-motion
 reduce

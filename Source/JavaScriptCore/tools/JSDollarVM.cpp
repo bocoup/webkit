@@ -949,7 +949,7 @@ static EncodedJSValue customGetAccessor(ExecState*, EncodedJSValue thisValue, Pr
 
 static EncodedJSValue customGetValue(ExecState* exec, EncodedJSValue slotValue, PropertyName)
 {
-    RELEASE_ASSERT(JSValue::decode(slotValue).inherits(exec->vm(), JSTestCustomGetterSetter::info()));
+    RELEASE_ASSERT(JSValue::decode(slotValue).inherits<JSTestCustomGetterSetter>(exec->vm()));
     // Passed property holder.
     return slotValue;
 }
@@ -971,7 +971,7 @@ static bool customSetValue(ExecState* exec, EncodedJSValue slotValue, EncodedJSV
 {
     VM& vm = exec->vm();
 
-    RELEASE_ASSERT(JSValue::decode(slotValue).inherits(exec->vm(), JSTestCustomGetterSetter::info()));
+    RELEASE_ASSERT(JSValue::decode(slotValue).inherits<JSTestCustomGetterSetter>(exec->vm()));
 
     JSValue value = JSValue::decode(encodedValue);
     RELEASE_ASSERT(value.isObject());
@@ -1040,6 +1040,20 @@ const ClassInfo JSDollarVM::s_info = { "DollarVM", &Base::s_info, nullptr, nullp
 static NO_RETURN_DUE_TO_CRASH EncodedJSValue JSC_HOST_CALL functionCrash(ExecState*)
 {
     CRASH();
+}
+
+// Executes a breakpoint instruction if the first argument is truthy or is unset.
+// Usage: $vm.breakpoint(<condition>)
+static EncodedJSValue JSC_HOST_CALL functionBreakpoint(ExecState* exec)
+{
+    // Nothing should throw here but we might as well double check...
+    VM& vm = exec->vm();
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+    UNUSED_PARAM(scope);
+    if (!exec->argumentCount() || exec->argument(0).toBoolean(exec))
+        WTFBreakpointTrap();
+
+    return encodedJSUndefined();
 }
 
 // Returns true if the current frame is a DFG frame.
@@ -1764,6 +1778,7 @@ void JSDollarVM::finishCreation(VM& vm)
 
     addFunction(vm, "abort", functionCrash, 0);
     addFunction(vm, "crash", functionCrash, 0);
+    addFunction(vm, "breakpoint", functionBreakpoint, 0);
 
     putDirectNativeFunction(vm, globalObject, Identifier::fromString(&vm, "dfgTrue"), 0, functionDFGTrue, DFGTrueIntrinsic, static_cast<unsigned>(PropertyAttribute::DontEnum));
     putDirectNativeFunction(vm, globalObject, Identifier::fromString(&vm, "ftlTrue"), 0, functionFTLTrue, FTLTrueIntrinsic, static_cast<unsigned>(PropertyAttribute::DontEnum));

@@ -64,21 +64,24 @@ public:
     virtual ~CurlRequest() = default;
 
     void invalidateClient() { m_client = nullptr;  }
-    void setUserPass(const String&, const String&);
+    WEBCORE_EXPORT void setUserPass(const String&, const String&);
 
     void start(bool isSyncRequest = false);
     void cancel();
-    void suspend();
-    void resume();
+    WEBCORE_EXPORT void suspend();
+    WEBCORE_EXPORT void resume();
 
+    const ResourceRequest& resourceRequest() const { return m_request; }
     bool isSyncRequest() const { return m_isSyncRequest; }
     bool isCompleted() const { return !m_curlHandle; }
     bool isCancelled() const { return m_cancelled; }
     bool isCompletedOrCancelled() const { return isCompleted() || isCancelled(); }
 
+    const String& user() const { return m_user; }
+    const String& password() const { return m_password; }
 
     // Processing for DidReceiveResponse
-    void completeDidReceiveResponse();
+    WEBCORE_EXPORT void completeDidReceiveResponse();
 
     // Download
     void enableDownloadToFile();
@@ -117,13 +120,14 @@ private:
     void didCancelTransfer() override;
     void finalizeTransfer();
 
-    // For POST and PUT method 
+    // For setup 
+    void appendAcceptLanguageHeader(HTTPHeaderMap&);
     void setupPOST(ResourceRequest&);
     void setupPUT(ResourceRequest&);
     void setupSendData(bool forPutMethod);
 
     // Processing for DidReceiveResponse
-    bool needToInvokeDidReceiveResponse() const { return !m_didNotifyResponse || !m_didReturnFromNotify; }
+    bool needToInvokeDidReceiveResponse() const { return m_didReceiveResponse && (!m_didNotifyResponse || !m_didReturnFromNotify); }
     bool needToInvokeDidCancelTransfer() const { return m_didNotifyResponse && !m_didReturnFromNotify && m_actionAfterInvoke == Action::FinishTransfer; }
     void invokeDidReceiveResponseForFile(URL&);
     void invokeDidReceiveResponse(const CurlResponse&, Action);

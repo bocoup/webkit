@@ -57,9 +57,9 @@ public:
     Color platformInactiveSelectionBackgroundColor() const final;
     Color platformActiveListBoxSelectionBackgroundColor() const final;
     Color platformActiveListBoxSelectionForegroundColor() const final;
-    Color platformInactiveListBoxSelectionBackgroundColor() const final;
+    Color platformInactiveListBoxSelectionBackgroundColor(bool) const final;
     Color platformInactiveListBoxSelectionForegroundColor() const final;
-    Color platformFocusRingColor() const final;
+    Color platformFocusRingColor(OptionSet<StyleColor::Options>) const final;
 
     ScrollbarControlSize scrollbarControlSizeForPart(ControlPart) final { return SmallScrollbar; }
 
@@ -88,7 +88,7 @@ public:
     // Returns the repeat interval of the animation for the progress bar.
     Seconds animationRepeatIntervalForProgressBar(RenderProgress&) const final;
     // Returns the duration of the animation for the progress bar.
-    double animationDurationForProgressBar(RenderProgress&) const final;
+    Seconds animationDurationForProgressBar(RenderProgress&) const final;
     IntRect progressBarRectForBounds(const RenderObject&, const IntRect&) const final;
 
     // Controls color values returned from platformFocusRingColor(). systemColor() will be used when false.
@@ -169,7 +169,7 @@ private:
 private:
     String fileListNameForWidth(const FileList*, const FontCascade&, int width, bool multipleFilesAllowed) const final;
 
-    Color systemColor(CSSValueID) const final;
+    Color systemColor(CSSValueID, OptionSet<StyleColor::Options>) const final;
 
     void purgeCaches() final;
 
@@ -243,6 +243,7 @@ private:
     bool m_isSliderThumbVerticalPressed { false };
 
     mutable HashMap<int, Color> m_systemColorCache;
+    mutable Color m_systemVisitedLinkColor;
 
     RetainPtr<WebCoreRenderThemeNotificationObserver> m_notificationObserver;
 

@@ -114,6 +114,8 @@ struct PrintInfo;
 
 - (void)_updateScrollViewBackground;
 
+- (void)_videoControlsManagerDidChange;
+
 - (void)_navigationGestureDidBegin;
 - (void)_navigationGestureDidEnd;
 - (BOOL)_isNavigationSwipeGestureRecognizer:(UIGestureRecognizer *)recognizer;
@@ -143,8 +145,12 @@ struct PrintInfo;
 @property (nonatomic, readonly) WKSelectionGranularity _selectionGranularity;
 
 @property (nonatomic, readonly) BOOL _allowsDoubleTapGestures;
-@property (nonatomic, readonly) UIEdgeInsets _computedContentInset;
+@property (nonatomic, readonly) UIEdgeInsets _computedObscuredInset;
 @property (nonatomic, readonly) UIEdgeInsets _computedUnobscuredSafeAreaInset;
+#endif
+
+#if ENABLE(ACCESSIBILITY_EVENTS)
+- (void)_updateAccessibilityEventsEnabled;
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -164,11 +170,10 @@ WKWebView* fromWebPageProxy(WebKit::WebPageProxy&);
 -(BOOL)hasFullScreenWindowController;
 -(WKFullScreenWindowController *)fullScreenWindowController;
 -(void)closeFullScreenWindowController;
--(WebCoreFullScreenPlaceholderView *)fullScreenPlaceholderView;
 @end
 #endif // ENABLE(FULLSCREEN_API) && PLATFORM(IOS)
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && !ENABLE(MINIMAL_SIMULATOR)
 @interface WKWebView (_WKWebViewPrintFormatter)
 @property (nonatomic, readonly) id <_WKWebViewPrintProvider> _printProvider;
 @end

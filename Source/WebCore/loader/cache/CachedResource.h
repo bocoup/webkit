@@ -77,10 +77,7 @@ public:
 #if ENABLE(XSLT)
         , XSLStyleSheet
 #endif
-#if ENABLE(LINK_PREFETCH)
         , LinkPrefetch
-        , LinkSubresource
-#endif
 #if ENABLE(VIDEO_TRACK)
         , TextTrackResource
 #endif
@@ -144,7 +141,7 @@ public:
 
     virtual void didAddClient(CachedResourceClient&);
     virtual void didRemoveClient(CachedResourceClient&) { }
-    virtual void allClientsRemoved() { }
+    virtual void allClientsRemoved();
     void destroyDecodedDataIfNeeded();
 
     unsigned count() const { return m_clients.size(); }
@@ -176,10 +173,7 @@ public:
     {
         return m_ignoreForRequestCount
             || type() == MainResource
-#if ENABLE(LINK_PREFETCH)
             || type() == LinkPrefetch
-            || type() == LinkSubresource
-#endif
             || type() == Icon
             || type() == RawResource;
     }
@@ -291,7 +285,7 @@ protected:
 
     void setEncodedSize(unsigned);
     void setDecodedSize(unsigned);
-    void didAccessDecodedData(double timeStamp);
+    void didAccessDecodedData(MonotonicTime timeStamp);
 
     virtual void didReplaceSharedBufferContents() { }
 
@@ -334,7 +328,7 @@ private:
     RefPtr<SecurityOrigin> m_origin;
     AtomicString m_initiatorName;
 
-    double m_lastDecodedAccessTime { 0 }; // Used as a "thrash guard" in the cache
+    MonotonicTime m_lastDecodedAccessTime; // Used as a "thrash guard" in the cache
 
     unsigned m_encodedSize { 0 };
     unsigned m_decodedSize { 0 };

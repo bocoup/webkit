@@ -29,8 +29,8 @@
 
 #include "ClientOrigin.h"
 #include "DocumentIdentifier.h"
-#include "RegistrationStore.h"
 #include "SWServerWorker.h"
+#include "SecurityOriginData.h"
 #include "ServiceWorkerClientData.h"
 #include "ServiceWorkerIdentifier.h"
 #include "ServiceWorkerJob.h"
@@ -48,6 +48,7 @@
 
 namespace WebCore {
 
+class RegistrationStore;
 class SWOriginStore;
 class SWServerJobQueue;
 class SWServerRegistration;
@@ -121,7 +122,7 @@ public:
     WEBCORE_EXPORT ~SWServer();
 
     WEBCORE_EXPORT void clearAll(WTF::CompletionHandler<void()>&&);
-    WEBCORE_EXPORT void clear(const SecurityOrigin&, WTF::CompletionHandler<void()>&&);
+    WEBCORE_EXPORT void clear(const SecurityOriginData&, WTF::CompletionHandler<void()>&&);
 
     SWServerRegistration* getRegistration(const ServiceWorkerRegistrationKey&);
     void addRegistration(std::unique_ptr<SWServerRegistration>&&);
@@ -144,7 +145,7 @@ public:
     std::optional<ServiceWorkerClientData> serviceWorkerClientWithOriginByID(const ClientOrigin&, const ServiceWorkerClientIdentifier&) const;
     WEBCORE_EXPORT SWServerWorker* activeWorkerFromRegistrationID(ServiceWorkerRegistrationIdentifier);
 
-    WEBCORE_EXPORT void markAllWorkersAsTerminated();
+    WEBCORE_EXPORT void markAllWorkersForOriginAsTerminated(const SecurityOriginData&);
     
     Connection* getConnection(SWServerConnectionIdentifier identifier) { return m_connections.get(identifier); }
     SWOriginStore& originStore() { return m_originStore; }
@@ -154,20 +155,19 @@ public:
     void didFinishInstall(const std::optional<ServiceWorkerJobDataIdentifier>&, SWServerWorker&, bool wasSuccessful);
     void didFinishActivation(SWServerWorker&);
     void workerContextTerminated(SWServerWorker&);
-    void matchAll(SWServerWorker&, const ServiceWorkerClientQueryOptions&, ServiceWorkerClientsMatchAllCallback&&);
+    void matchAll(SWServerWorker&, const ServiceWorkerClientQueryOptions&, const ServiceWorkerClientsMatchAllCallback&);
     void claim(SWServerWorker&);
 
-    WEBCORE_EXPORT void serverToContextConnectionCreated();
+    WEBCORE_EXPORT void serverToContextConnectionCreated(SWServerToContextConnection&);
     
     WEBCORE_EXPORT static HashSet<SWServer*>& allServers();
 
-    WEBCORE_EXPORT void registerServiceWorkerClient(ClientOrigin&&, ServiceWorkerClientData&&, const std::optional<ServiceWorkerIdentifier>& controllingServiceWorkerIdentifier);
+    WEBCORE_EXPORT void registerServiceWorkerClient(ClientOrigin&&, ServiceWorkerClientData&&, const std::optional<ServiceWorkerRegistrationIdentifier>&);
     WEBCORE_EXPORT void unregisterServiceWorkerClient(const ClientOrigin&, ServiceWorkerClientIdentifier);
 
-    using RunServiceWorkerCallback = WTF::Function<void(bool, SWServerToContextConnection&)>;
+    using RunServiceWorkerCallback = WTF::Function<void(SWServerToContextConnection*)>;
     WEBCORE_EXPORT void runServiceWorkerIfNecessary(ServiceWorkerIdentifier, RunServiceWorkerCallback&&);
 
-    void setClientActiveWorker(ServiceWorkerClientIdentifier, ServiceWorkerIdentifier);
     void resolveRegistrationReadyRequests(SWServerRegistration&);
 
     void addRegistrationFromStore(ServiceWorkerContextData&&);
@@ -177,6 +177,9 @@ public:
     WEBCORE_EXPORT void getOriginsWithRegistrations(Function<void(const HashSet<SecurityOriginData>&)>&&);
 
     PAL::SessionID sessionID() const { return m_sessionID; }
+    WEBCORE_EXPORT bool needsServerToContextConnectionForOrigin(const SecurityOriginData&) const;
+
+    void disableServiceWorkerProcessTerminationDelay() { m_shouldDisableServiceWorkerProcessTerminationDelay = true; }
 
 private:
     void registerConnection(Connection&);
@@ -215,20 +218,22 @@ private:
 
     HashMap<ServiceWorkerIdentifier, Ref<SWServerWorker>> m_runningOrTerminatingWorkers;
 
+    HashMap<SecurityOriginData, HashSet<ServiceWorkerClientIdentifier>> m_clientsBySecurityOrigin;
     struct Clients {
         Vector<ServiceWorkerClientIdentifier> identifiers;
         std::unique_ptr<Timer> terminateServiceWorkersTimer;
     };
     HashMap<ClientOrigin, Clients> m_clientIdentifiersPerOrigin;
     HashMap<ServiceWorkerClientIdentifier, ServiceWorkerClientData> m_clientsById;
-    HashMap<ServiceWorkerClientIdentifier, ServiceWorkerIdentifier> m_clientToControllingWorker;
+    HashMap<ServiceWorkerClientIdentifier, ServiceWorkerRegistrationIdentifier> m_clientToControllingRegistration;
 
     UniqueRef<SWOriginStore> m_originStore;
-    RegistrationStore m_registrationStore;
-    Vector<ServiceWorkerContextData> m_pendingContextDatas;
-    HashMap<ServiceWorkerIdentifier, Vector<RunServiceWorkerCallback>> m_serviceWorkerRunRequests;
+    std::unique_ptr<RegistrationStore> m_registrationStore;
+    HashMap<SecurityOriginData, Vector<ServiceWorkerContextData>> m_pendingContextDatas;
+    HashMap<SecurityOriginData, HashMap<ServiceWorkerIdentifier, Vector<RunServiceWorkerCallback>>> m_serviceWorkerRunRequests;
     PAL::SessionID m_sessionID;
     bool m_importCompleted { false };
+    bool m_shouldDisableServiceWorkerProcessTerminationDelay { false };
     Vector<CompletionHandler<void()>> m_clearCompletionCallbacks;
     Vector<Function<void(const HashSet<SecurityOriginData>&)>> m_getOriginsWithRegistrationsCallbacks;
 };

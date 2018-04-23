@@ -27,6 +27,7 @@
 #include "CSSValueKeywords.h"
 #include "CachedImage.h"
 #include "FrameView.h"
+#include "HTMLAnchorElement.h"
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
 #include "HTMLParserIdioms.h"
@@ -43,6 +44,7 @@
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "SizesAttributeParser.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/text/StringBuilder.h>
 
 #if ENABLE(SERVICE_CONTROLS)
@@ -50,6 +52,8 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLImageElement);
 
 using namespace HTMLNames;
 
@@ -169,7 +173,7 @@ ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
 
         auto documentElement = makeRefPtr(document().documentElement());
         MediaQueryEvaluator evaluator { document().printing() ? "print" : "screen", document(), documentElement ? documentElement->computedStyle() : nullptr };
-        auto* queries = source.parsedMediaAttribute();
+        auto* queries = source.parsedMediaAttribute(document());
         LOG(MediaQueries, "HTMLImageElement %p bestFitSourceFromPictureElement evaluating media queries", this);
         auto evaluation = !queries || evaluator.evaluate(*queries, picture->viewportDependentResults());
         if (picture->hasViewportDependentResults())
@@ -672,5 +676,13 @@ bool HTMLImageElement::willRespondToMouseClickEvents()
     return HTMLElement::willRespondToMouseClickEvents();
 }
 #endif
+
+bool HTMLImageElement::isSystemPreviewImage() const
+{
+    const auto* parent = parentElement();
+    if (!is<HTMLAnchorElement>(parent))
+        return false;
+    return downcast<HTMLAnchorElement>(parent)->isSystemPreviewLink();
+}
 
 }

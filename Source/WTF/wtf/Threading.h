@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood <jhaygood@reaktix.com>
  * Copyright (C) 2017 Yusuke Suzuki <utatane.tea@gmail.com>
  *
@@ -243,7 +243,7 @@ protected:
     // types don't use multiple-pass destruction.
 
 #if !HAVE(FAST_TLS)
-    static WTF_EXPORTDATA ThreadSpecificKey s_key;
+    static WTF_EXPORT_PRIVATE ThreadSpecificKey s_key;
     // One time initialization for this class as a whole.
     // This method must be called before initializeTLS() and it is not thread-safe.
     static void initializeTLSKey();
@@ -281,7 +281,7 @@ protected:
 #if OS(WINDOWS)
     ThreadIdentifier m_id { 0 };
 #elif OS(DARWIN)
-    mach_port_t m_platformThread;
+    mach_port_t m_platformThread { MACH_PORT_NULL };
 #elif USE(PTHREADS)
     PlatformRegisters* m_platformRegisters { nullptr };
     unsigned m_suspendCount { 0 };

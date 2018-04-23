@@ -28,8 +28,10 @@
 #include "CurlContext.h"
 
 #if USE(CURL)
+#include "CurlRequestScheduler.h"
 #include "HTTPHeaderMap.h"
 #include <NetworkLoadMetrics.h>
+#include <mutex>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
@@ -41,6 +43,36 @@
 #endif
 
 namespace WebCore {
+
+class EnvironmentVariableReader {
+public:
+    const char* read(const char* name) { return ::getenv(name); }
+    bool defined(const char* name) { return read(name) != nullptr; }
+
+    template<typename T> std::optional<T> readAs(const char* name)
+    {
+        if (const char* valueStr = read(name)) {
+            T value;
+            if (sscanf(valueStr, sscanTemplate<T>(), &value) == 1)
+                return value;
+        }
+
+        return std::nullopt;
+    }
+
+private:
+    template<typename T> const char* sscanTemplate()
+    {
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+};
+
+template<>
+constexpr const char* EnvironmentVariableReader::sscanTemplate<signed>() { return "%d"; }
+
+template<>
+constexpr const char* EnvironmentVariableReader::sscanTemplate<unsigned>() { return "%u"; }
 
 // CurlContext -------------------------------------------------------------------
 
@@ -54,10 +86,33 @@ CurlContext::CurlContext()
 {
     initShareHandle();
 
-#ifndef NDEBUG
-    m_verbose = getenv("DEBUG_CURL");
+    EnvironmentVariableReader envVar;
 
-    char* logFile = getenv("CURL_LOG_FILE");
+    if (auto value = envVar.readAs<unsigned>("WEBKIT_CURL_DNS_CACHE_TIMEOUT"))
+        m_dnsCacheTimeout = Seconds(*value);
+
+    if (auto value = envVar.readAs<unsigned>("WEBKIT_CURL_CONNECT_TIMEOUT"))
+        m_connectTimeout = Seconds(*value);
+
+    long maxConnects { CurlDefaultMaxConnects };
+    long maxTotalConnections { CurlDefaultMaxTotalConnections };
+    long maxHostConnections { CurlDefaultMaxHostConnections };
+
+    if (auto value = envVar.readAs<signed>("WEBKIT_CURL_MAXCONNECTS"))
+        maxConnects = *value;
+
+    if (auto value = envVar.readAs<signed>("WEBKIT_CURL_MAX_TOTAL_CONNECTIONS"))
+        maxTotalConnections = *value;
+
+    if (auto value = envVar.readAs<signed>("WEBKIT_CURL_MAX_HOST_CONNECTIONS"))
+        maxHostConnections = *value;
+
+    m_scheduler = std::make_unique<CurlRequestScheduler>(maxConnects, maxTotalConnections, maxHostConnections);
+
+#ifndef NDEBUG
+    m_verbose = envVar.defined("DEBUG_CURL");
+
+    auto logFile = envVar.read("CURL_LOG_FILE");
     if (logFile)
         m_logFile = fopen(logFile, "a");
 #endif
@@ -146,11 +201,11 @@ void CurlShareHandle::unlockCallback(CURL*, curl_lock_data data, void*)
         mutex->unlock();
 }
 
-StaticLock* CurlShareHandle::mutexFor(curl_lock_data data)
+Lock* CurlShareHandle::mutexFor(curl_lock_data data)
 {
-    static StaticLock cookieMutex;
-    static StaticLock dnsMutex;
-    static StaticLock shareMutex;
+    static Lock cookieMutex;
+    static Lock dnsMutex;
+    static Lock shareMutex;
 
     switch (data) {
     case CURL_LOCK_DATA_COOKIE:
@@ -176,6 +231,24 @@ CurlMultiHandle::~CurlMultiHandle()
 {
     if (m_multiHandle)
         curl_multi_cleanup(m_multiHandle);
+}
+
+void CurlMultiHandle::setMaxConnects(long maxConnects)
+{
+    if (maxConnects < 0)
+        return;
+
+    curl_multi_setopt(m_multiHandle, CURLMOPT_MAXCONNECTS, maxConnects);
+}
+
+void CurlMultiHandle::setMaxTotalConnections(long maxTotalConnections)
+{
+    curl_multi_setopt(m_multiHandle, CURLMOPT_MAX_TOTAL_CONNECTIONS, maxTotalConnections);
+}
+
+void CurlMultiHandle::setMaxHostConnections(long maxHostConnections)
+{
+    curl_multi_setopt(m_multiHandle, CURLMOPT_MAX_HOST_CONNECTIONS, maxHostConnections);
 }
 
 CURLMcode CurlMultiHandle::addHandle(CURL* handle)
@@ -447,16 +520,25 @@ void CurlHandle::enableProxyIfExists()
     }
 }
 
-void CurlHandle::enableTimeout()
+static CURLoption safeTimeValue(double time)
 {
-    static const long dnsCacheTimeout = 5 * 60; // [sec.]
-
-    curl_easy_setopt(m_handle, CURLOPT_DNS_CACHE_TIMEOUT, dnsCacheTimeout);
+    auto value = static_cast<unsigned>(time >= 0.0 ? time : 0);
+    return static_cast<CURLoption>(value);
 }
 
-void CurlHandle::setTimeout(long timeoutMilliseconds)
+void CurlHandle::setDnsCacheTimeout(Seconds timeout)
 {
-    curl_easy_setopt(m_handle, CURLOPT_TIMEOUT_MS, timeoutMilliseconds);
+    curl_easy_setopt(m_handle, CURLOPT_DNS_CACHE_TIMEOUT, safeTimeValue(timeout.seconds()));
+}
+
+void CurlHandle::setConnectTimeout(Seconds timeout)
+{
+    curl_easy_setopt(m_handle, CURLOPT_CONNECTTIMEOUT, safeTimeValue(timeout.seconds()));
+}
+
+void CurlHandle::setTimeout(Seconds timeout)
+{
+    curl_easy_setopt(m_handle, CURLOPT_TIMEOUT_MS, safeTimeValue(timeout.milliseconds()));
 }
 
 void CurlHandle::setHeaderCallbackFunction(curl_write_callback callbackFunc, void* userData)

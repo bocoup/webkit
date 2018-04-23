@@ -35,6 +35,11 @@
 #include "MacroAssemblerARMv7.h"
 namespace JSC { typedef MacroAssemblerARMv7 MacroAssemblerBase; };
 
+#elif CPU(ARM64E) && __has_include(<WebKitAdditions/MacroAssemblerARM64E.h>)
+#define TARGET_ASSEMBLER ARM64EAssembler
+#define TARGET_MACROASSEMBLER MacroAssemblerARM64E
+#include <WebKitAdditions/MacroAssemblerARM64E.h>
+
 #elif CPU(ARM64)
 #define TARGET_ASSEMBLER ARM64Assembler
 #define TARGET_MACROASSEMBLER MacroAssemblerARM64
@@ -302,6 +307,11 @@ public:
         storePtr(imm, addressForPoke(index));
     }
 
+    void poke(FPRegisterID src, int index = 0)
+    {
+        storeDouble(src, addressForPoke(index));
+    }
+
 #if !CPU(ARM64)
     void pushToSave(RegisterID src)
     {
@@ -343,14 +353,6 @@ public:
     void poke64(RegisterID src, int index = 0)
     {
         store64(src, addressForPoke(index));
-    }
-#endif
-    
-#if CPU(MIPS)
-    void poke(FPRegisterID src, int index = 0)
-    {
-        ASSERT(!(index & 1));
-        storeDouble(src, addressForPoke(index));
     }
 #endif
 
@@ -417,12 +419,12 @@ public:
     }
 
 #if !CPU(ARM_THUMB2) && !CPU(ARM64)
-    PatchableJump patchableBranchPtr(RelationalCondition cond, Address left, TrustedImmPtr right = TrustedImmPtr(0))
+    PatchableJump patchableBranchPtr(RelationalCondition cond, Address left, TrustedImmPtr right = TrustedImmPtr(nullptr))
     {
         return PatchableJump(branchPtr(cond, left, right));
     }
     
-    PatchableJump patchableBranchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
+    PatchableJump patchableBranchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(nullptr))
     {
         return PatchableJump(branchPtrWithPatch(cond, left, dataLabel, initialRightValue));
     }
@@ -525,7 +527,13 @@ public:
         loadFloat(src, scratch);
         storeFloat(scratch, dest);
     }
-    
+
+    // Overload mostly for use in templates.
+    void move(FPRegisterID src, FPRegisterID dest)
+    {
+        moveDouble(src, dest);
+    }
+
     void moveDouble(Address src, Address dest, FPRegisterID scratch)
     {
         loadDouble(src, scratch);

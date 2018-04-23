@@ -40,6 +40,7 @@
 #include "CSSVariableReferenceValue.h"
 #include "Document.h"
 #include "Element.h"
+#include "Page.h"
 #include "RenderTheme.h"
 #include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
@@ -62,7 +63,6 @@ const CSSParserContext& strictCSSParserContext()
 CSSParserContext::CSSParserContext(CSSParserMode mode, const URL& baseURL)
     : baseURL(baseURL)
     , mode(mode)
-    , cssGridLayoutEnabled(RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled())
 {
 #if PLATFORM(IOS)
     // FIXME: Force the site specific quirk below to work on iOS. Investigating other site specific quirks
@@ -77,7 +77,6 @@ CSSParserContext::CSSParserContext(Document& document, const URL& sheetBaseURL, 
     , charset(charset)
     , mode(document.inQuirksMode() ? HTMLQuirksMode : HTMLStandardMode)
     , isHTMLDocument(document.isHTMLDocument())
-    , cssGridLayoutEnabled(document.isCSSGridLayoutEnabled())
     , hasDocumentSecurityOrigin(sheetBaseURL.isNull() || document.securityOrigin().canRequest(baseURL))
 {
     
@@ -92,6 +91,7 @@ CSSParserContext::CSSParserContext(Document& document, const URL& sheetBaseURL, 
     conicGradientsEnabled = document.settings().conicGradientsEnabled();
     deferredCSSParserEnabled = document.settings().deferredCSSParserEnabled();
     allowNewLinesClamp = document.settings().appleMailLinesClampEnabled();
+    useSystemAppearance = document.page() ? document.page()->useSystemAppearance() : false;
     
 #if PLATFORM(IOS)
     // FIXME: Force the site specific quirk below to work on iOS. Investigating other site specific quirks
@@ -107,7 +107,6 @@ bool operator==(const CSSParserContext& a, const CSSParserContext& b)
         && a.charset == b.charset
         && a.mode == b.mode
         && a.isHTMLDocument == b.isHTMLDocument
-        && a.cssGridLayoutEnabled == b.cssGridLayoutEnabled
         && a.needsSiteSpecificQuirks == b.needsSiteSpecificQuirks
         && a.enforcesCSSMIMETypeInNoQuirksMode == b.enforcesCSSMIMETypeInNoQuirksMode
         && a.useLegacyBackgroundSizeShorthandBehavior == b.useLegacyBackgroundSizeShorthandBehavior
@@ -115,7 +114,8 @@ bool operator==(const CSSParserContext& a, const CSSParserContext& b)
         && a.constantPropertiesEnabled == b.constantPropertiesEnabled
         && a.conicGradientsEnabled == b.conicGradientsEnabled
         && a.deferredCSSParserEnabled == b.deferredCSSParserEnabled
-        && a.hasDocumentSecurityOrigin == b.hasDocumentSecurityOrigin;
+        && a.hasDocumentSecurityOrigin == b.hasDocumentSecurityOrigin
+        && a.useSystemAppearance == b.useSystemAppearance;
 }
 
 CSSParser::CSSParser(const CSSParserContext& context)
@@ -176,13 +176,16 @@ Color CSSParser::parseColor(const String& string, bool strict)
     return primitiveValue.color();
 }
 
-Color CSSParser::parseSystemColor(const String& string)
+Color CSSParser::parseSystemColor(const String& string, std::optional<const CSSParserContext&> context)
 {
     CSSValueID id = cssValueKeywordID(string);
     if (!StyleColor::isSystemColor(id))
         return Color();
-    
-    return RenderTheme::singleton().systemColor(id);
+
+    OptionSet<StyleColor::Options> options;
+    if (context && context.value().useSystemAppearance)
+        options |= StyleColor::Options::UseSystemAppearance;
+    return RenderTheme::singleton().systemColor(id, options);
 }
 
 RefPtr<CSSValue> CSSParser::parseSingleValue(CSSPropertyID propertyID, const String& string, const CSSParserContext& context)

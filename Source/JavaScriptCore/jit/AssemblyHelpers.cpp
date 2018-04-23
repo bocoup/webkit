@@ -50,20 +50,6 @@ ExecutableBase* AssemblyHelpers::executableFor(const CodeOrigin& codeOrigin)
     return codeOrigin.inlineCallFrame->baselineCodeBlock->ownerExecutable();
 }
 
-Vector<BytecodeAndMachineOffset>& AssemblyHelpers::decodedCodeMapFor(CodeBlock* codeBlock)
-{
-    ASSERT(codeBlock == codeBlock->baselineVersion());
-    ASSERT(codeBlock->jitType() == JITCode::BaselineJIT);
-    ASSERT(codeBlock->jitCodeMap());
-    
-    HashMap<CodeBlock*, Vector<BytecodeAndMachineOffset>>::AddResult result = m_decodedCodeMaps.add(codeBlock, Vector<BytecodeAndMachineOffset>());
-    
-    if (result.isNewEntry)
-        codeBlock->jitCodeMap()->decode(result.iterator->value);
-    
-    return result.iterator->value;
-}
-
 AssemblyHelpers::JumpList AssemblyHelpers::branchIfNotType(
     JSValueRegs regs, GPRReg tempGPR, const InferredType::Descriptor& descriptor, TagRegistersMode mode)
 {
@@ -98,6 +84,11 @@ AssemblyHelpers::JumpList AssemblyHelpers::branchIfNotType(
     case InferredType::Symbol:
         result.append(branchIfNotCell(regs, mode));
         result.append(branchIfNotSymbol(regs.payloadGPR()));
+        break;
+
+    case InferredType::BigInt:
+        result.append(branchIfNotCell(regs, mode));
+        result.append(branchIfNotBigInt(regs.payloadGPR()));
         break;
 
     case InferredType::ObjectWithStructure:
@@ -346,8 +337,8 @@ void AssemblyHelpers::callExceptionFuzz(VM& vm)
 #else
     move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
 #endif
-    move(TrustedImmPtr(bitwise_cast<void*>(operationExceptionFuzz)), GPRInfo::nonPreservedNonReturnGPR);
-    call(GPRInfo::nonPreservedNonReturnGPR);
+    move(TrustedImmPtr(tagCFunctionPtr<OperationPtrTag>(operationExceptionFuzz)), GPRInfo::nonPreservedNonReturnGPR);
+    call(GPRInfo::nonPreservedNonReturnGPR, OperationPtrTag);
 
     for (unsigned i = 0; i < FPRInfo::numberOfRegisters; ++i) {
         move(TrustedImmPtr(buffer + GPRInfo::numberOfRegisters + i), GPRInfo::regT0);
@@ -406,7 +397,7 @@ AssemblyHelpers::Jump AssemblyHelpers::emitNonPatchableExceptionCheck(VM& vm)
 
 void AssemblyHelpers::emitStoreStructureWithTypeInfo(AssemblyHelpers& jit, TrustedImmPtr structure, RegisterID dest)
 {
-    const Structure* structurePtr = static_cast<const Structure*>(structure.m_value);
+    const Structure* structurePtr = reinterpret_cast<const Structure*>(structure.m_value);
 #if USE(JSVALUE64)
     jit.store64(TrustedImm64(structurePtr->idBlob()), MacroAssembler::Address(dest, JSCell::structureIDOffset()));
     if (!ASSERT_DISABLED) {
@@ -721,9 +712,9 @@ void AssemblyHelpers::emitDumbVirtualCall(VM& vm, CallLinkInfo* info)
     Call call = nearCall();
     addLinkTask(
         [=, &vm] (LinkBuffer& linkBuffer) {
-            MacroAssemblerCodeRef virtualThunk = virtualThunkFor(&vm, *info);
+            MacroAssemblerCodeRef<JITStubRoutinePtrTag> virtualThunk = virtualThunkFor(&vm, *info);
             info->setSlowStub(createJITStubRoutine(virtualThunk, vm, nullptr, true));
-            linkBuffer.link(call, CodeLocationLabel(virtualThunk.code()));
+            linkBuffer.link(call, CodeLocationLabel<JITStubRoutinePtrTag>(virtualThunk.code()));
         });
 }
 
@@ -940,11 +931,11 @@ void AssemblyHelpers::debugCall(VM& vm, V_DebugOperation_EPP function, void* arg
 #else
 #error "JIT not supported on this platform."
 #endif
-    move(TrustedImmPtr(reinterpret_cast<void*>(function)), scratch);
-    call(scratch);
+    move(TrustedImmPtr(tagCFunctionPtr<OperationPtrTag>(function)), scratch);
+    call(scratch, OperationPtrTag);
 
     move(TrustedImmPtr(scratchBuffer->addressOfActiveLength()), GPRInfo::regT0);
-    storePtr(TrustedImmPtr(0), GPRInfo::regT0);
+    storePtr(TrustedImmPtr(nullptr), GPRInfo::regT0);
 
     for (unsigned i = 0; i < FPRInfo::numberOfRegisters; ++i) {
         move(TrustedImmPtr(buffer + GPRInfo::numberOfRegisters + i), GPRInfo::regT0);
@@ -987,7 +978,7 @@ void AssemblyHelpers::sanitizeStackInline(VM& vm, GPRReg scratch)
     loadPtr(vm.addressOfLastStackTop(), scratch);
     Jump done = branchPtr(BelowOrEqual, stackPointerRegister, scratch);
     Label loop = label();
-    storePtr(TrustedImmPtr(0), scratch);
+    storePtr(TrustedImmPtr(nullptr), scratch);
     addPtr(TrustedImmPtr(sizeof(void*)), scratch);
     branchPtr(Above, stackPointerRegister, scratch).linkTo(loop, this);
     done.link(this);

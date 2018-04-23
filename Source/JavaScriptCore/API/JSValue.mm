@@ -574,13 +574,13 @@ NSString * const JSPropertyDescriptorSetKey = @"set";
 inline bool isDate(JSC::VM& vm, JSObjectRef object, JSGlobalContextRef context)
 {
     JSC::JSLockHolder locker(toJS(context));
-    return toJS(object)->inherits(vm, JSC::DateInstance::info());
+    return toJS(object)->inherits<JSC::DateInstance>(vm);
 }
 
 inline bool isArray(JSC::VM& vm, JSObjectRef object, JSGlobalContextRef context)
 {
     JSC::JSLockHolder locker(toJS(context));
-    return toJS(object)->inherits(vm, JSC::JSArray::info());
+    return toJS(object)->inherits<JSC::JSArray>(vm);
 }
 
 @implementation JSValue(Internal)
@@ -1115,7 +1115,7 @@ static StructHandlers* createStructHandlerMap()
 
 static StructTagHandler* handerForStructTag(const char* encodedType)
 {
-    static StaticLock handerForStructTagLock;
+    static Lock handerForStructTagLock;
     LockHolder lockHolder(&handerForStructTagLock);
 
     static StructHandlers* structHandlers = createStructHandlerMap();

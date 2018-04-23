@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2006 David Smith (catfish.man@gmail.com)
  * Copyright (C) 2010 Igalia S.L
  *
@@ -144,8 +144,10 @@
 #import <WebCore/Editor.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventHandler.h>
+#import <WebCore/FileSystem.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/FontCache.h>
+#import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameSelection.h>
 #import <WebCore/FrameTree.h>
@@ -170,9 +172,9 @@
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/LogInitialization.h>
 #import <WebCore/MIMETypeRegistry.h>
-#import <WebCore/MainFrame.h>
 #import <WebCore/MemoryCache.h>
 #import <WebCore/MemoryRelease.h>
+#import <WebCore/NavigationPolicyCheck.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/NodeList.h>
 #import <WebCore/Notification.h>
@@ -184,6 +186,7 @@
 #import <WebCore/PathUtilities.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/ProgressTracker.h>
+#import <WebCore/RenderTheme.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/ResourceHandle.h>
@@ -225,6 +228,7 @@
 #import <wtf/HashTraits.h>
 #import <wtf/MainThread.h>
 #import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/RAMSize.h>
 #import <wtf/RefCountedLeakCounter.h>
 #import <wtf/RefPtr.h>
@@ -1537,6 +1541,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 
 #if !PLATFORM(IOS)
     [self _registerDraggedTypes];
+    [self _updateDefaultAppearance];
 #endif
 
     [self _setIsVisible:[self _isViewVisible]];
@@ -1573,6 +1578,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         ResourceHandle::forceContentSniffing();
 
     _private->page->setDeviceScaleFactor([self _deviceScaleFactor]);
+    _private->page->setDefaultAppearance([self _defaultAppearance]);
 #endif
 
     _private->page->settings().setContentDispositionAttachmentSandboxEnabled(true);
@@ -1802,7 +1808,9 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 }
 #endif
 
-#if ENABLE(DRAG_SUPPORT) && PLATFORM(IOS)
+#if PLATFORM(IOS)
+
+#if ENABLE(DRAG_SUPPORT)
 
 - (BOOL)_requestStartDataInteraction:(CGPoint)clientPosition globalPosition:(CGPoint)globalPosition
 {
@@ -1934,7 +1942,77 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     }
 }
 
-#endif // ENABLE(DRAG_SUPPORT) && PLATFORM(IOS)
+#elif __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+
+- (BOOL)_requestStartDataInteraction:(CGPoint)clientPosition globalPosition:(CGPoint)globalPosition
+{
+    return NO;
+}
+
+- (WebUITextIndicatorData *)_getDataInteractionData
+{
+    return nil;
+}
+
+- (WebUITextIndicatorData *)_dataOperationTextIndicator
+{
+    return nil;
+}
+
+- (NSUInteger)_dragSourceAction
+{
+    return 0;
+}
+
+- (NSString *)_draggedLinkTitle
+{
+    return nil;
+}
+
+- (NSURL *)_draggedLinkURL
+{
+    return nil;
+}
+
+- (CGRect)_draggedElementBounds
+{
+    return CGRectNull;
+}
+
+- (uint64_t)_enteredDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+    return 0;
+}
+
+- (uint64_t)_updatedDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+    return 0;
+}
+
+- (void)_exitedDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+}
+
+- (void)_performDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+}
+
+- (BOOL)_tryToPerformDataInteraction:(id <UIDropSession>)session client:(CGPoint)clientPosition global:(CGPoint)globalPosition operation:(uint64_t)operation
+{
+    return NO;
+}
+
+- (void)_endedDataInteraction:(CGPoint)clientPosition global:(CGPoint)globalPosition
+{
+}
+
+- (CGRect)_dataInteractionCaretRect
+{
+    return CGRectNull;
+}
+
+#endif
+#endif // PLATFORM(IOS)
 
 static NSMutableSet *knownPluginMIMETypes()
 {
@@ -2563,7 +2641,7 @@ static bool fastDocumentTeardownEnabled()
     }
 
     ASSERT(newItemToGoTo);
-    _private->page->goToItem(*newItemToGoTo, FrameLoadType::IndexedBackForward);
+    _private->page->goToItem(*newItemToGoTo, FrameLoadType::IndexedBackForward, NavigationPolicyCheck::Require);
 }
 
 - (void)_setFormDelegate: (id<WebFormDelegate>)delegate
@@ -3003,6 +3081,7 @@ static bool needsSelfRetainWhileLoadingQuirk()
 
     RuntimeEnabledFeatures::sharedFeatures().setInteractiveFormValidationEnabled([self interactiveFormValidationEnabled]);
     RuntimeEnabledFeatures::sharedFeatures().setModernMediaControlsEnabled([preferences modernMediaControlsEnabled]);
+    RuntimeEnabledFeatures::sharedFeatures().setCSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled([preferences cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled]);
 
     RuntimeEnabledFeatures::sharedFeatures().setCacheAPIEnabled([preferences cacheAPIEnabled]);
     RuntimeEnabledFeatures::sharedFeatures().setFetchAPIEnabled([preferences fetchAPIEnabled]);
@@ -3023,8 +3102,6 @@ static bool needsSelfRetainWhileLoadingQuirk()
 #if ENABLE(DOWNLOAD_ATTRIBUTE)
     RuntimeEnabledFeatures::sharedFeatures().setDownloadAttributeEnabled([preferences downloadAttributeEnabled]);
 #endif
-
-    RuntimeEnabledFeatures::sharedFeatures().setCSSGridLayoutEnabled([preferences isCSSGridLayoutEnabled]);
 
     RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled([preferences webAnimationsEnabled]);
 
@@ -5190,6 +5267,46 @@ static Vector<String> toStringVector(NSArray* patterns)
     return insets;
 }
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WebViewAndWKWebViewAdditions.mm>
+#else
+- (bool)_defaultAppearance { return true; }
+#endif
+
+
+- (void)_updateDefaultAppearance
+{
+    _private->page->setDefaultAppearance([self _defaultAppearance]);
+    RenderTheme::singleton().platformColorsDidChange();
+    _private->page->setNeedsRecalcStyleInAllFrames();
+}
+
+- (void)_setUseSystemAppearance:(BOOL)useSystemAppearance
+{
+    if (auto page = _private->page) {
+        page->setUseSystemAppearance(useSystemAppearance);
+        [self _updateDefaultAppearance];
+    }
+}
+
+- (BOOL)_useSystemAppearance
+{
+    if (!_private->page)
+        return NO;
+    
+    return _private->page->useSystemAppearance();
+}
+
+- (void)effectiveAppearanceDidChange
+{
+    // This can be called during [super initWithCoder:] and [super initWithFrame:].
+    // That is before _private is ready to be used, so check. <rdar://problem/39611236>
+    if (!_private || !_private->page)
+        return;
+
+    [self _updateDefaultAppearance];
+}
+
 - (void)_setSourceApplicationAuditData:(NSData *)sourceApplicationAuditData
 {
     if (_private->sourceApplicationAuditData == sourceApplicationAuditData)
@@ -5379,6 +5496,9 @@ static Vector<String> toStringVector(NSArray* patterns)
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
+
+    WTF::setProcessPrivileges(allPrivileges());
+    WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
 
 #if !PLATFORM(IOS)
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillTerminate) name:NSApplicationWillTerminateNotification object:NSApp];
@@ -6329,7 +6449,7 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
         return NO;
 
     ASSERT(item);
-    _private->page->goToItem(*core(item), FrameLoadType::IndexedBackForward);
+    _private->page->goToItem(*core(item), FrameLoadType::IndexedBackForward, NavigationPolicyCheck::Require);
     return YES;
 }
 
@@ -6714,21 +6834,32 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
     NSArray* types = draggingInfo.draggingPasteboard.types;
-    if (![types containsObject:WebArchivePboardType] && ![types containsObject:legacyFilenamesPasteboardType()] && [types containsObject:legacyFilesPromisePasteboardType()]) {
+    if (![types containsObject:WebArchivePboardType] && [types containsObject:legacyFilesPromisePasteboardType()]) {
+        
+        // FIXME: legacyFilesPromisePasteboardType() contains UTIs, not path names. Also, it's not
+        // guaranteed that the count of UTIs equals the count of files, since some clients only write
+        // unique UTIs.
         NSArray *files = [draggingInfo.draggingPasteboard propertyListForType:legacyFilesPromisePasteboardType()];
         if (![files isKindOfClass:[NSArray class]]) {
             delete dragData;
             return false;
         }
+
+        NSString *dropDestinationPath = WebCore::FileSystem::createTemporaryDirectory(@"WebKitDropDestination");
+        if (!dropDestinationPath) {
+            delete dragData;
+            return false;
+        }
+
         size_t fileCount = files.count;
         Vector<String> *fileNames = new Vector<String>;
-        NSURL *dropLocation = [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES];
+        NSURL *dropDestination = [NSURL fileURLWithPath:dropDestinationPath isDirectory:YES];
         [draggingInfo enumerateDraggingItemsWithOptions:0 forView:self classes:@[[NSFilePromiseReceiver class]] searchOptions:@{ } usingBlock:^(NSDraggingItem * __nonnull draggingItem, NSInteger idx, BOOL * __nonnull stop) {
             NSFilePromiseReceiver *item = draggingItem.item;
             NSDictionary *options = @{ };
 
             RetainPtr<NSOperationQueue> queue = adoptNS([NSOperationQueue new]);
-            [item receivePromisedFilesAtDestination:dropLocation options:options operationQueue:queue.get() reader:^(NSURL * _Nonnull fileURL, NSError * _Nullable errorOrNil) {
+            [item receivePromisedFilesAtDestination:dropDestination options:options operationQueue:queue.get() reader:^(NSURL * _Nonnull fileURL, NSError * _Nullable errorOrNil) {
                 if (errorOrNil)
                     return;
 
@@ -7633,7 +7764,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSC::JSValue j
     }
     if (jsValue.isObject()) {
         JSObject* object = jsValue.getObject();
-        if (object->inherits(vm, DateInstance::info())) {
+        if (object->inherits<DateInstance>(vm)) {
             DateInstance* date = static_cast<DateInstance*>(object);
             double ms = date->internalNumber();
             if (!std::isnan(ms)) {
@@ -7642,7 +7773,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSC::JSValue j
                 if (noErr == UCConvertCFAbsoluteTimeToLongDateTime(utcSeconds, &ldt))
                     return [NSAppleEventDescriptor descriptorWithDescriptorType:typeLongDateTime bytes:&ldt length:sizeof(ldt)];
             }
-        } else if (object->inherits(vm, JSArray::info())) {
+        } else if (object->inherits<JSArray>(vm)) {
             static NeverDestroyed<HashSet<JSObject*>> visitedElems;
             if (visitedElems.get().add(object).isNewEntry) {
                 JSArray* array = static_cast<JSArray*>(object);

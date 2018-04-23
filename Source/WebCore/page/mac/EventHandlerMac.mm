@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,17 +45,18 @@
 #include "HTMLHtmlElement.h"
 #include "HTMLIFrameElement.h"
 #include "KeyboardEvent.h"
-#include "MainFrame.h"
 #include "MouseEventWithHitTestResults.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "PlatformEventFactoryMac.h"
+#include "PlatformScreen.h"
 #include "Range.h"
 #include "RenderLayer.h"
 #include "RenderListBox.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "RuntimeApplicationChecks.h"
+#include "ScreenProperties.h"
 #include "ScrollAnimator.h"
 #include "ScrollLatchingState.h"
 #include "ScrollableArea.h"
@@ -68,6 +69,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ObjcRuntimeExtras.h>
+#include <wtf/ProcessPrivilege.h>
 
 #if ENABLE(MAC_GESTURE_EVENTS)
 #import <WebKitAdditions/EventHandlerMacGesture.cpp>
@@ -199,6 +201,7 @@ static bool lastEventIsMouseUp()
     // It's not clear in what cases this is helpful now -- it's possible it can be removed. 
 
     ASSERT([NSApp isRunning]);
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     NSEvent *currentEventAfterHandlingMouseDown = [NSApp currentEvent];
@@ -569,6 +572,8 @@ void EventHandler::sendFakeEventsAfterWidgetTracking(NSEvent *initiatingEvent)
     if (!view)
         return;
 
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     m_sendingEventToSubview = false;
@@ -854,7 +859,11 @@ static bool eventTargetIsPlatformWidget(Element* eventTarget)
 
 static bool latchingIsLockedToPlatformFrame(const Frame& frame)
 {
-    ScrollLatchingState* latchedState = frame.mainFrame().latchingState();
+    auto* page = frame.page();
+    if (!page)
+        return false;
+
+    ScrollLatchingState* latchedState = page->latchingState();
     if (!latchedState)
         return false;
 
@@ -866,7 +875,11 @@ static bool latchingIsLockedToPlatformFrame(const Frame& frame)
 
 static bool latchingIsLockedToAncestorOfThisFrame(const Frame& frame)
 {
-    ScrollLatchingState* latchedState = frame.mainFrame().latchingState();
+    auto* page = frame.page();
+    if (!page)
+        return false;
+
+    ScrollLatchingState* latchedState = page->latchingState();
     if (!latchedState || !latchedState->frame())
         return false;
 
@@ -915,7 +928,8 @@ void EventHandler::clearOrScheduleClearingLatchedStateIfNeeded(const PlatformWhe
     } else {
         // If another wheel event scrolling starts, stop the timer manually, and reset the latched state immediately.
         if (event.shouldConsiderLatching()) {
-            m_frame.mainFrame().resetLatchingState();
+            if (auto* page = m_frame.page())
+                page->resetLatchingState();
             m_pendingMomentumWheelEventsTimer.stop();
         } else if (event.isTransitioningToMomentumScroll()) {
             // Wheel events machinary is transitioning to momenthum scrolling, so no need to reset latched state. Stop the timer.
@@ -951,13 +965,13 @@ void EventHandler::platformPrepareForWheelEvents(const PlatformWheelEvent& wheel
     if (scrollableArea && page && page->expectsWheelEventTriggers())
         scrollableArea->scrollAnimator().setWheelEventTestTrigger(page->testTrigger());
 
-    ScrollLatchingState* latchingState = m_frame.mainFrame().latchingState();
+    ScrollLatchingState* latchingState = page ? page->latchingState() : nullptr;
     if (wheelEvent.shouldConsiderLatching()) {
-        if (scrollableContainer && scrollableArea) {
+        if (scrollableContainer && scrollableArea && page) {
             bool startingAtScrollLimit = scrolledToEdgeInDominantDirection(*scrollableContainer, *scrollableArea.get(), wheelEvent.deltaX(), wheelEvent.deltaY());
             if (!startingAtScrollLimit) {
-                m_frame.mainFrame().pushNewLatchingState();
-                latchingState = m_frame.mainFrame().latchingState();
+                page->pushNewLatchingState();
+                latchingState = page->latchingState();
                 latchingState->setStartedGestureAtScrollLimit(false);
                 latchingState->setWheelEventElement(wheelEventTarget.get());
                 latchingState->setFrame(&m_frame);
@@ -965,7 +979,7 @@ void EventHandler::platformPrepareForWheelEvents(const PlatformWheelEvent& wheel
                 latchingState->setScrollableContainer(scrollableContainer.get());
                 latchingState->setWidgetIsLatched(result.isOverWidget());
                 isOverWidget = latchingState->widgetIsLatched();
-                m_frame.mainFrame().wheelEventDeltaFilter()->beginFilteringDeltas();
+                page->wheelEventDeltaFilter()->beginFilteringDeltas();
             }
         }
     } else if (wheelEvent.shouldResetLatching())
@@ -991,17 +1005,21 @@ void EventHandler::platformPrepareForWheelEvents(const PlatformWheelEvent& wheel
 
 void EventHandler::platformRecordWheelEvent(const PlatformWheelEvent& wheelEvent)
 {
+    auto* page = m_frame.page();
+    if (!page)
+        return;
+
     switch (wheelEvent.phase()) {
         case PlatformWheelEventPhaseBegan:
-            m_frame.mainFrame().wheelEventDeltaFilter()->beginFilteringDeltas();
+            page->wheelEventDeltaFilter()->beginFilteringDeltas();
             break;
         case PlatformWheelEventPhaseEnded:
-            m_frame.mainFrame().wheelEventDeltaFilter()->endFilteringDeltas();
+            page->wheelEventDeltaFilter()->endFilteringDeltas();
             break;
         default:
             break;
     }
-    m_frame.mainFrame().wheelEventDeltaFilter()->updateFromDelta(FloatSize(wheelEvent.deltaX(), wheelEvent.deltaY()));
+    page->wheelEventDeltaFilter()->updateFromDelta(FloatSize(wheelEvent.deltaX(), wheelEvent.deltaY()));
 }
 
 static FrameView* frameViewForLatchingState(Frame& frame, ScrollLatchingState* latchingState)
@@ -1021,7 +1039,7 @@ bool EventHandler::platformCompleteWheelEvent(const PlatformWheelEvent& wheelEve
     if (!view)
         return false;
 
-    ScrollLatchingState* latchingState = m_frame.mainFrame().latchingState();
+    ScrollLatchingState* latchingState = m_frame.page() ? m_frame.page()->latchingState() : nullptr;
     if (wheelEvent.useLatchedEventElement() && !latchingIsLockedToAncestorOfThisFrame(m_frame) && latchingState && latchingState->scrollableContainer()) {
 
         m_isHandlingWheelEvent = false;
@@ -1062,7 +1080,7 @@ bool EventHandler::platformCompletePlatformWidgetWheelEvent(const PlatformWheelE
     if (frameHasPlatformWidget(m_frame) && widget.isFrameView())
         return true;
 
-    ScrollLatchingState* latchingState = m_frame.mainFrame().latchingState();
+    ScrollLatchingState* latchingState = m_frame.page() ? m_frame.page()->latchingState() : nullptr;
     if (!latchingState)
         return false;
 
@@ -1152,7 +1170,7 @@ IntPoint EventHandler::targetPositionInWindowForSelectionAutoscroll() const
     if (!page)
         return m_lastKnownMousePosition;
 
-    auto frame = toUserSpace(screen(page->chrome().displayID()).frame, nil);
+    auto frame = toUserSpaceForPrimaryScreen(screenRectForDisplay(page->chrome().displayID()));
     return m_lastKnownMousePosition + autoscrollAdjustmentFactorForScreenBoundaries(m_lastKnownMouseGlobalPosition, frame);
 }
 

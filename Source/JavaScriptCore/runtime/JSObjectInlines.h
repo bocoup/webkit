@@ -161,6 +161,14 @@ ALWAYS_INLINE bool JSObject::getNonIndexPropertySlot(ExecState* exec, PropertyNa
     }
 }
 
+inline bool JSObject::getOwnPropertySlotInline(ExecState* exec, PropertyName propertyName, PropertySlot& slot)
+{
+    VM& vm = exec->vm();
+    if (UNLIKELY(TypeInfo::overridesGetOwnPropertySlot(inlineTypeFlags())))
+        return methodTable(vm)->getOwnPropertySlot(this, exec, propertyName, slot);
+    return JSObject::getOwnPropertySlot(this, exec, propertyName, slot);
+}
+
 inline void JSObject::putDirectWithoutTransition(VM& vm, PropertyName propertyName, JSValue value, unsigned attributes)
 {
     ASSERT(!value.isGetterSetter() && !(attributes & PropertyAttribute::Accessor));
@@ -185,7 +193,7 @@ ALWAYS_INLINE PropertyOffset JSObject::prepareToPutDirectWithoutTransition(VM& v
             unsigned newOutOfLineCapacity = Structure::outOfLineCapacity(newLastOffset);
             if (newOutOfLineCapacity != oldOutOfLineCapacity) {
                 Butterfly* butterfly = allocateMoreOutOfLineStorage(vm, oldOutOfLineCapacity, newOutOfLineCapacity);
-                nukeStructureAndSetButterfly(vm, structureID, butterfly, structure->indexingType());
+                nukeStructureAndSetButterfly(vm, structureID, butterfly);
                 structure->setLastOffset(newLastOffset);
                 WTF::storeStoreFence();
                 setStructureIDDirectly(structureID);
@@ -279,12 +287,13 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
 
             putDirect(vm, offset, value);
             structure->didReplaceProperty(offset);
-            slot.setExistingProperty(this, offset);
 
             if ((attributes & PropertyAttribute::Accessor) != (currentAttributes & PropertyAttribute::Accessor) || (attributes & PropertyAttribute::CustomAccessor) != (currentAttributes & PropertyAttribute::CustomAccessor)) {
                 ASSERT(!(attributes & PropertyAttribute::ReadOnly));
                 setStructure(vm, Structure::attributeChangeTransition(vm, structure, propertyName, attributes));
-            }
+            } else
+                slot.setExistingProperty(this, offset);
+
             return true;
         }
 
@@ -312,7 +321,7 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
         if (currentCapacity != newStructure->outOfLineCapacity()) {
             ASSERT(newStructure != this->structure());
             newButterfly = allocateMoreOutOfLineStorage(vm, currentCapacity, newStructure->outOfLineCapacity());
-            nukeStructureAndSetButterfly(vm, structureID, newButterfly, newStructure->indexingType());
+            nukeStructureAndSetButterfly(vm, structureID, newButterfly);
         }
 
         validateOffset(offset);
@@ -336,13 +345,14 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
                 vm, propertyName, value, slot.context() == PutPropertySlot::PutById);
         }
 
-        slot.setExistingProperty(this, offset);
         putDirect(vm, offset, value);
 
         if ((attributes & PropertyAttribute::Accessor) != (currentAttributes & PropertyAttribute::Accessor) || (attributes & PropertyAttribute::CustomAccessor) != (currentAttributes & PropertyAttribute::CustomAccessor)) {
             ASSERT(!(attributes & PropertyAttribute::ReadOnly));
             setStructure(vm, Structure::attributeChangeTransition(vm, structure, propertyName, attributes));
-        }
+        } else
+            slot.setExistingProperty(this, offset);
+
         return true;
     }
 
@@ -366,7 +376,7 @@ ALWAYS_INLINE bool JSObject::putDirectInternal(VM& vm, PropertyName propertyName
     ASSERT(oldCapacity <= newCapacity);
     if (oldCapacity != newCapacity) {
         Butterfly* newButterfly = allocateMoreOutOfLineStorage(vm, oldCapacity, newCapacity);
-        nukeStructureAndSetButterfly(vm, structureID, newButterfly, newStructure->indexingType());
+        nukeStructureAndSetButterfly(vm, structureID, newButterfly);
     }
     putDirect(vm, offset, value);
     setStructure(vm, newStructure);

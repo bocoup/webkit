@@ -72,11 +72,8 @@ class PixelBufferConformerCV;
 class VideoTrackPrivateAVFObjC;
 class WebCoreAVFResourceLoader;
 class TextureCacheCV;
+class VideoFullscreenLayerManagerObjC;
 class VideoTextureCopierCV;
-
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-class VideoFullscreenLayerManager;
-#endif
 
 class MediaPlayerPrivateAVFoundationObjC : public MediaPlayerPrivateAVFoundation {
 public:
@@ -188,12 +185,11 @@ private:
     void paint(GraphicsContext&, const FloatRect&) override;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override;
     PlatformLayer* platformLayer() const override;
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-    void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler) override;
+    void setVideoFullscreenLayer(PlatformLayer*, Function<void()>&& completionHandler) override;
+    void updateVideoFullscreenInlineImage() final;
     void setVideoFullscreenFrame(FloatRect) override;
     void setVideoFullscreenGravity(MediaPlayer::VideoGravity) override;
     void setVideoFullscreenMode(MediaPlayer::VideoFullscreenMode) override;
-#endif
 
 #if PLATFORM(IOS)
     NSArray *timedMetadata() const override;
@@ -266,10 +262,12 @@ private:
     void paintWithImageGenerator(GraphicsContext&, const FloatRect&);
 
 #if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
+    enum class UpdateType { UpdateSynchronously, UpdateAsynchronously };
+    void updateLastImage(UpdateType type = UpdateType::UpdateAsynchronously);
+
     void createVideoOutput();
     void destroyVideoOutput();
     bool updateLastPixelBuffer();
-    void updateLastImage();
     bool videoOutputHasAvailableFrame();
     void paintWithVideoOutput(GraphicsContext&, const FloatRect&);
     NativeImagePtr nativeImageForCurrentTime() override;
@@ -343,11 +341,8 @@ private:
     RetainPtr<AVPlayer> m_avPlayer;
     RetainPtr<AVPlayerItem> m_avPlayerItem;
     RetainPtr<AVPlayerLayer> m_videoLayer;
-#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-    std::unique_ptr<VideoFullscreenLayerManager> m_videoFullscreenLayerManager;
+    std::unique_ptr<VideoFullscreenLayerManagerObjC> m_videoFullscreenLayerManager;
     MediaPlayer::VideoGravity m_videoFullscreenGravity;
-    RetainPtr<PlatformLayer> m_textTrackRepresentationLayer;
-#endif
     RetainPtr<WebCoreAVFMovieObserver> m_objcObserver;
     RetainPtr<id> m_timeObserver;
     mutable String m_languageOfPrimaryAudioTrack;
@@ -368,7 +363,9 @@ private:
     std::unique_ptr<VideoTextureCopierCV> m_videoTextureCopier;
 #endif
 
+#if HAVE(CORE_VIDEO)
     std::unique_ptr<PixelBufferConformerCV> m_pixelBufferConformer;
+#endif
 
 #if HAVE(AVFOUNDATION_LOADER_DELEGATE)
     friend class WebCoreAVFResourceLoader;

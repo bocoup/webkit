@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #import "ObjCObjectGraph.h"
 #import "SandboxExtension.h"
 #import "SandboxInitializationParameters.h"
-#import "SecItemShim.h"
 #import "SessionTracker.h"
 #import "WKAPICast.h"
 #import "WKBrowsingContextHandleInternal.h"
@@ -57,20 +56,19 @@
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/LogInitialization.h>
 #import <WebCore/MemoryRelease.h>
+#import <WebCore/NSScrollerImpDetails.h>
 #import <WebCore/PerformanceLogging.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/WebCoreNSURLExtras.h>
 #import <algorithm>
 #import <dispatch/dispatch.h>
 #import <objc/runtime.h>
-#import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/cocoa/pthreadSPI.h>
 #import <pal/spi/mac/NSAccessibilitySPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
 #import <stdio.h>
-#import <wtf/CurrentTime.h>
 
 #if PLATFORM(IOS)
 #import <UIKit/UIAccessibility.h>
@@ -83,6 +81,10 @@
 #define kAXPidStatusChangedNotification 0
 #endif
 
+#endif
+
+#if PLATFORM(MAC)
+#import <WebCore/ScrollbarThemeMac.h>
 #endif
 
 #if USE(OS_STATE)
@@ -144,10 +146,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& par
         JSC::processConfigFile(javaScriptConfigFile.latin1().data(), "com.apple.WebKit.WebContent", parameters.uiProcessBundleIdentifier.latin1().data());
     }
 
-#if PLATFORM(MAC)
-    setSharedHTTPCookieStorage(parameters.uiProcessCookieStorageIdentifier);
-#endif
-
     auto urlCache = adoptNS([[NSURLCache alloc] initWithMemoryCapacity:0 diskCapacity:0 diskPath:nil]);
     [NSURLCache setSharedURLCache:urlCache.get()];
 
@@ -179,8 +177,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& par
     [NSApplication _accessibilityInitialize];
 #endif
 
-    _CFNetworkSetATSContext(parameters.networkATSContext.get());
-
 #if TARGET_OS_IPHONE
     // Priority decay on iOS 9 is impacting page load time so we fix the priority of the WebProcess' main thread (rdar://problem/22003112).
     pthread_set_fixedpriority_self();
@@ -195,7 +191,7 @@ void WebProcess::initializeProcessName(const ChildProcessInitializationParameter
         applicationName = [NSString stringWithFormat:WEB_UI_STRING("%@ Web Inspector", "Visible name of Web Inspector's web process. The argument is the application name."), (NSString *)parameters.uiProcessName];
 #if ENABLE(SERVICE_WORKER)
     else if (parameters.extraInitializationData.get(ASCIILiteral("service-worker-process")) == "1")
-        applicationName = [NSString stringWithFormat:WEB_UI_STRING("%@ Service Worker", "Visible name of Service Worker process. The argument is the application name."), (NSString *)parameters.uiProcessName];
+        applicationName = [NSString stringWithFormat:WEB_UI_STRING("%@ Service Worker (%@)", "Visible name of Service Worker process. The argument is the application name."), (NSString *)parameters.uiProcessName, (NSString *)parameters.extraInitializationData.get(ASCIILiteral("security-origin"))];
 #endif
     else
         applicationName = [NSString stringWithFormat:WEB_UI_STRING("%@ Web Content", "Visible name of the web process. The argument is the application name."), (NSString *)parameters.uiProcessName];
@@ -307,10 +303,6 @@ void WebProcess::platformInitializeProcess(const ChildProcessInitializationParam
 #if USE(OS_STATE)
     registerWithStateDumper();
 #endif
-
-#if ENABLE(SEC_ITEM_SHIM)
-    initializeSecItemShim(*this);
-#endif
 }
 
 #if USE(APPKIT)
@@ -351,7 +343,7 @@ void WebProcess::initializeSandbox(const ChildProcessInitializationParameters& p
 #else
     NSBundle *webKit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKView")];
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && !ENABLE(MINIMAL_SIMULATOR)
     sandboxParameters.setOverrideSandboxProfilePath([webKit2Bundle pathForResource:@"com.apple.WebKit.WebContent" ofType:@"sb"]);
 #else
     sandboxParameters.setOverrideSandboxProfilePath([webKit2Bundle pathForResource:@"com.apple.WebProcess" ofType:@"sb"]);
@@ -395,7 +387,7 @@ void WebProcess::updateActivePages()
     auto activePageURLs = adoptNS([[NSMutableArray alloc] init]);
 
     for (auto& page : m_pageMap.values()) {
-        if (page->usesEphemeralSession())
+        if (page->usesEphemeralSession() || page->isSuspended())
             continue;
 
         if (NSURL *originAsURL = origin(*page))
@@ -534,13 +526,13 @@ RefPtr<ObjCObjectGraph> WebProcess::transformObjectsToHandles(ObjCObjectGraph& o
 void WebProcess::destroyRenderingResources()
 {
 #if !RELEASE_LOG_DISABLED
-    double startTime = monotonicallyIncreasingTime();
+    MonotonicTime startTime = MonotonicTime::now();
 #endif
     CABackingStoreCollectBlocking();
 #if !RELEASE_LOG_DISABLED
-    double endTime = monotonicallyIncreasingTime();
+    MonotonicTime endTime = MonotonicTime::now();
 #endif
-    RELEASE_LOG(ProcessSuspension, "%p - WebProcess::destroyRenderingResources() took %.2fms", this, (endTime - startTime) * 1000.0);
+    RELEASE_LOG(ProcessSuspension, "%p - WebProcess::destroyRenderingResources() took %.2fms", this, (endTime - startTime).milliseconds());
 }
 
 // FIXME: This should live somewhere else, and it should have the implementation in line instead of calling out to WKSI.
@@ -555,5 +547,18 @@ void WebProcess::accessibilityProcessSuspendedNotification(bool suspended)
     UIAccessibilityPostNotification(kAXPidStatusChangedNotification, @{ @"pid" : @(getpid()), @"suspended" : @(suspended) });
 }
 #endif
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+void WebProcess::scrollerStylePreferenceChanged(bool useOverlayScrollbars)
+{
+    ScrollerStyle::setUseOverlayScrollbars(useOverlayScrollbars);
+
+    ScrollbarTheme& theme = ScrollbarTheme::theme();
+    if (theme.isMockTheme())
+        return;
+
+    static_cast<ScrollbarThemeMac&>(theme).preferencesChanged();
+}
+#endif    
 
 } // namespace WebKit

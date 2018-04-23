@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include "InitializeThreading.h"
 #include "LinkBuffer.h"
 #include "ProbeContext.h"
+#include "StackAlignment.h"
 #include <limits>
 #include <wtf/Compiler.h>
 #include <wtf/DataLog.h>
@@ -79,7 +80,7 @@ namespace {
 using CPUState = Probe::CPUState;
 #endif
 
-StaticLock crashLock;
+Lock crashLock;
 
 typedef WTF::Function<void(CCallHelpers&)> Generator;
 
@@ -143,18 +144,19 @@ bool isSpecialGPR(MacroAssembler::RegisterID id)
 }
 #endif // ENABLE(MASM_PROBE)
 
-MacroAssemblerCodeRef compile(Generator&& generate)
+MacroAssemblerCodeRef<JSEntryPtrTag> compile(Generator&& generate)
 {
     CCallHelpers jit;
     generate(jit);
     LinkBuffer linkBuffer(jit, nullptr);
-    return FINALIZE_CODE(linkBuffer, ("testmasm compilation"));
+    return FINALIZE_CODE(linkBuffer, JSEntryPtrTag, "testmasm compilation");
 }
 
 template<typename T, typename... Arguments>
-T invoke(MacroAssemblerCodeRef code, Arguments... arguments)
+T invoke(MacroAssemblerCodeRef<JSEntryPtrTag> code, Arguments... arguments)
 {
-    T (*function)(Arguments...) = bitwise_cast<T(*)(Arguments...)>(code.code().executableAddress());
+    void* executableAddress = untagCFunctionPtr<JSEntryPtrTag>(code.code().executableAddress());
+    T (*function)(Arguments...) = bitwise_cast<T(*)(Arguments...)>(executableAddress);
     return function(arguments...);
 }
 
@@ -198,7 +200,7 @@ void testBranchTruncateDoubleToInt32(double val, int32_t expected)
 #endif
     CHECK_EQ(compileAndRun<int>([&] (CCallHelpers& jit) {
         jit.emitFunctionPrologue();
-        jit.subPtr(CCallHelpers::TrustedImm32(8), MacroAssembler::stackPointerRegister);
+        jit.subPtr(CCallHelpers::TrustedImm32(stackAlignmentBytes()), MacroAssembler::stackPointerRegister);
         if (isBigEndian) {
             jit.store32(CCallHelpers::TrustedImm32(valAsUInt >> 32),
                 MacroAssembler::stackPointerRegister);
@@ -218,7 +220,7 @@ void testBranchTruncateDoubleToInt32(double val, int32_t expected)
         jit.move(CCallHelpers::TrustedImm32(0), GPRInfo::returnValueGPR);
 
         done.link(&jit);
-        jit.addPtr(CCallHelpers::TrustedImm32(8), MacroAssembler::stackPointerRegister);
+        jit.addPtr(CCallHelpers::TrustedImm32(stackAlignmentBytes()), MacroAssembler::stackPointerRegister);
         jit.emitFunctionEpilogue();
         jit.ret();
     }), expected);
@@ -232,10 +234,8 @@ void testProbeReadsArgumentRegisters()
     compileAndRun<void>([&] (CCallHelpers& jit) {
         jit.emitFunctionPrologue();
 
-        jit.push(GPRInfo::argumentGPR0);
-        jit.push(GPRInfo::argumentGPR1);
-        jit.push(GPRInfo::argumentGPR2);
-        jit.push(GPRInfo::argumentGPR3);
+        jit.pushPair(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1);
+        jit.pushPair(GPRInfo::argumentGPR2, GPRInfo::argumentGPR3);
 
         jit.move(CCallHelpers::TrustedImm32(testWord32(0)), GPRInfo::argumentGPR0);
         jit.convertInt32ToDouble(GPRInfo::argumentGPR0, FPRInfo::fpRegT0);
@@ -265,10 +265,8 @@ void testProbeReadsArgumentRegisters()
             CHECK_EQ(cpu.fpr(FPRInfo::fpRegT1), testWord32(1));
         });
 
-        jit.pop(GPRInfo::argumentGPR3);
-        jit.pop(GPRInfo::argumentGPR2);
-        jit.pop(GPRInfo::argumentGPR1);
-        jit.pop(GPRInfo::argumentGPR0);
+        jit.popPair(GPRInfo::argumentGPR2, GPRInfo::argumentGPR3);
+        jit.popPair(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1);
 
         jit.emitFunctionEpilogue();
         jit.ret();
@@ -285,10 +283,8 @@ void testProbeWritesArgumentRegisters()
     compileAndRun<void>([&] (CCallHelpers& jit) {
         jit.emitFunctionPrologue();
 
-        jit.push(GPRInfo::argumentGPR0);
-        jit.push(GPRInfo::argumentGPR1);
-        jit.push(GPRInfo::argumentGPR2);
-        jit.push(GPRInfo::argumentGPR3);
+        jit.pushPair(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1);
+        jit.pushPair(GPRInfo::argumentGPR2, GPRInfo::argumentGPR3);
 
         // Pre-initialize with non-expected values.
 #if USE(JSVALUE64)
@@ -331,10 +327,8 @@ void testProbeWritesArgumentRegisters()
             CHECK_EQ(cpu.fpr<uint64_t>(FPRInfo::fpRegT1), testWord64(1));
         });
 
-        jit.pop(GPRInfo::argumentGPR3);
-        jit.pop(GPRInfo::argumentGPR2);
-        jit.pop(GPRInfo::argumentGPR1);
-        jit.pop(GPRInfo::argumentGPR0);
+        jit.popPair(GPRInfo::argumentGPR2, GPRInfo::argumentGPR3);
+        jit.popPair(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1);
 
         jit.emitFunctionEpilogue();
         jit.ret();
@@ -599,7 +593,7 @@ void testProbeModifiesProgramCounter()
     unsigned probeCallCount = 0;
     bool continuationWasReached = false;
 
-    MacroAssemblerCodeRef continuation = compile([&] (CCallHelpers& jit) {
+    MacroAssemblerCodeRef<JSEntryPtrTag> continuation = compile([&] (CCallHelpers& jit) {
         // Validate that we reached the continuation.
         jit.probe([&] (Probe::Context&) {
             probeCallCount++;
@@ -616,7 +610,7 @@ void testProbeModifiesProgramCounter()
         // Write expected values into the registers.
         jit.probe([&] (Probe::Context& context) {
             probeCallCount++;
-            context.cpu.pc() = continuation.code().executableAddress();
+            context.cpu.pc() = untagCodePtr(continuation.code().executableAddress(), JSEntryPtrTag);
         });
 
         jit.breakpoint(); // We should never get here.

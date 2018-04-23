@@ -24,13 +24,14 @@
 
 #include "WebResourceLoadScheduler.h"
 
+#include "PingHandle.h"
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FetchOptions.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/NetscapePlugInStreamLoader.h>
-#include <WebCore/PingHandle.h>
+#include <WebCore/NetworkStateNotifier.h>
 #include <WebCore/PlatformStrategies.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SubresourceLoader.h>
@@ -105,9 +106,9 @@ void WebResourceLoadScheduler::loadResource(Frame& frame, CachedResource& resour
     });
 }
 
-void WebResourceLoadScheduler::loadResourceSynchronously(NetworkingContext* context, unsigned long, const ResourceRequest& request, StoredCredentialsPolicy storedCredentialsPolicy, ClientCredentialPolicy, ResourceError& error, ResourceResponse& response, Vector<char>& data)
+void WebResourceLoadScheduler::loadResourceSynchronously(FrameLoader& frameLoader, unsigned long, const ResourceRequest& request, ClientCredentialPolicy, const FetchOptions& options, const HTTPHeaderMap&, ResourceError& error, ResourceResponse& response, Vector<char>& data)
 {
-    ResourceHandle::loadResourceSynchronously(context, request, storedCredentialsPolicy, error, response, data);
+    ResourceHandle::loadResourceSynchronously(frameLoader.networkingContext(), request, options.credentials == FetchOptions::Credentials::Omit ? StoredCredentialsPolicy::DoNotUse : StoredCredentialsPolicy::Use, error, response, data);
 }
 
 void WebResourceLoadScheduler::schedulePluginStreamLoad(Frame& frame, NetscapePlugInStreamLoaderClient& client, ResourceRequest&& request, CompletionHandler<void(RefPtr<WebCore::NetscapePlugInStreamLoader>&&)>&& completionHandler)
@@ -367,7 +368,17 @@ void WebResourceLoadScheduler::startPingLoad(Frame& frame, ResourceRequest& requ
     new PingHandle(frame.loader().networkingContext(), request, options.credentials != FetchOptions::Credentials::Omit, options.redirect == FetchOptions::Redirect::Follow, WTFMove(completionHandler));
 }
 
-void WebResourceLoadScheduler::preconnectTo(NetworkingContext&, const URL&, StoredCredentialsPolicy, PreconnectCompletionHandler&&)
+bool WebResourceLoadScheduler::isOnLine() const
+{
+    return NetworkStateNotifier::singleton().onLine();
+}
+
+void WebResourceLoadScheduler::addOnlineStateChangeListener(WTF::Function<void(bool)>&& listener)
+{
+    NetworkStateNotifier::singleton().addListener(WTFMove(listener));
+}
+
+void WebResourceLoadScheduler::preconnectTo(FrameLoader&, const URL&, StoredCredentialsPolicy, PreconnectCompletionHandler&&)
 {
 }
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -98,8 +98,9 @@ messages -> WebPageProxy {
 #endif
 
     # Policy messages
-    DecidePolicyForResponseSync(uint64_t frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, uint64_t navigationID, WebCore::ResourceResponse response, WebCore::ResourceRequest request, bool canShowMIMEType, uint64_t listenerID, WebKit::UserData userData) -> (bool receivedPolicyAction, enum WebCore::PolicyAction policyAction, WebKit::DownloadID downloadID)
-    DecidePolicyForNavigationAction(uint64_t frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, uint64_t navigationID, struct WebKit::NavigationActionData navigationActionData, struct WebKit::FrameInfoData originatingFrameInfoData, uint64_t originatingPageID, WebCore::ResourceRequest originalRequest, WebCore::ResourceRequest request, uint64_t listenerID, WebKit::UserData userData) -> (bool receivedPolicyAction, uint64_t newNavigationID, enum WebCore::PolicyAction policyAction, WebKit::DownloadID downloadID, std::optional<WebKit::WebsitePoliciesData> websitePolicies)
+    DecidePolicyForResponse(uint64_t frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, uint64_t navigationID, WebCore::ResourceResponse response, WebCore::ResourceRequest request, bool canShowMIMEType, uint64_t listenerID, WebKit::UserData userData)
+    DecidePolicyForNavigationAction(uint64_t frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, uint64_t navigationID, struct WebKit::NavigationActionData navigationActionData, struct WebKit::FrameInfoData originatingFrameInfoData, uint64_t originatingPageID, WebCore::ResourceRequest originalRequest, WebCore::ResourceRequest request, uint64_t listenerID, WebKit::UserData userData)
+    DecidePolicyForNavigationActionSync(uint64_t frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, uint64_t navigationID, struct WebKit::NavigationActionData navigationActionData, struct WebKit::FrameInfoData originatingFrameInfoData, uint64_t originatingPageID, WebCore::ResourceRequest originalRequest, WebCore::ResourceRequest request, uint64_t listenerID, WebKit::UserData userData) -> (uint64_t newNavigationID, enum WebCore::PolicyAction policyAction, WebKit::DownloadID downloadID, std::optional<WebKit::WebsitePoliciesData> websitePolicies) Delayed
     DecidePolicyForNewWindowAction(uint64_t frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, struct WebKit::NavigationActionData navigationActionData, WebCore::ResourceRequest request, String frameName, uint64_t listenerID, WebKit::UserData userData)
     UnableToImplementPolicy(uint64_t frameID, WebCore::ResourceError error, WebKit::UserData userData)
 
@@ -114,9 +115,11 @@ messages -> WebPageProxy {
     DidCreateMainFrame(uint64_t frameID)
     DidCreateSubframe(uint64_t frameID)
 
+    DidCreateWindow(uint64_t frameID, struct WebCore::GlobalWindowIdentifier windowIdentifier)
+
     # Frame load messages
     DidStartProvisionalLoadForFrame(uint64_t frameID, uint64_t navigationID, WebCore::URL url, WebCore::URL unreachableURL, WebKit::UserData userData)
-    DidReceiveServerRedirectForProvisionalLoadForFrame(uint64_t frameID, uint64_t navigationID, WebCore::URL url, WebKit::UserData userData)
+    DidReceiveServerRedirectForProvisionalLoadForFrame(uint64_t frameID, uint64_t navigationID, WebCore::ResourceRequest request, WebKit::UserData userData)
     WillPerformClientRedirectForFrame(uint64_t frameID, String url, double delay)
     DidCancelClientRedirectForFrame(uint64_t frameID)
     DidChangeProvisionalURLForFrame(uint64_t frameID, uint64_t navigationID, WebCore::URL url)
@@ -184,9 +187,6 @@ messages -> WebPageProxy {
     SelectionContextCallback(String selectedText, String beforeText, String afterText, WebKit::CallbackID callbackID)
     InterpretKeyEvent(struct WebKit::EditorState state, bool isCharEvent) -> (bool handled)
     DidReceivePositionInformation(struct WebKit::InteractionInformationAtPosition information)
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-    DidUpdateBlockSelectionWithTouch(uint32_t touch, uint32_t flags, float growThreshold, float shrinkThreshold)
-#endif
     SaveImageToLibrary(WebKit::SharedMemory::Handle handle, uint64_t size)
     ShowPlaybackTargetPicker(bool hasVideo, WebCore::IntRect elementRect)
     CommitPotentialTapFailed()
@@ -203,7 +203,7 @@ messages -> WebPageProxy {
     PrintFinishedCallback(WebCore::ResourceError error, WebKit::CallbackID callbackID)
 #endif
 #if PLATFORM(COCOA)
-    MachSendRightCallback(WebCore::MachSendRight sendRight, WebKit::CallbackID callbackID)
+    MachSendRightCallback(MachSendRight sendRight, WebKit::CallbackID callbackID)
     NowPlayingInfoCallback(bool active, bool registeredAsNowPlayingApplication, String title, double duration, double elapsedTime, uint64_t uniqueIdentifier, WebKit::CallbackID callbackID)
 #endif
 
@@ -219,13 +219,13 @@ messages -> WebPageProxy {
 #endif
 
     # BackForward messages
-    BackForwardAddItem(uint64_t itemID)
-    BackForwardGoToItem(uint64_t itemID) -> (WebKit::SandboxExtension::Handle sandboxExtensionHandle)
-    BackForwardItemAtIndex(int32_t itemIndex) -> (uint64_t itemID)
+    BackForwardAddItem(struct WebKit::BackForwardListItemState itemState)
+    BackForwardGoToItem(struct WebCore::BackForwardItemIdentifier itemID) -> (WebKit::SandboxExtension::Handle sandboxExtensionHandle)
+    BackForwardItemAtIndex(int32_t itemIndex) -> (std::optional<WebCore::BackForwardItemIdentifier> itemID)
     BackForwardBackListCount() -> (int32_t count)
     BackForwardForwardListCount() -> (int32_t count)
     BackForwardClear()
-    WillGoToBackForwardListItem(uint64_t itemID, bool inPageCache, WebKit::UserData userData)
+    WillGoToBackForwardListItem(struct WebCore::BackForwardItemIdentifier itemID, bool inPageCache, WebKit::UserData userData)
 
     # Undo/Redo messages
     RegisterEditCommandForUndo(uint64_t commandID, uint32_t editAction)
@@ -466,7 +466,10 @@ messages -> WebPageProxy {
     HandleMessage(String messageName, WebKit::UserData messageBody) WantsConnection
     HandleSynchronousMessage(String messageName, WebKit::UserData messageBody) -> (WebKit::UserData returnData) WantsConnection
 
-    HandleAutoFillButtonClick(WebKit::UserData userData);
+    HandleAutoFillButtonClick(WebKit::UserData userData)
+
+    DidResignInputElementStrongPasswordAppearance(WebKit::UserData userData)
+
     ContentRuleListNotification(WebCore::URL url, Vector<String> identifiers, Vector<String> notifications)
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
@@ -514,5 +517,10 @@ messages -> WebPageProxy {
 #if ENABLE(ATTACHMENT_ELEMENT)
     DidInsertAttachment(String identifier, String source)
     DidRemoveAttachment(String identifier)
+#endif
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    StartDisplayLink(unsigned observerID)
+    StopDisplayLink(unsigned observerID)
 #endif
 }

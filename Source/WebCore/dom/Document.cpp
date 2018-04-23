@@ -70,6 +70,7 @@
 #include "FocusEvent.h"
 #include "FontFaceSet.h"
 #include "FormController.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameView.h"
@@ -111,10 +112,11 @@
 #include "JSDOMPromiseDeferred.h"
 #include "JSLazyEventListener.h"
 #include "KeyboardEvent.h"
+#include "KeyframeEffectReadOnly.h"
 #include "LayoutDisallowedScope.h"
+#include "LibWebRTCProvider.h"
 #include "LoaderStrategy.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "MediaCanStartListener.h"
 #include "MediaProducer.h"
 #include "MediaQueryList.h"
@@ -130,7 +132,6 @@
 #include "NodeRareData.h"
 #include "NodeWithIndex.h"
 #include "OriginAccessEntry.h"
-#include "OriginThreadLocalCache.h"
 #include "OverflowEvent.h"
 #include "PageConsoleClient.h"
 #include "PageGroup.h"
@@ -188,6 +189,7 @@
 #include "SocketProvider.h"
 #include "StorageEvent.h"
 #include "StringCallback.h"
+#include "StyleColor.h"
 #include "StyleProperties.h"
 #include "StyleResolveForDocument.h"
 #include "StyleResolver.h"
@@ -221,7 +223,7 @@
 #include <JavaScriptCore/ScriptCallStack.h>
 #include <JavaScriptCore/VM.h>
 #include <ctime>
-#include <wtf/CurrentTime.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
@@ -307,6 +309,9 @@
 
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(Document);
+
 using namespace PAL;
 using namespace WTF;
 using namespace Unicode;
@@ -496,9 +501,6 @@ Document::Document(Frame* frame, const URL& url, unsigned documentClasses, unsig
     , m_constantPropertyMap(std::make_unique<ConstantPropertyMap>(*this))
     , m_documentClasses(documentClasses)
     , m_eventQueue(*this)
-#if ENABLE(FULLSCREEN_API)
-    , m_fullScreenChangeDelayTimer(*this, &Document::fullScreenChangeDelayTimerFired)
-#endif
     , m_loadEventDelayTimer(*this, &Document::loadEventDelayTimerFired)
 #if PLATFORM(IOS)
 #if ENABLE(DEVICE_ORIENTATION)
@@ -571,8 +573,13 @@ Ref<Document> Document::create(Document& contextDocument)
 
 Document::~Document()
 {
-    bool wasRemoved = allDocumentsMap().remove(m_identifier);
-    ASSERT_UNUSED(wasRemoved, wasRemoved);
+    if (m_logger)
+        m_logger->removeObserver(*this);
+
+    ASSERT(allDocumentsMap().contains(m_identifier));
+    allDocumentsMap().remove(m_identifier);
+    // We need to remove from the contexts map very early in the destructor so that calling postTask() on this Document from another thread is safe.
+    removeFromContextsMap();
 
     ASSERT(!renderView());
     ASSERT(m_pageCacheState != InPageCache);
@@ -642,9 +649,6 @@ Document::~Document()
 
     for (unsigned count : m_nodeListAndCollectionCounts)
         ASSERT_UNUSED(count, !count);
-
-    if (m_logger)
-        m_logger->removeObserver(*this);
 }
 
 void Document::removedLastRef()
@@ -798,17 +802,17 @@ String Document::compatMode() const
 
 void Document::resetLinkColor()
 {
-    m_linkColor = Color(0, 0, 238);
+    m_linkColor = StyleColor::colorFromKeyword(CSSValueWebkitLink, styleColorOptions());
 }
 
 void Document::resetVisitedLinkColor()
 {
-    m_visitedLinkColor = Color(85, 26, 139);    
+    m_visitedLinkColor = StyleColor::colorFromKeyword(CSSValueWebkitLink, styleColorOptions() | StyleColor::Options::ForVisitedLink);
 }
 
 void Document::resetActiveLinkColor()
 {
-    m_activeLinkColor = Color(255, 0, 0);
+    m_activeLinkColor = StyleColor::colorFromKeyword(CSSValueWebkitActivelink, styleColorOptions());
 }
 
 DOMImplementation& Document::implementation()
@@ -1177,11 +1181,6 @@ CustomElementNameValidationStatus Document::validateCustomElementName(const Atom
         return CustomElementNameValidationStatus::ConflictsWithStandardElementName;
 
     return CustomElementNameValidationStatus::Valid;
-}
-
-bool Document::isCSSGridLayoutEnabled() const
-{
-    return RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled();
 }
 
 ExceptionOr<Ref<Element>> Document::createElementNS(const AtomicString& namespaceURI, const String& qualifiedName)
@@ -2078,6 +2077,10 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, DimensionsChe
         requireFullLayout = true;
     }
 
+    // Turn off this optimization for input elements with shadow content.
+    if (is<HTMLInputElement>(element))
+        requireFullLayout = true;
+
     bool isVertical = renderer && !renderer->isHorizontalWritingMode();
     bool checkingLogicalWidth = ((dimensionsCheck & WidthDimensionsCheck) && !isVertical) || ((dimensionsCheck & HeightDimensionsCheck) && isVertical);
     bool checkingLogicalHeight = ((dimensionsCheck & HeightDimensionsCheck) && !isVertical) || ((dimensionsCheck & WidthDimensionsCheck) && isVertical);
@@ -2256,11 +2259,17 @@ void Document::didBecomeCurrentDocumentInFrame()
     // be out of sync if the DOM suspension state changed while the document was not in the frame (possibly in the
     // page cache, or simply newly created).
     if (m_frame->activeDOMObjectsAndAnimationsSuspended()) {
-        m_frame->animation().suspendAnimationsForDocument(this);
+        if (RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled())
+            timeline().suspendAnimations();
+        else
+            m_frame->animation().suspendAnimationsForDocument(this);
         suspendScheduledTasks(ActiveDOMObject::PageWillBeSuspended);
     } else {
         resumeScheduledTasks(ActiveDOMObject::PageWillBeSuspended);
-        m_frame->animation().resumeAnimationsForDocument(this);
+        if (RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled())
+            timeline().resumeAnimations();
+        else
+            m_frame->animation().resumeAnimationsForDocument(this);
     }
 }
 
@@ -2347,6 +2356,14 @@ void Document::prepareForDestruction()
 
     if (m_frame)
         m_frame->animation().detachFromDocument(this);
+
+#if USE(LIBWEBRTC)
+    // FIXME: This should be moved to Modules/mediastream.
+    if (LibWebRTCProvider::webRTCAvailable()) {
+        if (auto* page = this->page())
+            page->libWebRTCProvider().unregisterMDNSNames(identifier().toUInt64());
+    }
+#endif
 
 #if ENABLE(SERVICE_WORKER)
     setActiveServiceWorker(nullptr);
@@ -2576,7 +2593,7 @@ ScriptableDocumentParser* Document::scriptableDocumentParser() const
     return parser() ? parser()->asScriptableDocumentParser() : nullptr;
 }
 
-ExceptionOr<RefPtr<DOMWindow>> Document::openForBindings(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& url, const AtomicString& name, const String& features)
+ExceptionOr<RefPtr<WindowProxy>> Document::openForBindings(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& url, const AtomicString& name, const String& features)
 {
     if (!m_domWindow)
         return Exception { InvalidAccessError };
@@ -3458,29 +3475,14 @@ void Document::processReferrerPolicy(const String& policy)
     if (shouldEnforceQuickLookSandbox())
         return;
 #endif
-
-    // "never" / "default" / "always" are legacy keywords that we will support. They were defined in:
-    // https://www.w3.org/TR/2014/WD-referrer-policy-20140807/#referrer-policy-delivery-meta
-    if (equalLettersIgnoringASCIICase(policy, "no-referrer") || equalLettersIgnoringASCIICase(policy, "never"))
-        setReferrerPolicy(ReferrerPolicy::NoReferrer);
-    else if (equalLettersIgnoringASCIICase(policy, "unsafe-url") || equalLettersIgnoringASCIICase(policy, "always"))
-        setReferrerPolicy(ReferrerPolicy::UnsafeUrl);
-    else if (equalLettersIgnoringASCIICase(policy, "origin"))
-        setReferrerPolicy(ReferrerPolicy::Origin);
-    else if (equalLettersIgnoringASCIICase(policy, "origin-when-cross-origin"))
-        setReferrerPolicy(ReferrerPolicy::OriginWhenCrossOrigin);
-    else if (equalLettersIgnoringASCIICase(policy, "same-origin"))
-        setReferrerPolicy(ReferrerPolicy::SameOrigin);
-    else if (equalLettersIgnoringASCIICase(policy, "strict-origin"))
-        setReferrerPolicy(ReferrerPolicy::StrictOrigin);
-    else if (equalLettersIgnoringASCIICase(policy, "strict-origin-when-cross-origin"))
-        setReferrerPolicy(ReferrerPolicy::StrictOriginWhenCrossOrigin);
-    else if (equalLettersIgnoringASCIICase(policy, "no-referrer-when-downgrade") || equalLettersIgnoringASCIICase(policy, "default"))
-        setReferrerPolicy(ReferrerPolicy::NoReferrerWhenDowngrade);
-    else {
+    
+    auto referrerPolicy = parseReferrerPolicy(policy, ShouldParseLegacyKeywords::Yes);
+    if (!referrerPolicy) {
         addConsoleMessage(MessageSource::Rendering, MessageLevel::Error, "Failed to set referrer policy: The value '" + policy + "' is not one of 'no-referrer', 'no-referrer-when-downgrade', 'same-origin', 'origin', 'strict-origin', 'origin-when-cross-origin', 'strict-origin-when-cross-origin' or 'unsafe-url'. Defaulting to 'no-referrer'.");
         setReferrerPolicy(ReferrerPolicy::NoReferrer);
+        return;
     }
+    setReferrerPolicy(referrerPolicy.value());
 }
 
 MouseEventWithHitTestResults Document::prepareMouseEvent(const HitTestRequest& request, const LayoutPoint& documentPoint, const PlatformMouseEvent& event)
@@ -4259,6 +4261,8 @@ void Document::createDOMWindow()
 
     ASSERT(m_domWindow->document() == this);
     ASSERT(m_domWindow->frame() == m_frame);
+
+    m_frame->loader().client().didCreateWindow(*m_domWindow);
 }
 
 void Document::takeDOMWindowFrom(Document* document)
@@ -4891,6 +4895,14 @@ void Document::suspend(ActiveDOMObject::ReasonForSuspension reason)
             view->compositor().cancelCompositingLayerUpdate();
     }
 
+#if USE(LIBWEBRTC)
+    // FIXME: This should be moved to Modules/mediastream.
+    if (LibWebRTCProvider::webRTCAvailable()) {
+        if (auto* page = this->page())
+            page->libWebRTCProvider().unregisterMDNSNames(identifier().toUInt64());
+    }
+#endif
+
 #if ENABLE(SERVICE_WORKER)
     if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && reason == ActiveDOMObject::ReasonForSuspension::PageCache) {
         ASSERT_WITH_MESSAGE(!activeServiceWorker(), "Documents with an active service worker should not go into PageCache in the first place");
@@ -4925,7 +4937,11 @@ void Document::resume(ActiveDOMObject::ReasonForSuspension reason)
 
     ASSERT(m_frame);
     m_frame->loader().client().dispatchDidBecomeFrameset(isFrameSet());
-    m_frame->animation().resumeAnimationsForDocument(this);
+
+    if (RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled())
+        timeline().resumeAnimations();
+    else
+        m_frame->animation().resumeAnimationsForDocument(this);
 
     resumeScheduledTasks(reason);
 
@@ -5765,6 +5781,9 @@ void Document::initDNSPrefetch()
 
 void Document::parseDNSPrefetchControlHeader(const String& dnsPrefetchControl)
 {
+    if (!settings().dnsPrefetchingEnabled())
+        return;
+
     if (equalLettersIgnoringASCIICase(dnsPrefetchControl, "on") && !m_haveExplicitlyDisabledDNSPrefetch) {
         m_isDNSPrefetchEnabled = true;
         return;
@@ -6087,14 +6106,19 @@ void Document::requestFullScreenForElement(Element* element, FullScreenCheckType
         // 5. Return, and run the remaining steps asynchronously.
         // 6. Optionally, perform some animation.
         m_areKeysEnabledInFullScreen = hasKeyboardAccess;
-        page()->chrome().client().enterFullScreenForElement(*element);
+        m_fullScreenTaskQueue.enqueueTask([this, element = makeRefPtr(element)] {
+            if (auto page = this->page())
+                page->chrome().client().enterFullScreenForElement(*element);
+        });
 
         // 7. Optionally, display a message indicating how the user can exit displaying the context object fullscreen.
         return;
     } while (0);
 
     m_fullScreenErrorEventTargetQueue.append(element ? element : documentElement());
-    m_fullScreenChangeDelayTimer.startOneShot(0_s);
+    m_fullScreenTaskQueue.enqueueTask([this] {
+        dispatchFullScreenChangeEvents();
+    });
 }
 
 void Document::webkitCancelFullScreen()
@@ -6172,19 +6196,21 @@ void Document::webkitExitFullscreen()
 
     // 6. Return, and run the remaining steps asynchronously.
     // 7. Optionally, perform some animation.
+    m_fullScreenTaskQueue.enqueueTask([this, newTop = makeRefPtr(newTop), fullScreenElement = m_fullScreenElement] {
+        auto* page = this->page();
+        if (!page)
+            return;
 
-    if (!page())
-        return;
+        // Only exit out of full screen window mode if there are no remaining elements in the 
+        // full screen stack.
+        if (!newTop) {
+            page->chrome().client().exitFullScreenForElement(fullScreenElement.get());
+            return;
+        }
 
-    // Only exit out of full screen window mode if there are no remaining elements in the 
-    // full screen stack.
-    if (!newTop) {
-        page()->chrome().client().exitFullScreenForElement(m_fullScreenElement.get());
-        return;
-    }
-
-    // Otherwise, notify the chrome of the new full screen element.
-    page()->chrome().client().enterFullScreenForElement(*newTop);
+        // Otherwise, notify the chrome of the new full screen element.
+        page->chrome().client().enterFullScreenForElement(*newTop);
+    });
 }
 
 bool Document::webkitFullscreenEnabled() const
@@ -6249,9 +6275,7 @@ void Document::webkitWillEnterFullScreenForElement(Element* element)
     m_fullScreenElement->setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(true);
 
     resolveStyle(ResolveStyleType::Rebuild);
-#if PLATFORM(IOS) && ENABLE(FULLSCREEN_API)
-    m_fullScreenChangeDelayTimer.startOneShot(0_s);
-#endif
+    dispatchFullScreenChangeEvents();
 }
 
 void Document::webkitDidEnterFullScreenForElement(Element*)
@@ -6263,10 +6287,6 @@ void Document::webkitDidEnterFullScreenForElement(Element*)
         return;
 
     m_fullScreenElement->didBecomeFullscreenElement();
-
-#if !PLATFORM(IOS) || !ENABLE(FULLSCREEN_API)
-    m_fullScreenChangeDelayTimer.startOneShot(0_s);
-#endif
 }
 
 void Document::webkitWillExitFullScreenForElement(Element*)
@@ -6303,7 +6323,7 @@ void Document::webkitDidExitFullScreenForElement(Element*)
     bool eventTargetQueuesEmpty = m_fullScreenChangeEventTargetQueue.isEmpty() && m_fullScreenErrorEventTargetQueue.isEmpty();
     Document& exitingDocument = eventTargetQueuesEmpty ? topDocument() : *this;
 
-    exitingDocument.m_fullScreenChangeDelayTimer.startOneShot(0_s);
+    exitingDocument.dispatchFullScreenChangeEvents();
 }
 
 void Document::setFullScreenRenderer(RenderTreeBuilder& builder, RenderFullScreen& renderer)
@@ -6325,7 +6345,7 @@ void Document::setFullScreenRenderer(RenderTreeBuilder& builder, RenderFullScree
     m_fullScreenRenderer = makeWeakPtr(renderer);
 }
 
-void Document::fullScreenChangeDelayTimerFired()
+void Document::dispatchFullScreenChangeEvents()
 {
     // Since we dispatch events in this function, it's possible that the
     // document will be detached and GC'd. We protect it here to make sure we
@@ -7026,6 +7046,23 @@ float Document::deviceScaleFactor() const
         deviceScaleFactor = documentPage->deviceScaleFactor();
     return deviceScaleFactor;
 }
+
+bool Document::useSystemAppearance() const
+{
+    bool useSystemAppearance = false;
+    if (Page* documentPage = page())
+        useSystemAppearance = documentPage->useSystemAppearance();
+    return useSystemAppearance;
+}
+
+OptionSet<StyleColor::Options> Document::styleColorOptions() const
+{
+    OptionSet<StyleColor::Options> options;
+    if (useSystemAppearance())
+        options |= StyleColor::Options::UseSystemAppearance;
+    return options;
+}
+
 void Document::didAssociateFormControl(Element* element)
 {
     if (!frame() || !frame()->page() || !frame()->page()->chrome().client().shouldNotifyOnFormChanges())
@@ -7613,6 +7650,17 @@ void Document::setHasFrameSpecificStorageAccess(bool value)
 {
     m_frame->loader().client().setHasFrameSpecificStorageAccess(value);
 }
+
+bool Document::hasRequestedPageSpecificStorageAccessWithUserInteraction(const String& primaryDomain)
+{
+    return m_primaryDomainRequestedPageSpecificStorageAccessWithUserInteraction == primaryDomain;
+}
+
+void Document::setHasRequestedPageSpecificStorageAccessWithUserInteraction(const String& primaryDomain)
+{
+    m_primaryDomainRequestedPageSpecificStorageAccessWithUserInteraction = primaryDomain;
+}
+
 #endif
 
 void Document::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
@@ -7630,11 +7678,22 @@ DocumentTimeline& Document::timeline()
 
 Vector<RefPtr<WebAnimation>> Document::getAnimations()
 {
+    // FIXME: Filter and order the list as specified (webkit.org/b/179535).
+
+    // For the list of animations to be current, we need to account for any pending CSS changes,
+    // such as updates to CSS Animations and CSS Transitions.
+    updateStyleIfNeeded();
+
     Vector<RefPtr<WebAnimation>> animations;
     if (m_timeline) {
-        // FIXME: Filter and order the list as specified (webkit.org/b/179535).
-        for (auto& animation : m_timeline->animations())
-            animations.append(animation);
+        for (auto& animation : m_timeline->animations()) {
+            if (animation->canBeListed() && is<KeyframeEffectReadOnly>(animation->effect())) {
+                if (auto* target = downcast<KeyframeEffectReadOnly>(animation->effect())->target()) {
+                    if (target->isDescendantOf(this))
+                        animations.append(animation);
+                }
+            }
+        }
     }
     return animations;
 }
@@ -7719,11 +7778,16 @@ void Document::didLogMessage(const WTFLogChannel& channel, WTFLogLevel level, Ve
 
     ASSERT(sessionID().isAlwaysOnLoggingAllowed());
 
-    auto messageSource = messageSourceForWTFLogChannel(channel);
-    auto messageLevel = messageLevelFromWTFLogLevel(level);
-    auto message = std::make_unique<Inspector::ConsoleMessage>(messageSource, MessageType::Log, messageLevel, WTFMove(logMessages), mainWorldExecState(frame()));
+    m_logMessageTaskQueue.enqueueTask([this, channel, level, logMessages = WTFMove(logMessages)]() mutable {
+        if (!page())
+            return;
 
-    addConsoleMessage(WTFMove(message));
+        auto messageSource = messageSourceForWTFLogChannel(channel);
+        auto messageLevel = messageLevelFromWTFLogLevel(level);
+        auto message = std::make_unique<Inspector::ConsoleMessage>(messageSource, MessageType::Log, messageLevel, WTFMove(logMessages), mainWorldExecState(frame()));
+
+        addConsoleMessage(WTFMove(message));
+    });
 }
 
 #if ENABLE(SERVICE_WORKER)
@@ -7740,21 +7804,9 @@ void Document::setServiceWorkerConnection(SWClientConnection* serviceWorkerConne
     if (!m_serviceWorkerConnection)
         return;
 
-    auto controllingServiceWorkerIdentifier = activeServiceWorker() ? std::make_optional<ServiceWorkerIdentifier>(activeServiceWorker()->identifier()) : std::nullopt;
-    m_serviceWorkerConnection->registerServiceWorkerClient(topOrigin(), ServiceWorkerClientData::from(*this, *serviceWorkerConnection), controllingServiceWorkerIdentifier);
+    auto controllingServiceWorkerRegistrationIdentifier = activeServiceWorker() ? std::make_optional<ServiceWorkerRegistrationIdentifier>(activeServiceWorker()->registrationIdentifier()) : std::nullopt;
+    m_serviceWorkerConnection->registerServiceWorkerClient(topOrigin(), ServiceWorkerClientData::from(*this, *serviceWorkerConnection), controllingServiceWorkerRegistrationIdentifier);
 }
 #endif
-
-JSC::ThreadLocalCache& Document::threadLocalCache()
-{
-    if (!m_threadLocalCache) {
-        SecurityOrigin& origin = securityOrigin();
-        if (origin.isUnique() || (origin.isLocal() && origin.enforcesFilePathSeparation()))
-            m_threadLocalCache = JSC::ThreadLocalCache::create(commonVM().heap);
-        else
-            m_threadLocalCache = OriginThreadLocalCache::create(origin);
-    }
-    return *m_threadLocalCache;
-}
 
 } // namespace WebCore

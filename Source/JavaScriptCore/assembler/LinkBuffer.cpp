@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,20 +44,20 @@ bool shouldDumpDisassemblyFor(CodeBlock* codeBlock)
     return Options::dumpDisassembly();
 }
 
-LinkBuffer::CodeRef LinkBuffer::finalizeCodeWithoutDisassembly()
+LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithoutDisassemblyImpl()
 {
     performFinalization();
     
     ASSERT(m_didAllocate);
     if (m_executableMemory)
-        return CodeRef(*m_executableMemory);
+        return CodeRef<LinkBufferPtrTag>(*m_executableMemory);
     
-    return CodeRef::createSelfManagedCodeRef(MacroAssemblerCodePtr(m_code));
+    return CodeRef<LinkBufferPtrTag>::createSelfManagedCodeRef(MacroAssemblerCodePtr<LinkBufferPtrTag>(tagCodePtr<LinkBufferPtrTag>(m_code)));
 }
 
-LinkBuffer::CodeRef LinkBuffer::finalizeCodeWithDisassembly(const char* format, ...)
+LinkBuffer::CodeRef<LinkBufferPtrTag> LinkBuffer::finalizeCodeWithDisassemblyImpl(const char* format, ...)
 {
-    CodeRef result = finalizeCodeWithoutDisassembly();
+    CodeRef<LinkBufferPtrTag> result = finalizeCodeWithoutDisassemblyImpl();
 
     if (m_alreadyDisassembled)
         return result;
@@ -70,17 +70,19 @@ LinkBuffer::CodeRef LinkBuffer::finalizeCodeWithDisassembly(const char* format, 
     va_end(argList);
     out.printf(":\n");
 
-    out.printf("    Code at [%p, %p):\n", result.code().executableAddress(), result.code().executableAddress<char*>() + result.size());
+    uint8_t* executableAddress = result.code().untaggedExecutableAddress<uint8_t*>();
+    out.printf("    Code at [%p, %p):\n", executableAddress, executableAddress + result.size());
     
     CString header = out.toCString();
     
     if (Options::asyncDisassembly()) {
-        disassembleAsynchronously(header, result, m_size, "    ");
+        CodeRef<DisassemblyPtrTag> codeRefForDisassembly = result.retagged<DisassemblyPtrTag>();
+        disassembleAsynchronously(header, WTFMove(codeRefForDisassembly), m_size, "    ");
         return result;
     }
     
     dataLog(header);
-    disassemble(result.code(), m_size, "    ", WTF::dataFile());
+    disassemble(result.retaggedCode<DisassemblyPtrTag>(), m_size, "    ", WTF::dataFile());
     
     return result;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,18 +33,22 @@
 #import "PlaybackSessionManagerProxy.h"
 #import "VideoFullscreenManagerMessages.h"
 #import "VideoFullscreenManagerProxyMessages.h"
+#import "WeakObjCPtr.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
 #import <QuartzCore/CoreAnimation.h>
-#import <WebCore/MachSendRight.h>
 #import <WebCore/MediaPlayerEnums.h>
 #import <WebCore/TimeRanges.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/MachSendRight.h>
 
 #if PLATFORM(IOS)
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "UIKitSPI.h"
+#import <pal/spi/cocoa/AVKitSPI.h>
 #endif
+
+using namespace WebKit;
 
 @interface WKLayerHostView : PlatformView
 @property (nonatomic, assign) uint32_t contextID;
@@ -76,6 +80,48 @@
 }
 
 @end
+
+#if PLATFORM(IOS)
+@interface WKVideoFullScreenViewController : UIViewController
+- (instancetype)initWithAVPlayerViewController:(AVPlayerViewController *)viewController NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithNibName:(NSString * _Nullable)nibNameOrNil bundle:(NSBundle * _Nullable)nibBundleOrNil NS_UNAVAILABLE;
+- (instancetype)initWithCoder:(NSCoder *)aDecoder NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
+@end
+
+@implementation WKVideoFullScreenViewController {
+    WeakObjCPtr<AVPlayerViewController> _avPlayerViewController;
+}
+
+- (instancetype)initWithAVPlayerViewController:(AVPlayerViewController *)controller
+{
+    if (!(self = [super initWithNibName:nil bundle:nil]))
+        return nil;
+
+    _avPlayerViewController = controller;
+    self.modalPresentationCapturesStatusBarAppearance = YES;
+    self.modalPresentationStyle = UIModalPresentationOverFullScreen;
+
+    return self;
+}
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+
+    self.view.frame = UIScreen.mainScreen.bounds;
+    self.view.backgroundColor = [UIColor blackColor];
+    [_avPlayerViewController view].autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+}
+
+- (BOOL)prefersStatusBarHidden
+{
+    return YES;
+}
+
+@end
+
+#endif
 
 using namespace WebCore;
 
@@ -167,6 +213,21 @@ bool VideoFullscreenModelContext::isVisible() const
     return m_manager ? m_manager->isVisible() : false;
 }
 
+#if PLATFORM(IOS)
+UIViewController *VideoFullscreenModelContext::presentingViewController()
+{
+    if (m_manager)
+        return m_manager->m_page->uiClient().presentingViewController();
+
+    return nullptr;
+}
+
+UIViewController *VideoFullscreenModelContext::createVideoFullscreenViewController(AVPlayerViewController *avPlayerViewController)
+{
+    return [[WKVideoFullScreenViewController alloc] initWithAVPlayerViewController:avPlayerViewController];
+}
+#endif
+
 void VideoFullscreenModelContext::requestUpdateInlineRect()
 {
     if (m_manager)
@@ -195,6 +256,12 @@ void VideoFullscreenModelContext::didEnterFullscreen()
 {
     if (m_manager)
         m_manager->didEnterFullscreen(m_contextId);
+}
+
+void VideoFullscreenModelContext::willExitFullscreen()
+{
+    if (m_manager)
+        m_manager->willExitFullscreen(m_contextId);
 }
 
 void VideoFullscreenModelContext::didExitFullscreen()
@@ -279,7 +346,7 @@ bool VideoFullscreenManagerProxy::mayAutomaticallyShowVideoPictureInPicture() co
     return false;
 }
 
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+#if ENABLE(VIDEO_PRESENTATION_MODE)
 bool VideoFullscreenManagerProxy::isPlayingVideoInEnhancedFullscreen() const
 {
     for (auto& tuple : m_contextMap.values()) {
@@ -480,6 +547,11 @@ void VideoFullscreenManagerProxy::preparedToReturnToInline(uint64_t contextId, b
 #endif
 }
 
+void VideoFullscreenManagerProxy::preparedToExitFullscreen(uint64_t contextId)
+{
+    ensureInterface(contextId).preparedToExitFullscreen();
+}
+
 #pragma mark Messages to VideoFullscreenManager
 
 void VideoFullscreenManagerProxy::requestFullscreenMode(uint64_t contextId, WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode, bool finishedWithMedia)
@@ -505,6 +577,11 @@ void VideoFullscreenManagerProxy::returnVideoContentLayer(uint64_t contextId)
 void VideoFullscreenManagerProxy::didSetupFullscreen(uint64_t contextId)
 {
     m_page->send(Messages::VideoFullscreenManager::DidSetupFullscreen(contextId), m_page->pageID());
+}
+
+void VideoFullscreenManagerProxy::willExitFullscreen(uint64_t contextId)
+{
+    m_page->send(Messages::VideoFullscreenManager::WillExitFullscreen(contextId), m_page->pageID());
 }
 
 void VideoFullscreenManagerProxy::didExitFullscreen(uint64_t contextId)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #include "Mutex.h"
 #include "PerProcess.h"
 #include "Vector.h"
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 
@@ -41,7 +42,7 @@ namespace bmalloc {
 
 class Scavenger {
 public:
-    BEXPORT Scavenger(std::lock_guard<StaticMutex>&);
+    BEXPORT Scavenger(std::lock_guard<Mutex>&);
     
     ~Scavenger() = delete;
     
@@ -62,6 +63,15 @@ public:
     BEXPORT void scheduleIfUnderMemoryPressure(size_t bytes);
     BEXPORT void schedule(size_t bytes);
 
+    // This is only here for debugging purposes.
+    // FIXME: Make this fast so we can use it to help determine when to
+    // run the scavenger:
+    // https://bugs.webkit.org/show_bug.cgi?id=184176
+    size_t freeableMemory();
+    // This doesn't do any synchronization, so it might return a slightly out of date answer.
+    // It's unlikely, but possible.
+    size_t footprint();
+
 private:
     enum class State { Sleep, Run, RunSoon };
     
@@ -74,26 +84,31 @@ private:
     void threadRunLoop();
     
     void setSelfQOSClass();
-    
+    void setThreadName(const char*);
+
+    std::chrono::milliseconds timeSinceLastFullScavenge();
+    std::chrono::milliseconds timeSinceLastPartialScavenge();
+    void partialScavenge();
+
     std::atomic<State> m_state { State::Sleep };
     size_t m_scavengerBytes { 0 };
     bool m_isProbablyGrowing { false };
     
     Mutex m_mutex;
+    Mutex m_scavengingMutex;
     std::condition_variable_any m_condition;
 
     std::thread m_thread;
+    std::chrono::steady_clock::time_point m_lastFullScavengeTime { std::chrono::steady_clock::now() };
+    std::chrono::steady_clock::time_point m_lastPartialScavengeTime { std::chrono::steady_clock::now() };
     
 #if BOS(DARWIN)
     dispatch_source_t m_pressureHandlerDispatchSource;
     qos_class_t m_requestedScavengerThreadQOSClass { QOS_CLASS_USER_INITIATED };
 #endif
     
-    Mutex m_isoScavengeLock;
     Vector<DeferredDecommit> m_deferredDecommits;
 };
-
-DECLARE_SAFE_PER_PROCESS_STORAGE(Scavenger);
 
 } // namespace bmalloc
 

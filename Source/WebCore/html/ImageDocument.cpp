@@ -31,6 +31,7 @@
 #include "DocumentLoader.h"
 #include "EventListener.h"
 #include "EventNames.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameView.h"
@@ -41,14 +42,16 @@
 #include "HTMLNames.h"
 #include "LocalizedStrings.h"
 #include "MIMETypeRegistry.h"
-#include "MainFrame.h"
 #include "MouseEvent.h"
 #include "Page.h"
 #include "RawDataDocumentParser.h"
 #include "RenderElement.h"
 #include "Settings.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(ImageDocument);
 
 using namespace HTMLNames;
 
@@ -91,6 +94,7 @@ private:
 };
 
 class ImageDocumentElement final : public HTMLImageElement {
+    WTF_MAKE_ISO_ALLOCATED_INLINE(ImageDocumentElement);
 public:
     static Ref<ImageDocumentElement> create(ImageDocument&);
 

@@ -30,7 +30,6 @@
 
 #import "APIPageConfiguration.h"
 #import "AccessibilityIOS.h"
-#import "ApplicationStateTracker.h"
 #import "FullscreenClient.h"
 #import "InputViewUpdateDeferrer.h"
 #import "Logging.h"
@@ -60,7 +59,6 @@
 #import <WebCore/NotImplemented.h>
 #import <WebCore/PlatformScreen.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
-#import <wtf/CurrentTime.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/text/TextStream.h>
 
@@ -185,8 +183,6 @@ private:
 
     RetainPtr<NSUndoManager> _undoManager;
 
-    std::unique_ptr<ApplicationStateTracker> _applicationStateTracker;
-
     BOOL _isPrintingToPDF;
     RetainPtr<CGPDFDocumentRef> _printedDocument;
 }
@@ -233,7 +229,7 @@ private:
 
 - (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView
 {
-    if (!(self = [super initWithFrame:frame]))
+    if (!(self = [super initWithFrame:frame webView:webView]))
         return nil;
 
     InitializeWebKit2();
@@ -264,32 +260,19 @@ private:
 
 - (void)willMoveToWindow:(UIWindow *)newWindow
 {
+    [super willMoveToWindow:newWindow];
+
     NSNotificationCenter *defaultCenter = [NSNotificationCenter defaultCenter];
     UIWindow *window = self.window;
 
-    if (window) {
+    if (window)
         [defaultCenter removeObserver:self name:UIWindowDidMoveToScreenNotification object:window];
-
-        if (!newWindow) {
-            ASSERT(_applicationStateTracker);
-            _applicationStateTracker = nullptr;
-        }
-    }
 
     if (newWindow) {
         [defaultCenter addObserver:self selector:@selector(_windowDidMoveToScreenNotification:) name:UIWindowDidMoveToScreenNotification object:newWindow];
 
         [self _updateForScreen:newWindow.screen];
     }
-}
-
-- (void)didMoveToWindow
-{
-    if (!self.window)
-        return;
-
-    ASSERT(!_applicationStateTracker);
-    _applicationStateTracker = std::make_unique<ApplicationStateTracker>(self, @selector(_applicationDidEnterBackground), @selector(_applicationDidCreateWindowContext), @selector(_applicationDidFinishSnapshottingAfterEnteringBackground), @selector(_applicationWillEnterForeground));
 }
 
 - (WKBrowsingContextController *)browsingContextController
@@ -308,14 +291,6 @@ private:
 - (BOOL)isAssistingNode
 {
     return [self isEditable];
-}
-
-- (BOOL)isBackground
-{
-    if (!_applicationStateTracker)
-        return YES;
-
-    return _applicationStateTracker->isInBackground();
 }
 
 - (void)_showInspectorHighlight:(const WebCore::Highlight&)highlight
@@ -373,7 +348,9 @@ private:
         return;
 
     [_textSelectionAssistant deactivateSelection];
+#if !ENABLE(MINIMAL_SIMULATOR)
     [[_webSelectionAssistant selectionView] setHidden:YES];
+#endif
 }
 
 - (CGRect)_computeUnobscuredContentRectRespectingInputViewBounds:(CGRect)unobscuredContentRect inputViewBounds:(CGRect)inputViewBounds
@@ -425,6 +402,7 @@ private:
         _sizeChangedSinceLastVisibleContentRectUpdate,
         isChangingObscuredInsetsInteractively,
         _webView._allowsViewportShrinkToFit,
+        _webView._forceHorizontalViewportShrinkToFit,
         enclosedInScrollableAncestorView,
         timestamp,
         velocityData.horizontalVelocity,
@@ -644,27 +622,11 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
     _page->applicationWillResignActive();
 }
 
-- (void)_applicationDidEnterBackground
-{
-    _page->applicationDidEnterBackground();
-    _page->activityStateDidChange(ActivityState::AllFlags & ~ActivityState::IsInWindow);
-}
-
 - (void)_applicationDidCreateWindowContext
 {
+    [super _applicationDidCreateWindowContext];
     if (auto drawingArea = _page->drawingArea())
         drawingArea->hideContentUntilAnyUpdate();
-}
-
-- (void)_applicationDidFinishSnapshottingAfterEnteringBackground
-{
-    _page->applicationDidFinishSnapshottingAfterEnteringBackground();
-}
-
-- (void)_applicationWillEnterForeground
-{
-    _page->applicationWillEnterForeground();
-    _page->activityStateDidChange(ActivityState::AllFlags & ~ActivityState::IsInWindow, true, WebPageProxy::ActivityStateChangeDispatchMode::Immediate);
 }
 
 - (void)_applicationDidBecomeActive:(NSNotification*)notification
@@ -675,6 +637,8 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 @end
 
 #pragma mark Printing
+
+#if !ENABLE(MINIMAL_SIMULATOR)
 
 @interface WKContentView (_WKWebViewPrintFormatter) <_WKWebViewPrintProvider>
 @end
@@ -741,5 +705,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 }
 
 @end
+
+#endif // !ENABLE(MINIMAL_SIMULATOR)
 
 #endif // PLATFORM(IOS)

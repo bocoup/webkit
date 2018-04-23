@@ -27,12 +27,15 @@
 
 #include "RenderLayerBacking.h"
 
+#include "BitmapImage.h"
 #include "CSSAnimationController.h"
 #include "CanvasRenderingContext.h"
 #include "CSSPropertyNames.h"
 #include "CachedImage.h"
 #include "Chrome.h"
+#include "DocumentTimeline.h"
 #include "FilterEffectRenderer.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
@@ -45,7 +48,6 @@
 #include "InspectorInstrumentation.h"
 #include "KeyframeList.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PerformanceLoggingClient.h"
 #include "PluginViewBase.h"
@@ -60,6 +62,7 @@
 #include "RenderMedia.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
+#include "RuntimeEnabledFeatures.h"
 #include "ScrollingCoordinator.h"
 #include "Settings.h"
 #include "StyleResolver.h"
@@ -947,8 +950,17 @@ void RenderLayerBacking::updateGeometry()
 
     const RenderStyle& style = renderer().style();
 
-    bool isRunningAcceleratedTransformAnimation = renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform, AnimationBase::Running | AnimationBase::Paused);
-    bool isRunningAcceleratedOpacityAnimation = renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyOpacity, AnimationBase::Running | AnimationBase::Paused);
+    bool isRunningAcceleratedTransformAnimation = false;
+    bool isRunningAcceleratedOpacityAnimation = false;
+    if (RuntimeEnabledFeatures::sharedFeatures().cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled()) {
+        if (auto* timeline = renderer().documentTimeline()) {
+            isRunningAcceleratedTransformAnimation = timeline->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform);
+            isRunningAcceleratedOpacityAnimation = timeline->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyOpacity);
+        }
+    } else {
+        isRunningAcceleratedTransformAnimation = renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform, AnimationBase::Running | AnimationBase::Paused);
+        isRunningAcceleratedOpacityAnimation = renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyOpacity, AnimationBase::Running | AnimationBase::Paused);
+    }
 
     // Set transform property, if it is not animating. We have to do this here because the transform
     // is affected by the layer dimensions.
@@ -2189,10 +2201,10 @@ bool RenderLayerBacking::isDirectlyCompositedImage() const
             return false;
 
         auto* image = cachedImage->imageForRenderer(&imageRenderer);
-        if (!image->isBitmapImage())
+        if (!is<BitmapImage>(image))
             return false;
 
-        if (image->orientationForCurrentFrame() != DefaultImageOrientation)
+        if (downcast<BitmapImage>(*image).orientationForCurrentFrame() != DefaultImageOrientation)
             return false;
 
 #if (PLATFORM(GTK) || PLATFORM(WPE))
@@ -2732,7 +2744,7 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation* anim
         if (!keyframeStyle)
             continue;
             
-        auto* tf = currentKeyframe.timingFunction(keyframes.animationName());
+        auto* tf = currentKeyframe.timingFunction();
         
         bool isFirstOrLastKeyframe = key == 0 || key == 1;
         if ((hasTransform && isFirstOrLastKeyframe) || currentKeyframe.containsProperty(CSSPropertyTransform))
@@ -2775,6 +2787,11 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation* anim
 void RenderLayerBacking::animationPaused(double timeOffset, const String& animationName)
 {
     m_graphicsLayer->pauseAnimation(animationName, timeOffset);
+}
+
+void RenderLayerBacking::animationSeeked(double timeOffset, const String& animationName)
+{
+    m_graphicsLayer->seekAnimation(animationName, timeOffset);
 }
 
 void RenderLayerBacking::animationFinished(const String& animationName)
@@ -2864,7 +2881,7 @@ void RenderLayerBacking::transitionFinished(CSSPropertyID property)
         m_graphicsLayer->removeAnimation(GraphicsLayer::animationNameForTransition(animatedProperty));
 }
 
-void RenderLayerBacking::notifyAnimationStarted(const GraphicsLayer*, const String&, double time)
+void RenderLayerBacking::notifyAnimationStarted(const GraphicsLayer*, const String&, MonotonicTime time)
 {
     renderer().animation().notifyAnimationStarted(renderer(), time);
 }
@@ -2882,7 +2899,7 @@ void RenderLayerBacking::notifyFlushBeforeDisplayRefresh(const GraphicsLayer* la
 }
 
 // This is used for the 'freeze' API, for testing only.
-void RenderLayerBacking::suspendAnimations(double time)
+void RenderLayerBacking::suspendAnimations(MonotonicTime time)
 {
     m_graphicsLayer->suspendAnimations(time);
 }

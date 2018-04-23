@@ -63,6 +63,8 @@ WK_EXPORT void WKContextRegisterURLSchemeAsBypassingContentSecurityPolicy(WKCont
 
 WK_EXPORT void WKContextRegisterURLSchemeAsCachePartitioned(WKContextRef context, WKStringRef urlScheme);
 
+WK_EXPORT void WKContextRegisterURLSchemeAsCanDisplayOnlyIfCanRequest(WKContextRef context, WKStringRef urlScheme);
+
 WK_EXPORT void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef context, WKStringRef urlScheme);
 
 WK_EXPORT void WKContextSetCanHandleHTTPSServerTrustEvaluation(WKContextRef context, bool value);
@@ -112,7 +114,7 @@ WK_EXPORT void WKContextPreconnectToServer(WKContextRef context, WKURLRef server
 WK_EXPORT WKProcessID WKContextGetNetworkProcessIdentifier(WKContextRef context);
 WK_EXPORT WKProcessID WKContextGetDatabaseProcessIdentifier(WKContextRef context);
 
-WK_EXPORT void WKContextAddSupportedPlugin(WKContextRef context, WKStringRef origin, WKStringRef name, WKArrayRef mimeTypes, WKArrayRef extensions);
+WK_EXPORT void WKContextAddSupportedPlugin(WKContextRef context, WKStringRef domain, WKStringRef name, WKArrayRef mimeTypes, WKArrayRef extensions);
 WK_EXPORT void WKContextClearSupportedPlugins(WKContextRef context);
 
 #ifdef __cplusplus

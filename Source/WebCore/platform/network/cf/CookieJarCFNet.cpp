@@ -29,6 +29,7 @@
 #if USE(CFURLCONNECTION)
 
 #include "Cookie.h"
+#include "CookieRequestHeaderFieldProxy.h"
 #include "CookiesStrategy.h"
 #include "NetworkStorageSession.h"
 #include "NotImplemented.h"
@@ -229,6 +230,11 @@ std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSessio
     RetainPtr<CFDictionaryRef> headerCF = adoptCF(CFHTTPCookieCopyRequestHeaderFields(kCFAllocatorDefault, cookiesCF.get()));
     String cookieString = checked_cf_cast<CFStringRef>(CFDictionaryGetValue(headerCF.get(), s_cookieCF));
     return { cookieString, didAccessSecureCookies };
+}
+
+std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const CookieRequestHeaderFieldProxy& headerFieldProxy)
+{
+    return cookieRequestHeaderFieldValue(session, headerFieldProxy.firstParty, headerFieldProxy.url, headerFieldProxy.frameID, headerFieldProxy.pageID, headerFieldProxy.includeSecureCookies);
 }
 
 bool cookiesEnabled(const NetworkStorageSession& session)

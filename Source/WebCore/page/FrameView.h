@@ -302,6 +302,8 @@ public:
     // Static function can be called from another thread.
     static LayoutPoint scrollPositionForFixedPosition(const LayoutRect& visibleContentRect, const LayoutSize& totalContentsSize, const LayoutPoint& scrollPosition, const LayoutPoint& scrollOrigin, float frameScaleFactor, bool fixedElementsLayoutRelativeToFrame, ScrollBehaviorForFixedElements, int headerHeight, int footerHeight);
 
+    WEBCORE_EXPORT static LayoutSize expandedLayoutViewportSize(const LayoutSize& baseLayoutViewportSize, const LayoutSize& documentSize, double heightExpansionFactor);
+
     enum class LayoutViewportConstraint { ConstrainedToDocumentRect, Unconstrained };
     WEBCORE_EXPORT static LayoutRect computeUpdatedLayoutViewportRect(const LayoutRect& layoutViewport, const LayoutRect& documentRect, const LayoutSize& unobscuredContentSize, const LayoutRect& unobscuredContentRect, const LayoutSize& baseLayoutViewportSize, const LayoutPoint& stableLayoutViewportOriginMin, const LayoutPoint& stableLayoutViewportOriginMax, LayoutViewportConstraint);
     
@@ -366,8 +368,8 @@ public:
     WEBCORE_EXPORT void setPaintBehavior(PaintBehavior);
     WEBCORE_EXPORT PaintBehavior paintBehavior() const;
     bool isPainting() const;
-    bool hasEverPainted() const { return m_lastPaintTime; }
-    void setLastPaintTime(double lastPaintTime) { m_lastPaintTime = lastPaintTime; }
+    bool hasEverPainted() const { return !!m_lastPaintTime; }
+    void setLastPaintTime(MonotonicTime lastPaintTime) { m_lastPaintTime = lastPaintTime; }
     WEBCORE_EXPORT void setNodeToDraw(Node*);
 
     enum SelectionInSnapshot { IncludeSelection, ExcludeSelection };
@@ -385,7 +387,7 @@ public:
     void startDisallowingLayout() { layoutContext().startDisallowingLayout(); }
     void endDisallowingLayout() { layoutContext().endDisallowingLayout(); }
 
-    static double currentPaintTimeStamp() { return sCurrentPaintTimeStamp; } // returns 0 if not painting
+    static MonotonicTime currentPaintTimeStamp() { return sCurrentPaintTimeStamp; } // returns 0 if not painting
     
     WEBCORE_EXPORT void updateLayoutAndStyleIfNeededRecursive();
 
@@ -786,7 +788,7 @@ private:
 
     HashSet<Widget*> m_widgetsInRenderTree;
 
-    static double sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
+    static MonotonicTime sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
     LayoutSize m_size;
     LayoutSize m_margins;
@@ -830,7 +832,7 @@ private:
     SelectionRevealMode m_selectionRevealModeForFocusedElement;
     Timer m_delayedScrollToFocusedElementTimer;
 
-    double m_lastPaintTime;
+    MonotonicTime m_lastPaintTime;
 
     bool m_isTrackingRepaints; // Used for testing.
     Vector<FloatRect> m_trackedRepaintRects;

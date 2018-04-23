@@ -159,9 +159,12 @@ protected:
     bool wasCancelled() const { return m_cancellationStatus >= Cancelled; }
 
     void didReceiveDataOrBuffer(const char*, unsigned, RefPtr<SharedBuffer>&&, long long encodedDataLength, DataPayloadType);
+    
+    void setReferrerPolicy(ReferrerPolicy referrerPolicy) { m_options.referrerPolicy = referrerPolicy; }
+    ReferrerPolicy referrerPolicy() const { return m_options.referrerPolicy; }
 
 #if PLATFORM(COCOA)
-    NSCachedURLResponse* willCacheResponse(ResourceHandle*, NSCachedURLResponse*) override;
+    void willCacheResponseAsync(ResourceHandle*, NSCachedURLResponse*, CompletionHandler<void(NSCachedURLResponse *)>&&) override;
 #endif
 
     virtual void willSendRequestInternal(ResourceRequest&&, const ResourceResponse& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&&);
@@ -199,7 +202,7 @@ private:
     bool shouldUseCredentialStorage(ResourceHandle*) override { return shouldUseCredentialStorage(); }
     void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge&) override;
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    void canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle*, const ProtectionSpace&) override;
+    void canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle*, const ProtectionSpace&, CompletionHandler<void(bool)>&&) override;
 #endif
     void receivedCancellation(ResourceHandle*, const AuthenticationChallenge& challenge) override { receivedCancellation(challenge); }
 #if PLATFORM(IOS)
@@ -208,6 +211,10 @@ private:
 #if USE(CFURLCONNECTION)
     // FIXME: Windows should use willCacheResponse - <https://bugs.webkit.org/show_bug.cgi?id=57257>.
     bool shouldCacheResponse(ResourceHandle*, CFCachedURLResponseRef) override;
+#endif
+
+#if USE(SOUP)
+    void loadGResource();
 #endif
 
     ResourceRequest m_request;

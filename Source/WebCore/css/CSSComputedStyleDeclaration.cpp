@@ -62,6 +62,7 @@
 #include "Rect.h"
 #include "RenderBlock.h"
 #include "RenderBox.h"
+#include "RenderInline.h"
 #include "RenderStyle.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SVGElement.h"
@@ -923,7 +924,8 @@ static Ref<CSSFunctionValue> matrixTransformValue(const TransformationMatrix& tr
 
 static Ref<CSSValue> computedTransform(RenderObject* renderer, const RenderStyle& style)
 {
-    if (!renderer || !renderer->hasTransform())
+    // Inline renderers do not support transforms.
+    if (!renderer || is<RenderInline>(*renderer) || !style.hasTransform())
         return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
 
     FloatRect pixelSnappedRect;
@@ -2533,7 +2535,7 @@ static Ref<CSSValueList> valueForItemPositionWithOverflowAlignment(const StyleSe
     return result;
 }
 
-static Ref<CSSValueList> valueForContentPositionAndDistributionWithOverflowAlignment(const StyleContentAlignmentData& data, CSSValueID normalBehaviorValueID)
+static Ref<CSSValueList> valueForContentPositionAndDistributionWithOverflowAlignment(const StyleContentAlignmentData& data)
 {
     auto& cssValuePool = CSSValuePool::singleton();
     auto result = CSSValueList::createSpaceSeparated();
@@ -2541,15 +2543,12 @@ static Ref<CSSValueList> valueForContentPositionAndDistributionWithOverflowAlign
     if (data.distribution() != ContentDistributionDefault)
         result->append(cssValuePool.createValue(data.distribution()));
 
-    bool gridEnabled = false;
-    gridEnabled = RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled();
-
     // Handle content-position values (either as fallback or actual value)
     switch (data.position()) {
     case ContentPositionNormal:
         // Handle 'normal' value, not valid as content-distribution fallback.
         if (data.distribution() == ContentDistributionDefault)
-            result->append(cssValuePool.createIdentifierValue(gridEnabled ? CSSValueNormal : normalBehaviorValueID));
+            result->append(cssValuePool.createIdentifierValue(CSSValueNormal));
         break;
     case ContentPositionLastBaseline:
         result->append(cssValuePool.createIdentifierValue(CSSValueLast));
@@ -2984,7 +2983,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyinStyle(const RenderSty
         case CSSPropertyEmptyCells:
             return cssValuePool.createValue(style.emptyCells());
         case CSSPropertyAlignContent:
-            return valueForContentPositionAndDistributionWithOverflowAlignment(style.alignContent(), CSSValueStretch);
+            return valueForContentPositionAndDistributionWithOverflowAlignment(style.alignContent());
         case CSSPropertyAlignItems:
             return valueForItemPositionWithOverflowAlignment(style.alignItems());
         case CSSPropertyAlignSelf:
@@ -3004,7 +3003,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyinStyle(const RenderSty
         case CSSPropertyFlexWrap:
             return cssValuePool.createValue(style.flexWrap());
         case CSSPropertyJustifyContent:
-            return valueForContentPositionAndDistributionWithOverflowAlignment(style.justifyContent(), CSSValueFlexStart);
+            return valueForContentPositionAndDistributionWithOverflowAlignment(style.justifyContent());
         case CSSPropertyJustifyItems:
             return valueForItemPositionWithOverflowAlignment(style.justifyItems());
         case CSSPropertyJustifySelf:

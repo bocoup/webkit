@@ -268,6 +268,10 @@ WK_EXPORT bool WKPreferencesGetPeerConnectionEnabled(WKPreferencesRef preference
 WK_EXPORT void WKPreferencesSetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef);
 
+// Defaults to false
+WK_EXPORT void WKPreferencesSetWebRTCMDNSICECandidatesEnabled(WKPreferencesRef preferencesRef, bool enabled);
+WK_EXPORT bool WKPreferencesGetWebRTCMDNSICECandidatesEnabled(WKPreferencesRef preferencesRef);
+
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetSpatialNavigationEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetSpatialNavigationEnabled(WKPreferencesRef preferencesRef);
@@ -306,6 +310,10 @@ WK_EXPORT void WKPreferencesSetAllowMediaContentTypesRequiringHardwareSupportAsF
 
 WK_EXPORT bool WKPreferencesGetMediaCapabilitiesEnabled(WKPreferencesRef preferencesRef);
 WK_EXPORT void WKPreferencesSetMediaCapabilitiesEnabled(WKPreferencesRef preferencesRef, bool enabled);
+
+// Defaults to false.
+WK_EXPORT bool WKPreferencesGetRestrictedHTTPResponseAccess(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetRestrictedHTTPResponseAccess(WKPreferencesRef preferencesRef, bool allow);
 
 #ifdef __cplusplus
 }

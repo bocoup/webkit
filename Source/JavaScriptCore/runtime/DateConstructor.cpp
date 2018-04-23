@@ -130,10 +130,11 @@ JSObject* constructDate(ExecState* exec, JSGlobalObject* globalObject, JSValue n
     if (numArgs == 0) // new Date() ECMA 15.9.3.3
         value = jsCurrentTime();
     else if (numArgs == 1) {
-        if (args.at(0).inherits(vm, DateInstance::info()))
-            value = asDateInstance(args.at(0))->internalNumber();
+        JSValue arg0 = args.at(0);
+        if (auto* dateInstance = jsDynamicCast<DateInstance*>(vm, arg0))
+            value = dateInstance->internalNumber();
         else {
-            JSValue primitive = args.at(0).toPrimitive(exec);
+            JSValue primitive = arg0.toPrimitive(exec);
             RETURN_IF_EXCEPTION(scope, nullptr);
             if (primitive.isString())
                 value = parseDate(vm, asString(primitive)->value(exec));
@@ -153,7 +154,7 @@ JSObject* constructDate(ExecState* exec, JSGlobalObject* globalObject, JSValue n
 static EncodedJSValue JSC_HOST_CALL constructWithDateConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return JSValue::encode(constructDate(exec, asInternalFunction(exec->jsCallee())->globalObject(), exec->newTarget(), args));
+    return JSValue::encode(constructDate(exec, jsCast<InternalFunction*>(exec->jsCallee())->globalObject(), exec->newTarget(), args));
 }
 
 // ECMA 15.9.2

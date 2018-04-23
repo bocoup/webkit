@@ -78,7 +78,7 @@ public:
     // List Box selection color
     Color platformActiveListBoxSelectionBackgroundColor() const override;
     Color platformActiveListBoxSelectionForegroundColor() const override;
-    Color platformInactiveListBoxSelectionBackgroundColor() const override;
+    Color platformInactiveListBoxSelectionBackgroundColor(bool) const override;
     Color platformInactiveListBoxSelectionForegroundColor() const override;
 
     Seconds caretBlinkInterval() const override;
@@ -86,7 +86,7 @@ public:
     void platformColorsDidChange() override;
 
     // System colors.
-    Color systemColor(CSSValueID) const override;
+    Color systemColor(CSSValueID, OptionSet<StyleColor::Options>) const override;
 
     bool popsMenuBySpaceOrReturn() const override { return true; }
 
@@ -169,7 +169,7 @@ private:
 #endif
 
     Seconds animationRepeatIntervalForProgressBar(RenderProgress&) const override;
-    double animationDurationForProgressBar(RenderProgress&) const override;
+    Seconds animationDurationForProgressBar(RenderProgress&) const override;
     void adjustProgressBarStyle(StyleResolver&, RenderStyle&, const Element*) const override;
     IntRect progressBarRectForBounds(const RenderObject&, const IntRect&) const override;
     bool paintProgressBar(const RenderObject&, const PaintInfo&, const IntRect&) override;

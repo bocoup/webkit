@@ -69,6 +69,7 @@
 #include <wtf/Stopwatch.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/ThreadSpecific.h>
+#include <wtf/UniqueArray.h>
 #include <wtf/text/SymbolRegistry.h>
 #include <wtf/text/WTFString.h>
 #if ENABLE(REGEXP_TRACING)
@@ -77,6 +78,16 @@
 
 #if ENABLE(EXCEPTION_SCOPE_VERIFICATION)
 #include <wtf/StackTrace.h>
+#endif
+
+// Enable the Objective-C API for platforms with a modern runtime. This has to match exactly what we
+// have in JSBase.h.
+#if !defined(JSC_OBJC_API_ENABLED)
+#if (defined(__clang__) && defined(__APPLE__) && ((defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && !defined(__i386__)) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)))
+#define JSC_OBJC_API_ENABLED 1
+#else
+#define JSC_OBJC_API_ENABLED 0
+#endif
 #endif
 
 namespace WTF {
@@ -232,7 +243,7 @@ struct ScratchBuffer {
         double pad; // Make sure m_buffer is double aligned.
     } u;
 #if CPU(MIPS) && (defined WTF_MIPS_ARCH_REV && WTF_MIPS_ARCH_REV == 2)
-    void* m_buffer[0] __attribute__((aligned(8)));
+    alignas(8) void* m_buffer[0];
 #else
     void* m_buffer[0];
 #endif
@@ -292,8 +303,7 @@ public:
     std::unique_ptr<GigacageAlignedMemoryAllocator> primitiveGigacageAllocator;
     std::unique_ptr<GigacageAlignedMemoryAllocator> jsValueGigacageAllocator;
 
-    std::unique_ptr<HeapCellType> auxiliaryJSValueStrictHeapCellType;
-    std::unique_ptr<HeapCellType> auxiliaryDangerousBitsHeapCellType;
+    std::unique_ptr<HeapCellType> auxiliaryHeapCellType;
     std::unique_ptr<HeapCellType> cellJSValueOOBHeapCellType;
     std::unique_ptr<HeapCellType> cellDangerousBitsHeapCellType;
     std::unique_ptr<HeapCellType> destructibleCellHeapCellType;
@@ -336,15 +346,15 @@ public:
     CompleteSubspace destructibleObjectSpace;
     CompleteSubspace eagerlySweptDestructibleObjectSpace;
     CompleteSubspace segmentedVariableObjectSpace;
-#if ENABLE(WEBASSEMBLY)
-    CompleteSubspace webAssemblyCodeBlockSpace;
-#endif
     
+    IsoSubspace arrayBufferConstructorSpace;
     IsoSubspace asyncFunctionSpace;
     IsoSubspace asyncGeneratorFunctionSpace;
     IsoSubspace boundFunctionSpace;
+    IsoSubspace callbackFunctionSpace;
     IsoSubspace customGetterSetterFunctionSpace;
     IsoSubspace directEvalExecutableSpace;
+    IsoSubspace errorConstructorSpace;
     IsoSubspace executableToCodeBlockEdgeSpace;
     IsoSubspace functionExecutableSpace;
     IsoSubspace functionSpace;
@@ -352,16 +362,30 @@ public:
     IsoSubspace indirectEvalExecutableSpace;
     IsoSubspace inferredTypeSpace;
     IsoSubspace inferredValueSpace;
+    IsoSubspace internalFunctionSpace;
+#if ENABLE(INTL)
+    IsoSubspace intlCollatorConstructorSpace;
+    IsoSubspace intlDateTimeFormatConstructorSpace;
+    IsoSubspace intlNumberFormatConstructorSpace;
+#endif
     IsoSubspace moduleProgramExecutableSpace;
+    IsoSubspace nativeErrorConstructorSpace;
     IsoSubspace nativeExecutableSpace;
     IsoSubspace nativeStdFunctionSpace;
+#if JSC_OBJC_API_ENABLED
+    IsoSubspace objCCallbackFunctionSpace;
+#endif
     IsoSubspace programExecutableSpace;
     IsoSubspace propertyTableSpace;
+    IsoSubspace proxyRevokeSpace;
+    IsoSubspace regExpConstructorSpace;
+    IsoSubspace strictModeTypeErrorFunctionSpace;
     IsoSubspace structureRareDataSpace;
     IsoSubspace structureSpace;
     IsoSubspace weakSetSpace;
     IsoSubspace weakMapSpace;
 #if ENABLE(WEBASSEMBLY)
+    IsoSubspace webAssemblyCodeBlockSpace;
     IsoSubspace webAssemblyFunctionSpace;
     IsoSubspace webAssemblyWrapperFunctionSpace;
 #endif
@@ -544,7 +568,7 @@ public:
     Interpreter* interpreter;
 #if ENABLE(JIT)
     std::unique_ptr<JITThunks> jitStubs;
-    MacroAssemblerCodeRef getCTIStub(ThunkGenerator generator)
+    MacroAssemblerCodeRef<JITThunkPtrTag> getCTIStub(ThunkGenerator generator)
     {
         return jitStubs->ctiStub(this, generator);
     }
@@ -556,7 +580,7 @@ public:
     NativeExecutable* getHostFunction(NativeFunction, NativeFunction constructor, const String& name);
     NativeExecutable* getHostFunction(NativeFunction, Intrinsic, NativeFunction constructor, const DOMJIT::Signature*, const String& name);
 
-    MacroAssemblerCodePtr getCTIInternalFunctionTrampolineFor(CodeSpecializationKind);
+    MacroAssemblerCodePtr<JSEntryPtrTag> getCTIInternalFunctionTrampolineFor(CodeSpecializationKind);
 
     static ptrdiff_t exceptionOffset()
     {
@@ -566,11 +590,6 @@ public:
     static ptrdiff_t callFrameForCatchOffset()
     {
         return OBJECT_OFFSETOF(VM, callFrameForCatch);
-    }
-
-    static ptrdiff_t targetMachinePCForThrowOffset()
-    {
-        return OBJECT_OFFSETOF(VM, targetMachinePCForThrow);
     }
 
     static ptrdiff_t topEntryFrameOffset()
@@ -685,7 +704,7 @@ public:
 
 #if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
     static constexpr size_t patternContextBufferSize = 8192; // Space allocated to save nested parenthesis context
-    char* m_regExpPatternContexBuffer { nullptr };
+    UniqueArray<char> m_regExpPatternContexBuffer;
     Lock m_regExpPatternContextLock;
     char* acquireRegExpPatternContexBuffer();
     void releaseRegExpPatternContexBuffer();

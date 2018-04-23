@@ -97,10 +97,15 @@ public:
     void decrement();
     void showMenu();
     void press();
+    bool dismiss();
 #if PLATFORM(MAC)
     void syncPress();
+    void asyncIncrement();
+    void asyncDecrement();
 #else
     void syncPress() { press(); }
+    void asyncIncrement() { }
+    void asyncDecrement() { };
 #endif
 
     // Attributes - platform-independent implementations
@@ -280,6 +285,8 @@ public:
     RefPtr<AccessibilityTextMarker> nextTextMarker(AccessibilityTextMarker*);
     RefPtr<AccessibilityUIElement> accessibilityElementForTextMarker(AccessibilityTextMarker*);
     JSRetainPtr<JSStringRef> stringForTextMarkerRange(AccessibilityTextMarkerRange*);
+    JSRetainPtr<JSStringRef> attributedStringForTextMarkerRange(AccessibilityTextMarkerRange*);
+    JSRetainPtr<JSStringRef> attributedStringForTextMarkerRangeWithOptions(AccessibilityTextMarkerRange*, bool);
     int textMarkerRangeLength(AccessibilityTextMarkerRange*);
     bool attributedStringForTextMarkerRangeContainsAttribute(JSStringRef, AccessibilityTextMarkerRange*);
     int indexForTextMarker(AccessibilityTextMarker*);

@@ -1,3 +1,791 @@
+2018-04-20  Timothy Hatcher  <timothy@apple.com>
+
+        NULL dereference crash sometimes under [super initWithCoder:] in WebView
+
+        https://bugs.webkit.org/show_bug.cgi?id=184851
+        rdar://problem/39611236
+
+        Reviewed by Tim Horton.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView effectiveAppearanceDidChange]):
+        Added a null check and call the code later in initialization.
+
+2018-04-20  Tim Horton  <timothy_horton@apple.com>
+
+        Adjust geolocation feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=184856
+
+        Reviewed by Wenson Hsieh.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-04-18  Jer Noble  <jer.noble@apple.com>
+
+        Don't put build products into WK_ALTERNATE_WEBKIT_SDK_PATH for engineering builds
+        https://bugs.webkit.org/show_bug.cgi?id=184762
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2018-04-20  Youenn Fablet  <youenn@apple.com>
+
+        Make PluginData cache its web visible plugins
+        https://bugs.webkit.org/show_bug.cgi?id=184421
+
+        Reviewed by Chris Dumez.
+
+        * WebCoreSupport/WebPluginInfoProvider.h:
+        * WebCoreSupport/WebPluginInfoProvider.mm:
+        (WebPluginInfoProvider::pluginInfo):
+        (WebPluginInfoProvider::webVisiblePluginInfo):
+
+2018-04-19  Chris Dumez  <cdumez@apple.com>
+
+        Rename JSDOMWindowProxy to JSWindowProxy
+        https://bugs.webkit.org/show_bug.cgi?id=184797
+
+        Reviewed by Sam Weinig.
+
+        Rename JSDOMWindowProxy to JSWindowProxy for consistency with WindowProxy.
+
+        * DOM/DOMUtility.mm:
+        (createDOMWrapper):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _stringByEvaluatingJavaScriptFromString:withGlobalObject:inScriptWorld:]):
+
+2018-04-19  David Kilzer  <ddkilzer@apple.com>
+
+        Enable Objective-C weak references
+        <https://webkit.org/b/184789>
+        <rdar://problem/39571716>
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/Base.xcconfig:
+        (CLANG_ENABLE_OBJC_WEAK): Enable.
+
+2018-04-18  Chris Dumez  <cdumez@apple.com>
+
+        Rename WindowProxyController to WindowProxy
+        https://bugs.webkit.org/show_bug.cgi?id=184756
+
+        Reviewed by Sam Weinig.
+
+        Rename WindowProxyController to WindowProxy for clarity. When the IDL uses WindowProxy, the implementation
+        needed use WindowProxyController type, which was a bit confusing.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::getWindowNPObject):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _attachScriptDebugger]):
+
+2018-04-17  Jonathan Bedard  <jbedard@apple.com>
+
+        Unreviewed rollout of r230632. Regression in memory usage.
+
+        That bug tracked in https://bugs.webkit.org/show_bug.cgi?id=184569.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+
+2018-04-17  Chris Dumez  <cdumez@apple.com>
+
+        REGRESSION (r229831): CMD-clicking an iCloud web app link unexpectedly opens that link in a new tab and the current tab
+        https://bugs.webkit.org/show_bug.cgi?id=184678
+        <rdar://problem/39422122>
+
+        Reviewed by Alex Christensen.
+
+        Add new parameter to dispatchDecidePolicyForNavigationAction.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+
+2018-04-13  Chris Dumez  <cdumez@apple.com>
+
+        Split WindowProxy handling out of ScriptController and into a new class owned by AbstractFrame
+        https://bugs.webkit.org/show_bug.cgi?id=184591
+
+        Reviewed by Sam Weinig.
+
+        Split WindowProxy handling out of ScriptController and into a new class owned by AbstractFrame.
+        RemoteFrames do not need a ScriptController but do need to maintain WindowProxies.
+        This is work towards fixing Bug 184515.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::getWindowNPObject):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _attachScriptDebugger]):
+
+2018-04-12  Antoine Quint  <graouts@apple.com>
+
+        [Web Animations] Turn CSS Animations and CSS Transitions as Web Animations on by default
+        https://bugs.webkit.org/show_bug.cgi?id=184569
+        <rdar://problem/38671301>
+
+        Reviewed by Jon Lee.
+
+        * WebView/WebPreferences.mm:
+
+2018-04-05  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [WTF] Remove StaticLock
+        https://bugs.webkit.org/show_bug.cgi?id=184332
+
+        Reviewed by Mark Lam.
+
+        * DOM/DOMInternal.mm:
+        (getDOMWrapper):
+        (addDOMWrapper):
+        (removeDOMWrapper):
+
+2018-04-04  Brent Fulgham  <bfulgham@apple.com>
+
+        Failures from mach port reference handling should be fatal
+        https://bugs.webkit.org/show_bug.cgi?id=184202
+        <rdar://problem/37771114>
+
+        Reviewed by Anders Carlsson.
+
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::spawnPluginHost): Adopt new 'safe mach_port_t deallocation' function.
+
+2018-04-03  Andy Estes  <aestes@apple.com>
+
+        [Mac] Prioritize file promises over filenames during drag and drop
+        https://bugs.webkit.org/show_bug.cgi?id=184237
+        <rdar://problem/38278076>
+
+        Reviewed by Wenson Hsieh.
+
+        * WebView/WebView.mm:
+        (-[WebView performDragOperation:]):
+
+2018-04-03  Chris Dumez  <cdumez@apple.com>
+
+        Drop MainFrame class
+        https://bugs.webkit.org/show_bug.cgi?id=184191
+
+        Reviewed by Darin Adler.
+
+        Drop MainFrame class and move contents into Page / Frame since there is a 1:1
+        relationship between the Page and the MainFrame.
+
+        This is ground work for introducing LocalFrame / RemoteFrame concepts.
+
+        * WebCoreSupport/WebDragClient.mm:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebCoreSupport/WebInspectorClient.mm:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        * WebCoreSupport/WebPluginInfoProvider.mm:
+        * WebView/WebFrame.mm:
+        * WebView/WebFrameView.mm:
+        * WebView/WebHTMLView.mm:
+        * WebView/WebView.mm:
+
+2018-04-02  Jer Noble  <jer.noble@apple.com>
+
+        Enable Legacy EME for all WebKit & WebKitLegacy clients
+        https://bugs.webkit.org/show_bug.cgi?id=184018
+        <rdar://problem/34887387>
+
+        Reviewed by Eric Carlson.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+
+2018-03-29  JF Bastien  <jfbastien@apple.com>
+
+        Use Forward.h instead of forward-declaring WTF::String
+        https://bugs.webkit.org/show_bug.cgi?id=184172
+        <rdar://problem/39026146>
+
+        Reviewed by Yusuke Suzuki.
+
+        As part of #184164 I'm changing WTF::String, and the forward
+        declarations are just wrong because I'm making it templated. We
+        should use Forward.h anyways, so do that instead.
+
+        * WebView/WebScriptDebugger.h:
+
+2018-03-28  Brent Fulgham  <bfulgham@apple.com>
+
+        Protect against invalid mach ports returned by mach_port_request_notification
+        https://bugs.webkit.org/show_bug.cgi?id=184106
+        <rdar://problem/37865316>
+
+        Reviewed by Chris Dumez.
+
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::NetscapePluginHostProxy::NetscapePluginHostProxy): Check return value from 'mach_port_request_notification'
+        and clean up if it experienced an error.
+        (WebKit::NetscapePluginHostProxy::processRequests): Drive-by-fix: Include formatted mach error message in logging.
+
+2018-03-28  Brent Fulgham  <bfulgham@apple.com>
+
+        Avoid uninitialized mach ports
+        https://bugs.webkit.org/show_bug.cgi?id=184090
+        <rdar://problem/37261129>
+
+        Reviewed by Chris Dumez.
+
+        It is possible for mach_port_allocate to return an error, but we rarely check its return value. The value
+        of the argument passed to mach_port_allocate is not guaranteed to be valid when it returns an error, so
+        there is a potential for us to try to use invalid ports.
+
+        We should always check return values, and ensure that the mach port variables we seek to initialize are
+        kept in a valid state.
+
+        Reviewed by Chris Dumez.
+
+        * Plugins/Hosted/NetscapePluginHostManager.h:
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::hostForPlugin): Initialize port to a valid state, ASSERT if an invalid
+        port is passed to an API function.
+        (WebKit::NetscapePluginHostManager::spawnPluginHost): Ditto.
+        (WebKit::NetscapePluginHostManager::initializeVendorPort): Ditto.
+        * Plugins/Hosted/NetscapePluginHostProxy.h:
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::NetscapePluginHostProxy::NetscapePluginHostProxy): Ditto.
+        (WebKit::NetscapePluginHostProxy::~NetscapePluginHostProxy): Ditto.
+        (WebKit::NetscapePluginHostProxy::processRequests): Ditto.
+        (WKPCStatusText): Ditto.
+        (WKPCLoadURL): Ditto.
+        (WKPCCancelLoadURL): Ditto.
+        (WKPCInvalidateRect): Ditto.
+        (WKPCGetScriptableNPObjectReply): Ditto.
+        (WKPCBooleanReply): Ditto.
+        (WKPCBooleanAndDataReply): Ditto.
+        (WKPCInstantiatePluginReply): Ditto.
+        (WKPCGetWindowNPObject): Ditto.
+        (WKPCGetPluginElementNPObject): Ditto.
+        (WKPCForgetBrowserObject): Ditto.
+        (WKPCEvaluate): Ditto.
+        (WKPCGetStringIdentifier): Ditto.
+        (WKPCGetIntIdentifier): Ditto.
+        (WKPCInvoke): Ditto.
+        (WKPCInvokeDefault): Ditto.
+        (WKPCConstruct): Ditto.
+        (WKPCGetProperty): Ditto.
+        (WKPCSetProperty): Ditto.
+        (WKPCRemoveProperty): Ditto.
+        (WKPCHasProperty): Ditto.
+        (WKPCHasMethod): Ditto.
+        (WKPCIdentifierInfo): Ditto.
+        (WKPCEnumerate): Ditto.
+        (WKPCSetMenuBarVisible): Ditto.
+        (WKPCSetFullscreenWindowIsShowing): Ditto.
+        (WKPCSetModal): Ditto.
+        (WKPCGetCookies): Ditto.
+        (WKPCGetProxy): Ditto.
+        (WKPCSetCookies): Ditto.
+        (WKPCGetAuthenticationInfo): Ditto.
+        (WKPCConvertPoint): Ditto.
+        (WKPCLayerHostingModeChanged): Ditto.
+        (WKPCSetException): Ditto.
+
+2018-03-26  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt WK_ALTERNATE_FRAMEWORKS_DIR in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=184030
+        <rdar://problem/38895281>
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/Base.xcconfig:
+
+2018-03-26  Chris Dumez  <cdumez@apple.com>
+
+        Use SecurityOriginData more consistently in Service Worker code
+        https://bugs.webkit.org/show_bug.cgi?id=183969
+
+        Reviewed by Darin Adler.
+
+        Use SecurityOrigin::data() instead of SecurityOriginData::fromSecurityOrigin().
+
+        * Storage/WebDatabaseManager.mm:
+        (-[WebDatabaseManager databasesWithOrigin:]):
+        (-[WebDatabaseManager deleteOrigin:]):
+        (-[WebDatabaseManager deleteDatabase:withOrigin:]):
+        * Storage/WebDatabaseQuotaManager.mm:
+        (-[WebDatabaseQuotaManager usage]):
+        (-[WebDatabaseQuotaManager quota]):
+        (-[WebDatabaseQuotaManager setQuota:]):
+        * Storage/WebStorageManager.mm:
+        (-[WebStorageManager deleteOrigin:]):
+        * WebCoreSupport/WebSecurityOrigin.mm:
+        (-[WebSecurityOrigin databaseIdentifier]):
+        (-[WebSecurityOrigin usage]):
+        (-[WebSecurityOrigin quota]):
+        (-[WebSecurityOrigin setQuota:]):
+
+2018-03-26  Brent Fulgham  <bfulgham@apple.com>
+
+        Warn against cookie access in the WebContent process using ProcessPrivilege assertions
+        https://bugs.webkit.org/show_bug.cgi?id=183911
+        <rdar://problem/38762306>
+
+        Reviewed by Youenn Fablet.
+
+        Initialize the ProcessPrivilege and Cookie API access levels for single-process use.
+
+        * WebView/WebView.mm:
+        (+[WebView initialize]):
+
+2018-03-26  Alex Christensen  <achristensen@webkit.org>
+
+        Merge ResourceHandleClient::willCacheResponseAsync with ResourceHandleClient::willCacheResponse
+        https://bugs.webkit.org/show_bug.cgi?id=183965
+
+        Reviewed by Chris Dumez.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::willCacheResponse const):
+
+2018-03-25  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, rolling out r229954.
+        https://bugs.webkit.org/show_bug.cgi?id=184000
+
+        Caused many layout tests to crash on Apple High Sierra,
+        Sierra, iOS Simulator and GTK Linux Debug test bots (Requested
+        by dydz on #webkit).
+
+        Reverted changeset:
+
+        "Use SecurityOriginData more consistently in Service Worker
+        code"
+        https://bugs.webkit.org/show_bug.cgi?id=183969
+        https://trac.webkit.org/changeset/229954
+
+2018-03-24  Chris Dumez  <cdumez@apple.com>
+
+        Use SecurityOriginData more consistently in Service Worker code
+        https://bugs.webkit.org/show_bug.cgi?id=183969
+
+        Reviewed by Darin Adler.
+
+        Use SecurityOrigin::data() instead of SecurityOriginData::fromSecurityOrigin().
+
+        * Storage/WebDatabaseManager.mm:
+        (-[WebDatabaseManager databasesWithOrigin:]):
+        (-[WebDatabaseManager deleteOrigin:]):
+        (-[WebDatabaseManager deleteDatabase:withOrigin:]):
+        * Storage/WebDatabaseQuotaManager.mm:
+        (-[WebDatabaseQuotaManager usage]):
+        (-[WebDatabaseQuotaManager quota]):
+        (-[WebDatabaseQuotaManager setQuota:]):
+        * Storage/WebStorageManager.mm:
+        (-[WebStorageManager deleteOrigin:]):
+        * WebCoreSupport/WebSecurityOrigin.mm:
+        (-[WebSecurityOrigin databaseIdentifier]):
+        (-[WebSecurityOrigin usage]):
+        (-[WebSecurityOrigin quota]):
+        (-[WebSecurityOrigin setQuota:]):
+
+2018-03-24  Timothy Horton  <timothy_horton@apple.com>
+
+        Fix the build
+
+        * WebView/WebView.mm:
+
+2018-03-23  Tim Horton  <timothy_horton@apple.com>
+
+        Fix the build with no pasteboard
+        https://bugs.webkit.org/show_bug.cgi?id=183973
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * WebView/WebView.mm:
+        (-[WebView _requestStartDataInteraction:globalPosition:]):
+        (-[WebView _getDataInteractionData]):
+        (-[WebView _dataOperationTextIndicator]):
+        (-[WebView _dragSourceAction]):
+        (-[WebView _draggedLinkTitle]):
+        (-[WebView _draggedLinkURL]):
+        (-[WebView _draggedElementBounds]):
+        (-[WebView _enteredDataInteraction:client:global:operation:]):
+        (-[WebView _updatedDataInteraction:client:global:operation:]):
+        (-[WebView _exitedDataInteraction:client:global:operation:]):
+        (-[WebView _performDataInteraction:client:global:operation:]):
+        (-[WebView _tryToPerformDataInteraction:client:global:operation:]):
+        (-[WebView _endedDataInteraction:global:]):
+        (-[WebView _dataInteractionCaretRect]):
+        * WebView/WebViewPrivate.h:
+
+2018-03-23  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt WK_ALTERNATE_FRAMEWORKS_DIR in WebKitLegacy and update install name
+        https://bugs.webkit.org/show_bug.cgi?id=183960
+        <rdar://problem/38812356>
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2018-03-23  Tim Horton  <timothy_horton@apple.com>
+
+        Introduce and adopt HAVE(AUDIO_TOOLBOX_AUDIO_SESSION)
+        https://bugs.webkit.org/show_bug.cgi?id=183954
+        <rdar://problem/38808858>
+
+        Reviewed by Dan Bernstein.
+
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences setAudioSessionCategoryOverride:]):
+
+2018-03-23  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt WK_PLATFORM_NAME in WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=183948
+        <rdar://problem/38803908>
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/WebKitLegacy.xcconfig:
+        * MigrateHeaders.make:
+        * postprocess-headers.sh:
+
+2018-03-23  Brady Eidson  <beidson@apple.com>
+
+        Go to back/forward list items after a process-swapped navigation.
+        <rdar://problem/38690544> and https://bugs.webkit.org/show_bug.cgi?id=183920
+
+        Reviewed by Andy Estes.
+
+        * WebView/WebView.mm:
+        (-[WebView _loadBackForwardListFromOtherView:]):
+        (-[WebView goToBackForwardItem:]):
+
+2018-03-22  Tim Horton  <timothy_horton@apple.com>
+
+        Improve readability of WebCore's OTHER_LDFLAGS
+        https://bugs.webkit.org/show_bug.cgi?id=183909
+        <rdar://problem/38760992>
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-03-20  Tim Horton  <timothy_horton@apple.com>
+
+        Enable the minimal simulator feature flag when appropriate
+        https://bugs.webkit.org/show_bug.cgi?id=183807
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-03-20  Tim Horton  <timothy_horton@apple.com>
+
+        Add and adopt WK_PLATFORM_NAME and adjust default feature defines
+        https://bugs.webkit.org/show_bug.cgi?id=183758
+        <rdar://problem/38017644>
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-03-19  Megan Gardner  <megan_gardner@apple.com>
+
+        Clear style colors when setting default appearance
+        https://bugs.webkit.org/show_bug.cgi?id=183759
+
+        Reviewed by Tim Horton.
+
+        Colors are cached and need to be cleared and recalculated.
+        Refactor to do all style recalcs together.
+
+        * WebView/WebView.mm:
+        (-[WebView _setDefaultAppearanceAndClearStyle]):
+        (-[WebView _setUseSystemAppearance:]):
+        (-[WebView effectiveAppearanceDidChange]):
+
+2018-03-19  Jiewen Tan  <jiewen_tan@apple.com>
+
+        Unreviewed, another quick fix for r229699
+
+        Restricts ENABLE_WEB_AUTHN to only macOS and iOS.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-03-16  Megan Gardner  <megan_gardner@apple.com>
+
+        Ensure that style is updated when the effective appearance changes
+        https://bugs.webkit.org/show_bug.cgi?id=183690
+        <rdar://problem/38385900>
+
+        Reviewed by Tim Horton and Wenson Hsieh.
+
+        Respond to and respect the effective appearance changing.
+
+        * WebView/WebView.mm:
+        (-[WebView _setUseSystemAppearance:]):
+        (-[WebView effectiveAppearanceDidChange]):
+
+2018-03-15  Megan Gardner  <megan_gardner@apple.com>
+
+        Create MediaQueryParserContext to provide additional context for the evaluation of media queries
+        https://bugs.webkit.org/show_bug.cgi?id=183677
+
+        Reviewed by Tim Horton.
+
+        We need additional context for parsing media queries to make sure they are parsed correctly and valid.
+
+        * DOM/DOM.mm:
+        (-[DOMHTMLLinkElement _mediaQueryMatches]):
+
+2018-03-14  Tim Horton  <timothy_horton@apple.com>
+
+        Fix the build after r229567
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-03-12  Tim Horton  <timothy_horton@apple.com>
+
+        Stop using SDK conditionals to control feature definitions
+        https://bugs.webkit.org/show_bug.cgi?id=183430
+        <rdar://problem/38251619>
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/FeatureDefines.xcconfig:
+        * Configurations/WebKitTargetConditionals.xcconfig: Renamed.
+
+2018-03-12  Yoav Weiss  <yoav@yoav.ws>
+
+        Runtime flag for link prefetch and remove link subresource.
+        https://bugs.webkit.org/show_bug.cgi?id=183540
+
+        Reviewed by Chris Dumez.
+
+        Remove the LINK_PREFETCH build time flag.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-03-12  Javier Fernandez  <jfernandez@igalia.com>
+
+        Remove GridLayout runtime flag
+        https://bugs.webkit.org/show_bug.cgi?id=183484
+
+        Reviewed by Myles C. Maxfield.
+
+        The Grid Layout feature has been enabled by default for almost a
+        year, so I think it's time to remove the runtime flag and the
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2018-03-12  Antoine Quint  <graouts@apple.com>
+
+        [Web Animations] Implement CSS Animations and CSS Transitions as Web Animations
+        https://bugs.webkit.org/show_bug.cgi?id=183504
+        <rdar://problem/38372965>
+
+        Reviewed by Dean Jackson and Jon Lee.
+
+        Add the missing WebKitLegacy support the cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled flag
+        which is required for the matching <!-- webkit-test-runner --> flag to work in DumpRenderTree.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences setModernMediaControlsEnabled:]):
+        (-[WebPreferences cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled]):
+        (-[WebPreferences setCSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2018-03-10  Megan Gardner  <megan_gardner@apple.com>
+
+        Media query for default appearance
+        https://bugs.webkit.org/show_bug.cgi?id=183539
+        <rdar://problem/38326388>
+
+        Reviewed by Tim Horton.
+
+        Write a media query to evaluate appearance.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView _setUseSystemAppearance:]):
+
+2018-03-09  Andy Estes  <aestes@apple.com>
+
+        [Mac] WebKit fails to receive file promises when the embedding app is sandboxed
+        https://bugs.webkit.org/show_bug.cgi?id=183489
+        <rdar://problem/38267517>
+
+        WebKitLegacy calls -[NSFilePromiseReceiver receivePromisedFilesAtDestination:...] with
+        NSTemporaryDirectory() as the destination for receiving file promise drops. AppKit attempts
+        to issue a sandbox extension for this directory, but for security reasons App Sandbox
+        refuses to do so for NSTemporaryDirectory() itself. As a result, AppKit will call our reader
+        block with a nil error and a valid file URL, but no file will actually exist at that URL.
+
+        In order for App Sandbox to grant issuing the sandbox extension needed by AppKit, we need to
+        use some other destination directory. This patch uses FileSystem::createTemporaryDirectory()
+        to securely create a unique temporary directory inside NSTemporaryDirectory() for use as the
+        drop destination.
+
+        Reviewed by Wenson Hsieh.
+
+        * WebView/WebView.mm:
+        (-[WebView performDragOperation:]):
+
+2018-03-08  Megan Gardner  <megan_gardner@apple.com>
+
+        Allow WebViews to disable system appearance
+        https://bugs.webkit.org/show_bug.cgi?id=183418
+        <rdar://problem/36975642>
+
+        Reviewed by Tim Horton.
+
+        Allow webviews to choose whether or not to follow the default system appearance.
+
+        * WebView/WebView.mm:
+        (-[WebView _setUseSystemAppearance:]):
+        (-[WebView _useSystemAppearance]):
+        * WebView/WebViewPrivate.h:
+
+2018-03-08  Youenn Fablet  <youenn@apple.com>
+
+        libwebrtc update broke internal builds
+        https://bugs.webkit.org/show_bug.cgi?id=183454
+
+        Reviewed by Eric Carlson.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2018-03-08  Chris Dumez  <cdumez@apple.com>
+
+        Possible null dereference of the page under WebFrameNetworkingContext::storageSession()
+        https://bugs.webkit.org/show_bug.cgi?id=183455
+        <rdar://problem/38191749>
+
+        Reviewed by Youenn Fablet.
+
+        Add a null check for the page as we have evidence from crashes that it can be null.
+        Other functions in WebFrameNetworkingContext already null check the page as well,
+        not just the frame so this is consistent.
+
+        * WebCoreSupport/WebFrameNetworkingContext.mm:
+        (WebFrameNetworkingContext::storageSession const):
+
+2018-03-08  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [JSC] Add inherits<T>(VM&) leveraging JSCast fast path
+        https://bugs.webkit.org/show_bug.cgi?id=183429
+
+        Reviewed by Mark Lam.
+
+        * DOM/DOM.mm:
+        (+[DOMNode _nodeFromJSWrapper:]):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::retainLocalObject):
+        (WebKit::NetscapePluginInstanceProxy::releaseLocalObject):
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::invokeMethod):
+        * WebView/WebView.mm:
+        (aeDescFromJSValue):
+
+2018-03-08  Tim Horton  <timothy_horton@apple.com>
+
+        Stop linking ApplicationServices directly
+        https://bugs.webkit.org/show_bug.cgi?id=182867
+        <rdar://problem/38252142>
+
+        Reviewed by Alex Christensen.
+
+        The frameworks that we use that live inside ApplicationServices
+        have mostly moved out, so import them directly.
+
+        * Carbon/CarbonUtils.h:
+        * WebKitPrefix.h:
+        * WebView/WebHTMLView.mm:
+        * WebView/WebPDFView.mm:
+
+2018-03-07  Tim Horton  <timothy_horton@apple.com>
+
+        Sort and separate FeatureDefines.xcconfig
+        https://bugs.webkit.org/show_bug.cgi?id=183427
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/FeatureDefines.xcconfig:
+        Sort and split FeatureDefines into paragraphs
+        (to make it easier to sort later).
+
+2018-03-07  Youenn Fablet  <youenn@apple.com>
+
+        Match unsupported plugins based on domains and not origin
+        https://bugs.webkit.org/show_bug.cgi?id=183384
+
+        Reviewed by Chris Dumez.
+
+        * WebCoreSupport/WebPluginInfoProvider.h:
+        * WebCoreSupport/WebPluginInfoProvider.mm:
+        (WebPluginInfoProvider::getPluginInfo):
+        (WebPluginInfoProvider::getWebVisiblePluginInfo):
+
+2018-03-05  Andy Estes  <aestes@apple.com>
+
+        [Mac] Teach WebCore::Pasteboard about file promise drags
+        https://bugs.webkit.org/show_bug.cgi?id=183314
+        <rdar://problem/38105493>
+
+        Reviewed by Darin Adler.
+
+        Added a FIXME comment.
+
+        * WebView/WebView.mm:
+        (-[WebView performDragOperation:]):
+
+2018-03-04  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [WTF] Move currentCPUTime and sleep(Seconds) to CPUTime.h and Seconds.h respectively
+        https://bugs.webkit.org/show_bug.cgi?id=183312
+
+        Reviewed by Mark Lam.
+
+        Remove wtf/CurrentTime.h include pragma.
+
+        * WebView/WebFrame.mm:
+        * WebView/WebPDFView.mm:
+
+2018-03-04  Tim Horton  <timothy_horton@apple.com>
+
+        Make !ENABLE(DATA_DETECTION) iOS build actually succeed
+        https://bugs.webkit.org/show_bug.cgi?id=183283
+        <rdar://problem/38062148>
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2018-02-28  Alex Christensen  <achristensen@webkit.org>
+
+        Reduce use of NetworkingContext in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=183213
+
+        Reviewed by Brady Eidson.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::getProxy):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView getVariable:forURL:value:length:]):
+
 2018-02-17  Darin Adler  <darin@apple.com>
 
         Prepare for ExtendedColor changes (first step)

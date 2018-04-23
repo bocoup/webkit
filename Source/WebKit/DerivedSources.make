@@ -23,6 +23,7 @@
 VPATH = \
     $(WebKit2) \
     $(WebKit2)/NetworkProcess \
+    $(WebKit2)/NetworkProcess/Cookies \
     $(WebKit2)/NetworkProcess/cache \
     $(WebKit2)/NetworkProcess/CustomProtocols \
     $(WebKit2)/NetworkProcess/mac \
@@ -42,7 +43,6 @@ VPATH = \
     $(WebKit2)/WebProcess/ApplicationCache \
     $(WebKit2)/WebProcess/Automation \
     $(WebKit2)/WebProcess/Cache \
-    $(WebKit2)/WebProcess/Cookies \
     $(WebKit2)/WebProcess/CredentialManagement \
     $(WebKit2)/WebProcess/Databases/IndexedDB \
     $(WebKit2)/WebProcess/FullScreen \
@@ -107,6 +107,7 @@ MESSAGE_RECEIVERS = \
     LegacyCustomProtocolManagerProxy \
     NPObjectMessageReceiver \
     NetworkConnectionToWebProcess \
+    NetworkMDNSRegister\
     NetworkProcess \
     NetworkProcessConnection \
     NetworkProcessProxy \
@@ -115,6 +116,7 @@ MESSAGE_RECEIVERS = \
     NetworkRTCSocket \
     NetworkResourceLoader \
     NetworkSocketStream \
+    NetworkContentRuleListManager \
     PluginControllerProxy \
     PluginProcess \
     PluginProcessConnection \
@@ -159,6 +161,7 @@ MESSAGE_RECEIVERS = \
     WebInspectorInterruptDispatcher \
     WebInspectorProxy \
     WebInspectorUI \
+    WebMDNSRegister\
     WebNotificationManager \
     WebPage \
     WebPageProxy \
@@ -216,18 +219,14 @@ all : \
 	@echo Generating message receiver for $*...
 	@python $(WebKit2)/Scripts/generate-messages-header.py $< > $@
 
-
-# Some versions of clang incorrectly strip out // comments in c89 code.
-# Use -traditional as a workaround, but only when needed since that causes
-# other problems with later versions of clang.
-ifeq ($(shell echo '//x' | $(CC) -E -P -x c -std=c89 - | grep x),)
-TEXT_PREPROCESSOR_FLAGS=-E -P -x c -traditional -w
-else
-TEXT_PREPROCESSOR_FLAGS=-E -P -x c -std=c89 -w
-endif
+TEXT_PREPROCESSOR_FLAGS=-E -P -w
 
 ifneq ($(SDKROOT),)
 	SDK_FLAGS=-isysroot $(SDKROOT)
+endif
+
+ifeq ($(USE_LLVM_TARGET_TRIPLES_FOR_CLANG),YES)
+	TARGET_TRIPLE_FLAGS=-target $(CURRENT_ARCH)-$(LLVM_TARGET_TRIPLE_VENDOR)-$(LLVM_TARGET_TRIPLE_OS_VERSION)$(LLVM_TARGET_TRIPLE_SUFFIX)
 endif
 
 SANDBOX_PROFILES = \
@@ -240,7 +239,7 @@ all: $(SANDBOX_PROFILES)
 
 %.sb : %.sb.in
 	@echo Pre-processing $* sandbox profile...
-	$(CC) $(SDK_FLAGS) $(TEXT_PREPROCESSOR_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" $< > $@
+	grep -o '^[^;]*' $< | $(CC) $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(TEXT_PREPROCESSOR_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" - > $@
 
 AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS = \
 	$(JavaScriptCore_SCRIPTS_DIR)/cpp_generator_templates.py \
@@ -269,7 +268,7 @@ AUTOMATION_PROTOCOL_OUTPUT_FILES = \
 #
 
 ifeq ($(OS),MACOS)
-ifeq ($(shell $(CC) -std=gnu++14 -x c++ -E -P -dM $(SDK_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" /dev/null | grep ' WTF_PLATFORM_IOS ' | cut -d' ' -f3), 1)
+ifeq ($(shell $(CC) -std=gnu++14 -x c++ -E -P -dM $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" /dev/null | grep ' WTF_PLATFORM_IOS ' | cut -d' ' -f3), 1)
 	AUTOMATION_BACKEND_PLATFORM_ARGUMENTS = --platform iOS
 else
 	AUTOMATION_BACKEND_PLATFORM_ARGUMENTS = --platform macOS

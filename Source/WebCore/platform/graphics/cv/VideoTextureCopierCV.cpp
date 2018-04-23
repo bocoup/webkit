@@ -26,11 +26,14 @@
 #include "config.h"
 #include "VideoTextureCopierCV.h"
 
+#if HAVE(CORE_VIDEO)
+
 #include "FourCC.h"
 #include "Logging.h"
 #include "TextureCacheCV.h"
 #include <pal/spi/cocoa/IOSurfaceSPI.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/StdMap.h>
 #include <wtf/text/StringBuilder.h>
 
 #if USE(OPENGL_ES)
@@ -246,7 +249,7 @@ constexpr GLfloatColor YCbCrMatrix::operator*(const GLfloatColor& color) const
 static const Vector<GLfloat> YCbCrToRGBMatrixForRangeAndTransferFunction(PixelRange range, TransferFunction transferFunction)
 {
     using MapKey = std::pair<PixelRange, TransferFunction>;
-    using MatrixMap = std::map<MapKey, Vector<GLfloat>>;
+    using MatrixMap = StdMap<MapKey, Vector<GLfloat>>;
 
     static NeverDestroyed<MatrixMap> matrices;
     static dispatch_once_t onceToken;
@@ -391,7 +394,7 @@ VideoTextureCopierCV::~VideoTextureCopierCV()
 }
 
 #if !LOG_DISABLED
-using StringMap = std::map<uint32_t, const char*, std::less<uint32_t>, FastAllocator<std::pair<const uint32_t, const char*>>>;
+using StringMap = StdMap<uint32_t, const char*>;
 #define STRINGIFY_PAIR(e) e, #e
 static StringMap& enumToStringMap()
 {
@@ -945,3 +948,5 @@ bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(Platform3DObject vi
 }
 
 }
+
+#endif // HAVE(CORE_VIDEO)

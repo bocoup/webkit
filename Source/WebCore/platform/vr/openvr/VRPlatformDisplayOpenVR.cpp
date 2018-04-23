@@ -34,8 +34,8 @@ VRPlatformDisplayOpenVR::VRPlatformDisplayOpenVR(vr::IVRSystem* system, vr::IVRC
     , m_chaperone(chaperone)
     , m_compositor(compositor)
 {
-    m_displayInfo.displayIdentifier = ++s_displayIdentifier;
-    m_displayInfo.isConnected = m_system->IsTrackedDeviceConnected(vr::k_unTrackedDeviceIndex_Hmd);
+    m_displayInfo.setDisplayIdentifier(++s_displayIdentifier);
+    m_displayInfo.setIsConnected(m_system->IsTrackedDeviceConnected(vr::k_unTrackedDeviceIndex_Hmd));
 
     StringBuilder stringBuilder;
     stringBuilder.appendLiteral("OpenVR HMD");
@@ -45,15 +45,12 @@ VRPlatformDisplayOpenVR::VRPlatformDisplayOpenVR(vr::IVRSystem* system, vr::IVRC
         stringBuilder.append(HMDName, length);
         stringBuilder.append(')');
     }
-    m_displayInfo.displayName = stringBuilder.toString();
-
-    m_displayInfo.isMounted = false;
+    m_displayInfo.setDisplayName(stringBuilder.toString());
+    m_displayInfo.setIsMounted(false);
     // FIXME: We're assuming an HTC Vive HMD here. Get this info from OpenVR?.
-    m_displayInfo.capabilityFlags = VRDisplayCapabilityFlags::None |
-        VRDisplayCapabilityFlags::Position |
-        VRDisplayCapabilityFlags::Orientation |
-        VRDisplayCapabilityFlags::ExternalDisplay |
-        VRDisplayCapabilityFlags::Present;
+    m_displayInfo.setCapabilityFlags(VRDisplayCapabilityFlagNone | VRDisplayCapabilityFlagPosition | VRDisplayCapabilityFlagOrientation | VRDisplayCapabilityFlagExternalDisplay | VRDisplayCapabilityFlagPresent);
+
+    m_compositor->SetTrackingSpace(vr::TrackingUniverseSeated);
 
     updateEyeParameters();
     updateStageParameters();
@@ -70,16 +67,17 @@ VRPlatformDisplayInfo::FieldOfView VRPlatformDisplayOpenVR::computeFieldOfView(v
 void VRPlatformDisplayOpenVR::updateEyeParameters()
 {
     for (unsigned eye = 0; eye < VRPlatformDisplayInfo::NumEyes; ++eye) {
-        m_displayInfo.eyeFieldOfView[eye] = computeFieldOfView(static_cast<vr::Hmd_Eye>(eye));
+        auto platformEye = static_cast<VRPlatformDisplayInfo::Eye>(eye);
+        m_displayInfo.setEyeFieldOfView(platformEye, computeFieldOfView(static_cast<vr::Hmd_Eye>(eye)));
 
         vr::HmdMatrix34_t eyeToHead = m_system->GetEyeToHeadTransform(static_cast<vr::Hmd_Eye>(eye));
-        m_displayInfo.eyeTranslation[eye].set(eyeToHead.m[0][3], eyeToHead.m[1][3], eyeToHead.m[2][3]);
+        m_displayInfo.setEyeTranslation(platformEye, { eyeToHead.m[0][3], eyeToHead.m[1][3], eyeToHead.m[2][3] });
     }
 
     uint32_t width;
     uint32_t height;
     m_system->GetRecommendedRenderTargetSize(&width, &height);
-    m_displayInfo.renderSize = { width, height };
+    m_displayInfo.setRenderSize({ width, height });
 }
 
 void VRPlatformDisplayOpenVR::updateStageParameters()
@@ -89,16 +87,75 @@ void VRPlatformDisplayOpenVR::updateStageParameters()
     if (!m_chaperone->GetPlayAreaSize(&playAreaWidth, &playAreaDepth)) {
         // Fallback to sensible values, 1mx1m play area and 0.75m high seated position. We do as
         // Firefox does.
-        m_displayInfo.sittingToStandingTransform = TransformationMatrix();
-        m_displayInfo.sittingToStandingTransform->setM42(0.75);
+        TransformationMatrix matrix;
+        matrix.setM42(0.75);
+        m_displayInfo.setSittingToStandingTransform(WTFMove(matrix));
     } else {
         vr::HmdMatrix34_t transformMatrix = m_system->GetSeatedZeroPoseToStandingAbsoluteTrackingPose();
-        m_displayInfo.sittingToStandingTransform = TransformationMatrix(transformMatrix.m[0][0], transformMatrix.m[1][0], transformMatrix.m[2][0], 0,
+        auto matrix =  TransformationMatrix(transformMatrix.m[0][0], transformMatrix.m[1][0], transformMatrix.m[2][0], 0,
             transformMatrix.m[0][1], transformMatrix.m[1][1], transformMatrix.m[2][1], 0,
             transformMatrix.m[0][2], transformMatrix.m[1][2], transformMatrix.m[2][2], 0,
             transformMatrix.m[0][3], transformMatrix.m[1][3], transformMatrix.m[2][3], 1);
+        m_displayInfo.setSittingToStandingTransform(WTFMove(matrix));
     }
-    m_displayInfo.playAreaBounds = FloatSize(playAreaWidth, playAreaDepth);
+    m_displayInfo.setPlayAreaBounds(FloatSize(playAreaWidth, playAreaDepth));
+}
+
+// FIXME: we might want to generalize this function for other backends.
+static VRPlatformTrackingInfo::Quaternion rotationMatrixToQuaternion(const float (&matrix)[3][4])
+{
+    // See https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2015/01/matrix-to-quat.pdf.
+    VRPlatformTrackingInfo::Quaternion quaternion;
+    float trace;
+    if (matrix[2][2] < 0) {
+        if (matrix[0][0] > matrix[1][1]) {
+            trace = 1 + matrix[0][0] - matrix[1][1] - matrix[2][2];
+            quaternion = { trace, matrix[0][1]+matrix[1][0], matrix[2][0]+matrix[0][2], matrix[1][2] - matrix[2][1] };
+        } else {
+            trace = 1 - matrix[0][0] + matrix[1][1] - matrix[2][2];
+            quaternion = { matrix[0][1]+matrix[1][0], trace, matrix[1][2]+matrix[2][1], matrix[2][0] - matrix[0][2] };
+        }
+    } else {
+        if (matrix[0][0] < -matrix[1][1]) {
+            trace = 1 - matrix[0][0] - matrix[1][1] + matrix[2][2];
+            quaternion = { matrix[2][0]+matrix[0][2], matrix[1][2]+matrix[2][1], trace , matrix[0][1] - matrix[1][0] };
+        } else {
+            trace = 1 + matrix[0][0] + matrix[1][1] + matrix[2][2];
+            quaternion = { matrix[1][2] - matrix[2][1], matrix[2][0] - matrix[0][2], matrix[0][1] - matrix[1][0], trace };
+        }
+    }
+    return quaternion * (0.5 / sqrt(trace));
+}
+
+VRPlatformTrackingInfo VRPlatformDisplayOpenVR::getTrackingInfo()
+{
+    vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount];
+
+    m_compositor->WaitGetPoses(nullptr, 0, poses, vr::k_unMaxTrackedDeviceCount);
+
+    m_trackingInfo.clear();
+
+    vr::Compositor_FrameTiming timing;
+    timing.m_nSize = sizeof(vr::Compositor_FrameTiming);
+    m_compositor->GetFrameTiming(&timing);
+    m_trackingInfo.timestamp = timing.m_flSystemTimeInSeconds;
+
+    if (!poses[vr::k_unTrackedDeviceIndex_Hmd].bDeviceIsConnected
+        || !poses[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid
+        || poses[vr::k_unTrackedDeviceIndex_Hmd].eTrackingResult != vr::TrackingResult_Running_OK) {
+        // FIXME: Init some data maybe???.
+        return m_trackingInfo;
+    }
+
+    const auto& HMDPose = poses[vr::k_unTrackedDeviceIndex_Hmd];
+    const auto& transform = HMDPose.mDeviceToAbsoluteTracking;
+    m_trackingInfo.orientation = rotationMatrixToQuaternion(transform.m);
+    m_trackingInfo.orientation->conjugate();
+    m_trackingInfo.position = FloatPoint3D(transform.m[0][3], transform.m[1][3], transform.m[2][3]);
+    m_trackingInfo.angularVelocity = VRPlatformTrackingInfo::Float3(HMDPose.vAngularVelocity.v[0], HMDPose.vAngularVelocity.v[1], HMDPose.vAngularVelocity.v[2]);
+    m_trackingInfo.linearVelocity = VRPlatformTrackingInfo::Float3(HMDPose.vVelocity.v[0], HMDPose.vVelocity.v[1], HMDPose.vVelocity.v[2]);
+
+    return m_trackingInfo;
 }
 
 }; // namespace WebCore

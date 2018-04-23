@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #include "config.h"
 #include "CookieJar.h"
 
+#include "CookieRequestHeaderFieldProxy.h"
 #include "CookiesStrategy.h"
 #include "Document.h"
 #include "Frame.h"
@@ -55,11 +56,17 @@ inline NetworkStorageSession& storageSession(const Document& document)
     return context ? context->storageSession() : NetworkStorageSession::defaultStorageSession();
 }
 
+static IncludeSecureCookies shouldIncludeSecureCookies(const Document& document, const URL& url)
+{
+    return (url.protocolIs("https") && !document.foundMixedContent().contains(SecurityContext::MixedContentType::Active)) ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
+}
+
 String cookies(Document& document, const URL& url)
 {
     TraceScope scope(FetchCookiesStart, FetchCookiesEnd);
 
-    auto includeSecureCookies = (url.protocolIs("https") && !document.foundMixedContent().contains(SecurityContext::MixedContentType::Active)) ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
+    auto includeSecureCookies = shouldIncludeSecureCookies(document, url);
+
     std::pair<String, bool> result;
     auto frame = document.frame();
     if (frame)
@@ -71,6 +78,22 @@ String cookies(Document& document, const URL& url)
         document.setSecureCookiesAccessed();
 
     return result.first;
+}
+
+CookieRequestHeaderFieldProxy cookieRequestHeaderFieldProxy(const Document& document, const URL& url)
+{
+    TraceScope scope(FetchCookiesStart, FetchCookiesEnd);
+
+    CookieRequestHeaderFieldProxy proxy;
+    proxy.sessionID = storageSession(document).sessionID();
+    proxy.firstParty = document.firstPartyForCookies();
+    proxy.url = url;
+    proxy.includeSecureCookies = shouldIncludeSecureCookies(document, url);
+    if (auto* frame = document.frame()) {
+        proxy.frameID = frame->loader().client().frameID();
+        proxy.pageID = frame->loader().client().pageID();
+    }
+    return proxy;
 }
 
 void setCookies(Document& document, const URL& url, const String& cookieString)
@@ -89,7 +112,8 @@ bool cookiesEnabled(const Document& document)
 
 String cookieRequestHeaderFieldValue(Document& document, const URL& url)
 {
-    auto includeSecureCookies = (url.protocolIs("https") && !document.foundMixedContent().contains(SecurityContext::MixedContentType::Active)) ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
+    auto includeSecureCookies = shouldIncludeSecureCookies(document, url);
+
     std::pair<String, bool> result;
     auto frame = document.frame();
     if (frame)

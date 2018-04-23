@@ -35,6 +35,7 @@
 #include "FocusDirection.h"
 #include "FontSelectorClient.h"
 #include "FrameDestructionObserver.h"
+#include "GenericTaskQueue.h"
 #include "MediaProducer.h"
 #include "MutationObserver.h"
 #include "OrientationNotifier.h"
@@ -44,6 +45,7 @@
 #include "RenderPtr.h"
 #include "ScriptExecutionContext.h"
 #include "StringWithDirection.h"
+#include "StyleColor.h"
 #include "Supplementable.h"
 #include "TextResourceDecoder.h"
 #include "Timer.h"
@@ -51,7 +53,6 @@
 #include "UserActionElementSet.h"
 #include "ViewportArguments.h"
 #include "VisibilityState.h"
-#include <JavaScriptCore/ThreadLocalCache.h>
 #include <pal/SessionID.h>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
@@ -184,6 +185,7 @@ class WebAnimation;
 class WebGL2RenderingContext;
 class WebGLRenderingContext;
 class WebGPURenderingContext;
+class WindowProxy;
 class XPathEvaluator;
 class XPathExpression;
 class XPathNSResolver;
@@ -318,6 +320,7 @@ class Document
     , public FrameDestructionObserver
     , public Supplementable<Document>
     , public Logger::Observer {
+    WTF_MAKE_ISO_ALLOCATED(Document);
 public:
     static Ref<Document> create(Frame* frame, const URL& url)
     {
@@ -422,8 +425,6 @@ public:
     WEBCORE_EXPORT Ref<Element> createElement(const QualifiedName&, bool createdByParser);
 
     static CustomElementNameValidationStatus validateCustomElementName(const AtomicString&);
-
-    bool isCSSGridLayoutEnabled() const;
 
     WEBCORE_EXPORT RefPtr<Range> caretRangeFromPoint(int x, int y);
     RefPtr<Range> caretRangeFromPoint(const LayoutPoint& clientPoint);
@@ -545,6 +546,9 @@ public:
 
     float deviceScaleFactor() const;
 
+    bool useSystemAppearance() const;
+    OptionSet<StyleColor::Options> styleColorOptions() const;
+
     WEBCORE_EXPORT Ref<Range> createRange();
 
     // The last bool parameter is for ObjC bindings.
@@ -616,7 +620,7 @@ public:
     
     WEBCORE_EXPORT DocumentLoader* loader() const;
 
-    WEBCORE_EXPORT ExceptionOr<RefPtr<DOMWindow>> openForBindings(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& url, const AtomicString& name, const String& features);
+    WEBCORE_EXPORT ExceptionOr<RefPtr<WindowProxy>> openForBindings(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& url, const AtomicString& name, const String& features);
     WEBCORE_EXPORT ExceptionOr<Document&> openForBindings(Document* responsibleDocument, const String& type, const String& replace);
 
     // FIXME: We should rename this at some point and give back the name 'open' to the HTML specified ones.
@@ -1134,7 +1138,7 @@ public:
     void setFullScreenRenderer(RenderTreeBuilder&, RenderFullScreen&);
     RenderFullScreen* fullScreenRenderer() const { return m_fullScreenRenderer.get(); }
 
-    void fullScreenChangeDelayTimerFired();
+    void dispatchFullScreenChangeEvents();
     bool fullScreenIsAllowedForElement(Element*) const;
     void fullScreenElementRemoved();
     void removeFullScreenElementOfSubtree(Node&, bool amongChildrenOnly = false);
@@ -1389,7 +1393,7 @@ public:
 
     WEBCORE_EXPORT void setConsoleMessageListener(RefPtr<StringCallback>&&); // For testing.
 
-    DocumentTimeline& timeline();
+    WEBCORE_EXPORT DocumentTimeline& timeline();
     DocumentTimeline* existingTimeline() const { return m_timeline.get(); }
     Vector<RefPtr<WebAnimation>> getAnimations();
         
@@ -1412,7 +1416,10 @@ public:
     bool handlingTouchEvent() const { return m_handlingTouchEvent; }
 #endif
 
-    JSC::ThreadLocalCache& threadLocalCache();
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+    bool hasRequestedPageSpecificStorageAccessWithUserInteraction(const String& primaryDomain);
+    void setHasRequestedPageSpecificStorageAccessWithUserInteraction(const String& primaryDomain);
+#endif
 
 protected:
     enum ConstructionFlags { Synthesized = 1, NonRenderedPlaceholder = 1 << 1 };
@@ -1681,7 +1688,7 @@ private:
     RefPtr<Element> m_fullScreenElement;
     Vector<RefPtr<Element>> m_fullScreenElementStack;
     WeakPtr<RenderFullScreen> m_fullScreenRenderer { nullptr };
-    Timer m_fullScreenChangeDelayTimer;
+    GenericTaskQueue<Timer> m_fullScreenTaskQueue;
     Deque<RefPtr<Node>> m_fullScreenChangeEventTargetQueue;
     Deque<RefPtr<Node>> m_fullScreenErrorEventTargetQueue;
     LayoutRect m_savedPlaceholderFrameRect;
@@ -1726,6 +1733,8 @@ private:
     std::unique_ptr<DeviceOrientationClient> m_deviceOrientationClient;
     std::unique_ptr<DeviceOrientationController> m_deviceOrientationController;
 #endif
+
+    GenericTaskQueue<Timer> m_logMessageTaskQueue;
 
     Timer m_pendingTasksTimer;
     Vector<Task> m_pendingTasks;
@@ -1899,7 +1908,9 @@ private:
 
     HashSet<ApplicationStateChangeListener*> m_applicationStateChangeListeners;
     
-    RefPtr<JSC::ThreadLocalCache> m_threadLocalCache;
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+    String m_primaryDomainRequestedPageSpecificStorageAccessWithUserInteraction { };
+#endif
 };
 
 Element* eventTargetElementForDocument(Document*);

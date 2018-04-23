@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2018 Apple Inc. All rights reserved.
  *           (C) 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,6 +59,7 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <JavaScriptCore/TestRunnerUtils.h>
 #import <WebCore/LogInitialization.h>
+#import <WebCore/NetworkStorageSession.h>
 #import <WebKit/DOMElement.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMRange.h>
@@ -92,6 +93,7 @@
 #import <wtf/FastMalloc.h>
 #import <wtf/LoggingAccumulator.h>
 #import <wtf/ObjcRuntimeExtras.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Threading.h>
 #import <wtf/text/WTFString.h>
@@ -216,6 +218,7 @@ static int useTimeoutWatchdog = YES;
 static int forceComplexText;
 static int useAcceleratedDrawing;
 static int gcBetweenTests;
+static int allowAnyHTTPSCertificateForAllowedHosts;
 static int showWebView;
 static int printTestCount;
 static BOOL printSeparators;
@@ -840,7 +843,6 @@ static NSString *libraryPathForDumpRenderTree()
 
 static void enableExperimentalFeatures(WebPreferences* preferences)
 {
-    [preferences setCSSGridLayoutEnabled:YES];
     // FIXME: SpringTimingFunction
     [preferences setGamepadsEnabled:YES];
     [preferences setLinkPreloadEnabled:YES];
@@ -995,6 +997,7 @@ static void setWebPreferencesForTestOptions(const TestOptions& options)
     preferences.isSecureContextAttributeEnabled = options.enableIsSecureContextAttribute;
     preferences.inspectorAdditionsEnabled = options.enableInspectorAdditions;
     preferences.allowCrossOriginSubresourcesToAskForCredentials = options.allowCrossOriginSubresourcesToAskForCredentials;
+    preferences.CSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled = options.enableCSSAnimationsAndCSSTransitionsBackedByWebAnimations;
 }
 
 // Called once on DumpRenderTree startup.
@@ -1105,6 +1108,7 @@ static void initializeGlobalsFromCommandLineOptions(int argc, const char *argv[]
         {"gc-between-tests", no_argument, &gcBetweenTests, YES},
         {"no-timeout", no_argument, &useTimeoutWatchdog, NO},
         {"allowed-host", required_argument, nullptr, 'a'},
+        {"allow-any-certificate-for-allowed-hosts", no_argument, &allowAnyHTTPSCertificateForAllowedHosts, YES},
         {"show-webview", no_argument, &showWebView, YES},
         {"print-test-count", no_argument, &printTestCount, YES},
         {nullptr, 0, nullptr, 0}
@@ -1244,6 +1248,10 @@ void dumpRenderTree(int argc, const char *argv[])
 
     [NSURLRequest setAllowsAnyHTTPSCertificate:YES forHost:@"localhost"];
     [NSURLRequest setAllowsAnyHTTPSCertificate:YES forHost:@"127.0.0.1"];
+    if (allowAnyHTTPSCertificateForAllowedHosts) {
+        for (auto& host : allowedHosts)
+            [NSURLRequest setAllowsAnyHTTPSCertificate:YES forHost:[NSString stringWithUTF8String:host.c_str()]];
+    }
 
     if (threaded)
         startJavaScriptThreads();
@@ -1349,6 +1357,9 @@ void atexitFunction()
 int DumpRenderTreeMain(int argc, const char *argv[])
 {
     atexit(atexitFunction);
+
+    WTF::setProcessPrivileges(allPrivileges());
+    WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
 
 #if PLATFORM(IOS)
     _UIApplicationLoadWebKit();
@@ -1907,7 +1918,8 @@ static void runTest(const string& inputLine)
     NSString *informationString = [@"CRASHING TEST: " stringByAppendingString:testPath];
     WebKit::setCrashReportApplicationSpecificInformation((CFStringRef)informationString);
 
-    TestOptions options(url, command);
+    TestOptions options { [url isFileURL] ? [url fileSystemRepresentation] : pathOrURL, command.absolutePath };
+
     if (!mainFrameTestOptions || !options.webViewIsCompatibleWithOptions(mainFrameTestOptions.value())) {
         if (mainFrame)
             destroyWebViewAndOffscreenWindow([mainFrame webView]);
@@ -2050,6 +2062,10 @@ static void runTest(const string& inputLine)
 
     gTestRunner->cleanup();
     gTestRunner = nullptr;
+
+#if PLATFORM(MAC)
+    [DumpRenderTreeDraggingInfo clearAllFilePromiseReceivers];
+#endif
 
     if (ignoreWebCoreNodeLeaks)
         [WebCoreStatistics stopIgnoringWebCoreNodeLeaks];

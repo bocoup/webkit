@@ -41,7 +41,6 @@
 #include "FrameLoaderClient.h"
 #include "InspectorInstrumentation.h"
 #include "LoaderStrategy.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PlatformStrategies.h"
 #include "ProgressTracker.h"
@@ -212,6 +211,13 @@ void ResourceLoader::start()
         loadDataURL();
         return;
     }
+
+#if USE(SOUP)
+    if (m_request.url().protocolIs("resource")) {
+        loadGResource();
+        return;
+    }
+#endif
 
     m_handle = ResourceHandle::create(frameLoader()->networkingContext(), m_request, this, m_defersLoading, m_options.sniffContent == SniffContent, m_options.sniffContentEncoding == ContentEncodingSniffingPolicy::Sniff);
 }
@@ -736,9 +742,9 @@ void ResourceLoader::didReceiveAuthenticationChallenge(ResourceHandle* handle, c
 }
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-void ResourceLoader::canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle* handle, const ProtectionSpace& protectionSpace)
+void ResourceLoader::canAuthenticateAgainstProtectionSpaceAsync(ResourceHandle*, const ProtectionSpace& protectionSpace, CompletionHandler<void(bool)>&& completionHandler)
 {
-    handle->continueCanAuthenticateAgainstProtectionSpace(canAuthenticateAgainstProtectionSpace(protectionSpace));
+    completionHandler(canAuthenticateAgainstProtectionSpace(protectionSpace));
 }
 
 bool ResourceLoader::canAuthenticateAgainstProtectionSpace(const ProtectionSpace& protectionSpace)

@@ -37,7 +37,6 @@
 #include <mutex>
 #include <wtf/ASCIICType.h>
 #include <wtf/CheckedArithmetic.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
@@ -91,7 +90,7 @@ struct TextEncodingNameHash {
 using TextEncodingNameMap = HashMap<const char*, const char*, TextEncodingNameHash>;
 using TextCodecMap = HashMap<const char*, NewTextCodecFunction>;
 
-static StaticLock encodingRegistryMutex;
+static Lock encodingRegistryMutex;
 
 static TextEncodingNameMap* textEncodingNameMap;
 static TextCodecMap* textCodecMap;
@@ -157,7 +156,7 @@ static void pruneBlacklistedCodecs()
     }
 }
 
-static void buildBaseTextCodecMaps(const std::lock_guard<StaticLock>&)
+static void buildBaseTextCodecMaps(const std::lock_guard<Lock>&)
 {
     ASSERT(!textCodecMap);
     ASSERT(!textEncodingNameMap);
@@ -245,7 +244,7 @@ static void extendTextCodecMaps()
 
 std::unique_ptr<TextCodec> newTextCodec(const TextEncoding& encoding)
 {
-    std::lock_guard<StaticLock> lock(encodingRegistryMutex);
+    std::lock_guard<Lock> lock(encodingRegistryMutex);
 
     ASSERT(textCodecMap);
     auto result = textCodecMap->find(encoding.name());
@@ -258,7 +257,7 @@ const char* atomicCanonicalTextEncodingName(const char* name)
     if (!name || !name[0])
         return nullptr;
 
-    std::lock_guard<StaticLock> lock(encodingRegistryMutex);
+    std::lock_guard<Lock> lock(encodingRegistryMutex);
 
     if (!textEncodingNameMap)
         buildBaseTextCodecMaps(lock);

@@ -27,8 +27,8 @@
 #include "DOMWrapperWorld.h"
 #include "ElementIterator.h"
 #include "EventNames.h"
+#include "Frame.h"
 #include "FrameSelection.h"
-#include "MainFrame.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGRoot.h"
 #include "RenderSVGViewportContainer.h"
@@ -46,8 +46,11 @@
 #include "SVGViewElement.h"
 #include "SVGViewSpec.h"
 #include "StaticNodeList.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(SVGSVGElement);
 
 // Animated property definitions
 DEFINE_ANIMATED_LENGTH(SVGSVGElement, SVGNames::xAttr, X, x)

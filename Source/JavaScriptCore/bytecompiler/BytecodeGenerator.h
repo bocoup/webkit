@@ -378,12 +378,22 @@ namespace JSC {
         SuperBinding superBinding() const { return m_codeBlock->superBinding(); }
         JSParserScriptMode scriptMode() const { return m_codeBlock->scriptMode(); }
 
-        template<typename... Args>
-        static ParserError generate(VM& vm, Args&& ...args)
+        template<typename Node, typename UnlinkedCodeBlock>
+        static ParserError generate(VM& vm, Node* node, const SourceCode& sourceCode, UnlinkedCodeBlock* unlinkedCodeBlock, DebuggerMode debuggerMode, const VariableEnvironment* environment)
         {
+            MonotonicTime before;
+            if (UNLIKELY(Options::reportBytecodeCompileTimes()))
+                before = MonotonicTime::now();
+
             DeferGC deferGC(vm.heap);
-            auto bytecodeGenerator = std::make_unique<BytecodeGenerator>(vm, std::forward<Args>(args)...);
-            return bytecodeGenerator->generate(); 
+            auto bytecodeGenerator = std::make_unique<BytecodeGenerator>(vm, node, unlinkedCodeBlock, debuggerMode, environment);
+            auto result = bytecodeGenerator->generate();
+
+            if (UNLIKELY(Options::reportBytecodeCompileTimes())) {
+                MonotonicTime after = MonotonicTime::now();
+                dataLogLn(result.isValid() ? "Failed to compile #" : "Compiled #", CodeBlockHash(sourceCode, unlinkedCodeBlock->isConstructor() ? CodeForConstruct : CodeForCall), " into bytecode ", bytecodeGenerator->instructions().size(), " instructions in ", (after - before).milliseconds(), " ms.");
+            }
+            return result;
         }
 
         bool isArgumentNumber(const Identifier&, int);
@@ -521,6 +531,16 @@ namespace JSC {
             return emitNodeInTailPosition(nullptr, n);
         }
 
+        RegisterID* emitDefineClassElements(PropertyListNode* n, RegisterID* constructor, RegisterID* prototype)
+        {
+            ASSERT(constructor->refCount() && prototype->refCount());
+            if (UNLIKELY(!m_vm->isSafeToRecurse()))
+                return emitThrowExpressionTooDeepException();
+            if (UNLIKELY(n->needsDebugHook()))
+                emitDebugHook(n);
+            return n->emitBytecode(*this, constructor, prototype);
+        }
+
         RegisterID* emitNodeForProperty(RegisterID* dst, ExpressionNode* node)
         {
             if (node->isString()) {
@@ -649,6 +669,7 @@ namespace JSC {
         RegisterID* emitNewArray(RegisterID* dst, ElementNode*, unsigned length); // stops at first elision
         RegisterID* emitNewArrayWithSpread(RegisterID* dst, ElementNode*);
         RegisterID* emitNewArrayWithSize(RegisterID* dst, RegisterID* length);
+        RegisterID* emitNewArrayBuffer(RegisterID* dst, JSFixedArray*);
 
         RegisterID* emitNewFunction(RegisterID* dst, FunctionMetadataNode*);
         RegisterID* emitNewFunctionExpression(RegisterID* dst, FuncExprNode*);
@@ -678,6 +699,7 @@ namespace JSC {
         RegisterID* emitTryGetById(RegisterID* dst, RegisterID* base, const Identifier& property);
         RegisterID* emitGetById(RegisterID* dst, RegisterID* base, const Identifier& property);
         RegisterID* emitGetById(RegisterID* dst, RegisterID* base, RegisterID* thisVal, const Identifier& property);
+        RegisterID* emitDirectGetById(RegisterID* dst, RegisterID* base, const Identifier& property);
         RegisterID* emitPutById(RegisterID* base, const Identifier& property, RegisterID* value);
         RegisterID* emitPutById(RegisterID* base, RegisterID* thisValue, const Identifier& property, RegisterID* value);
         RegisterID* emitDirectPutById(RegisterID* base, const Identifier& property, RegisterID* value, PropertyNode::PutType);
@@ -688,7 +710,6 @@ namespace JSC {
         RegisterID* emitPutByVal(RegisterID* base, RegisterID* thisValue, RegisterID* property, RegisterID* value);
         RegisterID* emitDirectPutByVal(RegisterID* base, RegisterID* property, RegisterID* value);
         RegisterID* emitDeleteByVal(RegisterID* dst, RegisterID* base, RegisterID* property);
-        RegisterID* emitPutByIndex(RegisterID* base, unsigned index, RegisterID* value);
 
         void emitSuperSamplerBegin();
         void emitSuperSamplerEnd();

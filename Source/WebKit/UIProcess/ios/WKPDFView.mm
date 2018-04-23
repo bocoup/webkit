@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,844 +26,370 @@
 #import "config.h"
 #import "WKPDFView.h"
 
-#if PLATFORM(IOS)
+#if ENABLE(WKPDFVIEW)
 
-#import "APIFindClient.h"
-#import "APIUIClient.h"
-#import "ApplicationStateTracker.h"
-#import "CorePDFSPI.h"
-#import "DrawingAreaProxy.h"
-#import "SessionState.h"
-#import "UIKitSPI.h"
-#import "WKPDFPageNumberIndicator.h"
-#import "WKPasswordView.h"
+#import "FindClient.h"
 #import "WKWebViewInternal.h"
 #import "WeakObjCPtr.h"
 #import "WebPageProxy.h"
-#import "_WKFindDelegate.h"
 #import "_WKWebViewPrintFormatterInternal.h"
-#import <MobileCoreServices/UTCoreTypes.h>
-#import <WebCore/FloatRect.h>
-#import <WebCore/LocalizedStrings.h>
-#import <WebCore/WebCoreNSURLExtras.h>
+#import <PDFKit/PDFHostViewController.h>
+#import <wtf/BlockPtr.h>
+#import <wtf/MainThread.h>
 #import <wtf/RetainPtr.h>
-#import <wtf/Vector.h>
 
-// All of UIPDFPage* are deprecated, so just ignore deprecated declarations
-// in this file until we switch off them.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-
-using namespace WebCore;
-using namespace WebKit;
-
-const CGFloat pdfPageMargin = 8;
-const CGFloat pdfMinimumZoomScale = 1;
-const CGFloat pdfMaximumZoomScale = 5;
-
-const float overdrawHeightMultiplier = 1.5;
-
-static const CGFloat smartMagnificationElementPadding = 0.05;
-
-typedef struct {
-    CGRect frame;
-    RetainPtr<UIPDFPageView> view;
-    RetainPtr<UIPDFPage> page;
-    unsigned index;
-} PDFPageInfo;
-
-@interface WKPDFView ()
-- (void)_resetZoomAnimated:(BOOL)animated;
+@interface WKPDFView () <PDFHostViewControllerDelegate>
 @end
 
 @implementation WKPDFView {
-    RetainPtr<CGPDFDocumentRef> _cgPDFDocument;
-    RetainPtr<UIPDFDocument> _pdfDocument;
-    RetainPtr<NSString> _suggestedFilename;
-    RetainPtr<WKPDFPageNumberIndicator> _pageNumberIndicator;
-
-    Vector<PDFPageInfo> _pages;
-    unsigned _centerPageNumber;
-
-    CGSize _minimumSize;
+    RetainPtr<NSData> _data;
+    BlockPtr<void()> _findCompletion;
+    RetainPtr<NSString> _findString;
+    NSUInteger _findStringCount;
+    NSUInteger _findStringMaxCount;
+    RetainPtr<UIView> _fixedOverlayView;
+    std::optional<NSUInteger> _focusedSearchResultIndex;
+    NSInteger _focusedSearchResultPendingOffset;
+    RetainPtr<PDFHostViewController> _hostViewController;
     CGSize _overlaidAccessoryViewsInset;
-    WKWebView *_webView;
-    UIScrollView *_scrollView;
-    UIView *_fixedOverlayView;
-
-    BOOL _isStartingZoom;
-    BOOL _isPerformingSameDocumentNavigation;
-
-    RetainPtr<WKActionSheetAssistant> _actionSheetAssistant;
-    WebKit::InteractionInformationAtPosition _positionInformation;
-
-    unsigned _currentFindPageIndex;
-    unsigned _currentFindMatchIndex;
-    RetainPtr<UIPDFSelection> _currentFindSelection;
-
-    RetainPtr<NSString> _cachedFindString;
-    Vector<RetainPtr<UIPDFSelection>> _cachedFindMatches;
-    unsigned _cachedFindMaximumCount;
-    _WKFindOptions _cachedFindOptionsAffectingResults;
-
-    std::atomic<unsigned> _nextComputeMatchesOperationID;
-    RetainPtr<NSString> _nextCachedFindString;
-    unsigned _nextCachedFindMaximumCount;
-    _WKFindOptions _nextCachedFindOptionsAffectingResults;
-
-    dispatch_queue_t _findQueue;
-
-    RetainPtr<UIWKSelectionAssistant> _webSelectionAssistant;
-
-    std::unique_ptr<ApplicationStateTracker> _applicationStateTracker;
-
-    UIEdgeInsets _lastUnobscuredSafeAreaInset;
-    CGFloat _lastLayoutWidth;
-}
-
-- (instancetype)web_initWithFrame:(CGRect)frame webView:(WKWebView *)webView
-{
-    if (!(self = [super initWithFrame:frame]))
-        return nil;
-
-    self.backgroundColor = [UIColor grayColor];
-
-    _webView = webView;
-
-    _scrollView = webView.scrollView;
-    [_scrollView setMinimumZoomScale:pdfMinimumZoomScale];
-    [_scrollView setMaximumZoomScale:pdfMaximumZoomScale];
-    [_scrollView setBackgroundColor:[UIColor grayColor]];
-
-    _actionSheetAssistant = adoptNS([[WKActionSheetAssistant alloc] initWithView:self]);
-    [_actionSheetAssistant setDelegate:self];
-
-    _findQueue = dispatch_queue_create("com.apple.WebKit.WKPDFViewComputeMatchesQueue", DISPATCH_QUEUE_SERIAL);
-
-    return self;
+    RetainPtr<UIView> _pageNumberIndicator;
+    RetainPtr<NSString> _suggestedFilename;
+    WebKit::WeakObjCPtr<WKWebView> _webView;
 }
 
 - (void)dealloc
 {
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-
-    [self _clearPages];
+    [[_hostViewController view] removeFromSuperview];
     [_pageNumberIndicator removeFromSuperview];
-    dispatch_release(_findQueue);
-    [_actionSheetAssistant cleanupSheet];
     [super dealloc];
 }
 
-- (NSString *)suggestedFilename
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
 {
-    return _suggestedFilename.get();
+    return [_hostViewController gestureRecognizerShouldBegin:gestureRecognizer];
 }
 
-- (CGPDFDocumentRef)pdfDocument
+#pragma mark WKWebViewContentProvider
+
+- (instancetype)web_initWithFrame:(CGRect)frame webView:(WKWebView *)webView
 {
-    return _cgPDFDocument.get();
-}
+    if (!(self = [super initWithFrame:frame webView:webView]))
+        return nil;
 
-static void detachViewForPage(PDFPageInfo& page)
-{
-    [page.view removeFromSuperview];
-    [page.view setDelegate:nil];
-    [[page.view annotationController] setDelegate:nil];
-    page.view = nil;
-}
+    self.backgroundColor = UIColor.grayColor;
+    webView.scrollView.backgroundColor = UIColor.grayColor;
 
-- (void)_clearPages
-{
-    for (auto& page : _pages)
-        detachViewForPage(page);
-    
-    _pages.clear();
-}
-
-- (void)_didLoadPDFDocument
-{
-    _pdfDocument = adoptNS([[UIPDFDocument alloc] initWithCGPDFDocument:_cgPDFDocument.get()]);
-
-    // FIXME: Restore the scroll position and page scale if navigating from the back/forward list.
-
-    [self _computePageAndDocumentFrames];
-    [self _revalidateViews];
-    [self _scrollToFragment:_webView.URL.fragment];
+    _webView = webView;
+    return self;
 }
 
 - (void)web_setContentProviderData:(NSData *)data suggestedFilename:(NSString *)filename
 {
+    _data = adoptNS([data copy]);
     _suggestedFilename = adoptNS([filename copy]);
 
-    [self _clearPages];
+    [PDFHostViewController createHostView:^(PDFHostViewController * _Nullable hostViewController) {
+        ASSERT(isMainThread());
 
-    RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData((CFDataRef)data));
-    _cgPDFDocument = adoptCF(CGPDFDocumentCreateWithProvider(dataProvider.get()));
+        WKWebView *webView = _webView.getAutoreleased();
+        if (!webView)
+            return;
 
-    if (!_cgPDFDocument)
-        return;
+        if (!hostViewController)
+            return;
+        _hostViewController = hostViewController;
 
-    if (CGPDFDocumentIsUnlocked(_cgPDFDocument.get())) {
-        [self _didLoadPDFDocument];
-        return;
-    }
+        UIView *hostView = hostViewController.view;
+        hostView.frame = webView.bounds;
+        hostView.backgroundColor = UIColor.grayColor;
 
-    [self _showPasswordEntryField];
-}
+        UIScrollView *scrollView = webView.scrollView;
+        [self removeFromSuperview];
+        [scrollView addSubview:hostView];
 
-- (void)web_setMinimumSize:(CGSize)size
-{
-    if (CGSizeEqualToSize(size, _minimumSize))
-        return;
+        _pageNumberIndicator = hostViewController.pageNumberIndicator;
+        [_fixedOverlayView addSubview:_pageNumberIndicator.get()];
 
-    _minimumSize = size;
-
-    if (_webView._passwordView) {
-        self.frame = { self.frame.origin, size };
-        return;
-    }
-
-    CGFloat oldDocumentLeftFraction = 0;
-    CGFloat oldDocumentTopFraction = 0;
-    CGSize contentSize = _scrollView.contentSize;
-    if (contentSize.width && contentSize.height) {
-        CGPoint contentOffset = _scrollView.contentOffset;
-        UIEdgeInsets contentInset = _scrollView.contentInset;
-        oldDocumentLeftFraction = (contentOffset.x + contentInset.left) / contentSize.width;
-        oldDocumentTopFraction = (contentOffset.y + contentInset.top) / contentSize.height;
-    }
-
-    [self _computePageAndDocumentFrames];
-
-    CGSize newContentSize = _scrollView.contentSize;
-    UIEdgeInsets contentInset = _scrollView.contentInset;
-    [_scrollView setContentOffset:CGPointMake((oldDocumentLeftFraction * newContentSize.width) - contentInset.left, (oldDocumentTopFraction * newContentSize.height) - contentInset.top) animated:NO];
-
-    [self _revalidateViews];
-}
-
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView
-{
-    if (scrollView.isZoomBouncing || scrollView._isAnimatingZoom)
-        return;
-
-    [self _revalidateViews];
-
-    if (!_isPerformingSameDocumentNavigation)
-        [_pageNumberIndicator show];
-}
-
-- (void)_ensureViewForPage:(PDFPageInfo&)pageInfo
-{
-    if (pageInfo.view)
-        return;
-
-    pageInfo.view = adoptNS([[UIPDFPageView alloc] initWithPage:pageInfo.page.get() tiledContent:YES]);
-    [pageInfo.view setUseBackingLayer:YES];
-    [pageInfo.view setDelegate:self];
-    [[pageInfo.view annotationController] setDelegate:self];
-    [self addSubview:pageInfo.view.get()];
-
-    [pageInfo.view setFrame:pageInfo.frame];
-    [pageInfo.view contentLayer].contentsScale = self.window.screen.scale;
-}
-
-- (void)_revalidateViews
-{
-    if (_isStartingZoom)
-        return;
-
-    CGRect targetRect = [_scrollView convertRect:_scrollView.bounds toView:self];
-
-    // We apply overdraw after applying scale in order to avoid excessive
-    // memory use caused by scaling the overdraw.
-    CGRect targetRectWithOverdraw = CGRectInset(targetRect, 0, -targetRect.size.height * overdrawHeightMultiplier);
-    CGRect targetRectForCenterPage = CGRectInset(targetRect, 0, targetRect.size.height / 2 - pdfPageMargin * 2);
-
-    _centerPageNumber = 0;
-
-    for (auto& pageInfo : _pages) {
-        if (!CGRectIntersectsRect(pageInfo.frame, targetRectWithOverdraw) && pageInfo.index != _currentFindPageIndex) {
-            detachViewForPage(pageInfo);
-            continue;
-        }
-
-        if (!_centerPageNumber && CGRectIntersectsRect(pageInfo.frame, targetRectForCenterPage))
-            _centerPageNumber = pageInfo.index + 1;
-
-        [self _ensureViewForPage:pageInfo];
-    }
-
-    if (!_centerPageNumber && _pages.size()) {
-        if (CGRectGetMinY(_pages.first().frame) > CGRectGetMaxY(targetRectForCenterPage))
-            _centerPageNumber = 1;
-        else {
-            ASSERT(CGRectGetMaxY(_pages.last().frame) < CGRectGetMinY(targetRectForCenterPage));
-            _centerPageNumber = _pages.size();
-        }
-    }
-
-    [self _updatePageNumberIndicator];
+        hostViewController.delegate = self;
+        [hostViewController setDocumentData:_data.get() withScrollView:scrollView];
+    } forExtensionIdentifier:nil];
 }
 
 - (CGPoint)_offsetForPageNumberIndicator
 {
-    UIEdgeInsets insets = UIEdgeInsetsAdd(_webView._computedUnobscuredSafeAreaInset, _webView._computedContentInset, UIRectEdgeAll);
+    WKWebView *webView = _webView.getAutoreleased();
+    if (!webView)
+        return CGPointZero;
+
+    UIEdgeInsets insets = UIEdgeInsetsAdd(webView._computedUnobscuredSafeAreaInset, webView._computedObscuredInset, UIRectEdgeAll);
     return CGPointMake(insets.left, insets.top + _overlaidAccessoryViewsInset.height);
 }
 
-- (void)_updatePageNumberIndicator
+- (void)_movePageNumberIndicatorToPoint:(CGPoint)point animated:(BOOL)animated
 {
-    if (_isPerformingSameDocumentNavigation)
+    void (^setFrame)() = ^{
+        static const CGFloat margin = 20;
+        const CGRect frame = { CGPointMake(point.x + margin, point.y + margin), [_pageNumberIndicator frame].size };
+        [_pageNumberIndicator setFrame:frame];
+    };
+
+    if (animated) {
+        static const NSTimeInterval duration = 0.3;
+        [UIView animateWithDuration:duration animations:setFrame];
         return;
+    }
 
-    if (!_pageNumberIndicator)
-        _pageNumberIndicator = adoptNS([[WKPDFPageNumberIndicator alloc] initWithFrame:CGRectZero]);
+    setFrame();
+}
 
-    [_fixedOverlayView addSubview:_pageNumberIndicator.get()];
+- (void)_updateLayoutAnimated:(BOOL)animated
+{
+    [_hostViewController updatePDFViewLayout];
+    [self _movePageNumberIndicatorToPoint:self._offsetForPageNumberIndicator animated:animated];
+}
 
-    [_pageNumberIndicator setCurrentPageNumber:_centerPageNumber];
-    [_pageNumberIndicator moveToPoint:[self _offsetForPageNumberIndicator] animated:NO];
+- (void)web_setMinimumSize:(CGSize)size
+{
+    self.frame = { self.frame.origin, size };
+    [self _updateLayoutAnimated:NO];
 }
 
 - (void)web_setOverlaidAccessoryViewsInset:(CGSize)inset
 {
     _overlaidAccessoryViewsInset = inset;
-    [_pageNumberIndicator moveToPoint:[self _offsetForPageNumberIndicator] animated:YES];
+    [self _updateLayoutAnimated:YES];
 }
 
 - (void)web_computedContentInsetDidChange
 {
-    [self _updatePageNumberIndicator];
-
-    if (UIEdgeInsetsEqualToEdgeInsets(_webView._computedUnobscuredSafeAreaInset, _lastUnobscuredSafeAreaInset))
-        return;
-
-    [self _computePageAndDocumentFrames];
-    [self _revalidateViews];
+    [self _updateLayoutAnimated:NO];
 }
 
 - (void)web_setFixedOverlayView:(UIView *)fixedOverlayView
 {
     _fixedOverlayView = fixedOverlayView;
-
-    if (_pageNumberIndicator)
-        [_fixedOverlayView addSubview:_pageNumberIndicator.get()];
 }
 
-- (void)_scrollToFragment:(NSString *)fragment
+- (void)_scrollToURLFragment:(NSString *)fragment
 {
-    if (![fragment hasPrefix:@"page"])
-        return;
+    NSInteger pageIndex = 0;
+    if ([fragment hasPrefix:@"page"])
+        pageIndex = [[fragment substringFromIndex:4] integerValue] - 1;
 
-    NSInteger pageIndex = [[fragment substringFromIndex:4] integerValue] - 1;
-    if (pageIndex < 0 || static_cast<std::size_t>(pageIndex) >= _pages.size())
-        return;
-
-    _isPerformingSameDocumentNavigation = YES;
-
-    [_pageNumberIndicator hide];
-    [self _resetZoomAnimated:NO];
-
-    // Ensure that the page margin is visible below the content inset.
-    const CGFloat verticalOffset = _pages[pageIndex].frame.origin.y - _webView._computedContentInset.top - pdfPageMargin;
-    [_scrollView setContentOffset:CGPointMake(_scrollView.contentOffset.x, verticalOffset) animated:NO];
-
-    _isPerformingSameDocumentNavigation = NO;
+    if (pageIndex >= 0 && pageIndex < [_hostViewController pageCount] && pageIndex != [_hostViewController currentPageIndex])
+        [_hostViewController goToPageIndex:pageIndex];
 }
 
 - (void)web_didSameDocumentNavigation:(WKSameDocumentNavigationType)navigationType
 {
-    // Check for kWKSameDocumentNavigationSessionStatePop instead of kWKSameDocumentNavigationAnchorNavigation since the
-    // latter is only called once when navigating to the same anchor in succession. If the user navigates to a page
-    // then scrolls back and clicks on the same link a second time, we want to scroll again.
-    if (navigationType != kWKSameDocumentNavigationSessionStatePop)
-        return;
-
-    // FIXME: restore the scroll position and page scale if navigating back from a fragment.
-
-    [self _scrollToFragment:_webView.URL.fragment];
+    if (navigationType == kWKSameDocumentNavigationSessionStatePop)
+        [self _scrollToURLFragment:[_webView URL].fragment];
 }
 
-- (void)_computePageAndDocumentFrames
+static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
 {
-    UIEdgeInsets safeAreaInsets = _webView._computedUnobscuredSafeAreaInset;
-    _lastUnobscuredSafeAreaInset = safeAreaInsets;
-    CGSize minimumSizeRespectingContentInset = CGSizeMake(_minimumSize.width - (safeAreaInsets.left + safeAreaInsets.right), _minimumSize.height - (safeAreaInsets.top + safeAreaInsets.bottom));
-
-    if (!_pages.isEmpty() && _lastLayoutWidth == minimumSizeRespectingContentInset.width) {
-        [self _updateDocumentFrame];
-        return;
-    }
-
-    NSUInteger pageCount = [_pdfDocument numberOfPages];
-    if (!pageCount)
-        return;
-    
-    _lastLayoutWidth = minimumSizeRespectingContentInset.width;
-    [_pageNumberIndicator setPageCount:pageCount];
-    
-    [self _clearPages];
-
-    _pages.reserveCapacity(pageCount);
-
-    CGRect pageFrame = CGRectMake(0, 0, minimumSizeRespectingContentInset.width, minimumSizeRespectingContentInset.height);
-    for (NSUInteger pageIndex = 0; pageIndex < pageCount; ++pageIndex) {
-        UIPDFPage *page = [_pdfDocument pageAtIndex:pageIndex];
-        if (!page)
-            continue;
-
-        CGSize pageSize = [page cropBoxAccountForRotation].size;
-        pageFrame.size.height = pageSize.height / pageSize.width * pageFrame.size.width;
-        CGRect pageFrameWithMarginApplied = CGRectInset(pageFrame, pdfPageMargin, pdfPageMargin);
-        if (CGRectIsNull(pageFrameWithMarginApplied))
-            pageFrameWithMarginApplied = CGRectZero;
-
-        PDFPageInfo pageInfo;
-        pageInfo.page = page;
-        pageInfo.frame = pageFrameWithMarginApplied;
-        pageInfo.index = pageIndex;
-        _pages.append(pageInfo);
-        pageFrame.origin.y += pageFrame.size.height - pdfPageMargin;
-    }
-
-    [self _updateDocumentFrame];
+    NSStringCompareOptions compareOptions = 0;
+    if (findOptions & _WKFindOptionsBackwards)
+        compareOptions |= NSBackwardsSearch;
+    if (findOptions & _WKFindOptionsCaseInsensitive)
+        compareOptions |= NSCaseInsensitiveSearch;
+    return compareOptions;
 }
 
-- (void)_updateDocumentFrame
+- (void)_resetFind
 {
-    if (_pages.isEmpty())
-        return;
+    if (_findCompletion)
+        [_hostViewController cancelFindString];
 
-    UIEdgeInsets safeAreaInsets = _webView._computedUnobscuredSafeAreaInset;
-    CGFloat scale = _scrollView.zoomScale;
-    CGRect newFrame = CGRectZero;
-    newFrame.origin.x = safeAreaInsets.left;
-    newFrame.origin.y = safeAreaInsets.top;
-    newFrame.size.width = _lastLayoutWidth * scale;
-    newFrame.size.height = std::max((CGRectGetMaxY(_pages.last().frame) + pdfPageMargin) * scale + safeAreaInsets.bottom, _minimumSize.height * scale);
-
-    [self setFrame:newFrame];
-    [_scrollView setContentSize:newFrame.size];
+    _findCompletion = nil;
+    _findString = nil;
+    _findStringCount = 0;
+    _findStringMaxCount = 0;
+    _focusedSearchResultIndex = std::nullopt;
+    _focusedSearchResultPendingOffset = 0;
 }
 
-- (void)_resetZoomAnimated:(BOOL)animated
+- (void)_findString:(NSString *)string withOptions:(_WKFindOptions)options maxCount:(NSUInteger)maxCount completion:(void(^)())completion
 {
-    _isStartingZoom = YES;
+    [self _resetFind];
 
-    CGRect scrollViewBounds = _scrollView.bounds;
-    CGPoint centerOfPageInDocumentCoordinates = [_scrollView convertPoint:CGPointMake(CGRectGetMidX(scrollViewBounds), CGRectGetMidY(scrollViewBounds)) toView:self];
-    [_webView _zoomOutWithOrigin:centerOfPageInDocumentCoordinates animated:animated];
-
-    _isStartingZoom = NO;
-}
-
-- (void)_highlightLinkAnnotation:(UIPDFLinkAnnotation *)linkAnnotation forDuration:(NSTimeInterval)duration completionHandler:(void (^)(void))completionHandler
-{
-    static const CGFloat highlightBorderRadius = 3;
-    static const CGFloat highlightColorComponent = 26.0 / 255;
-    static UIColor *highlightColor = [[UIColor alloc] initWithRed:highlightColorComponent green:highlightColorComponent blue:highlightColorComponent alpha:0.3];
-
-    UIPDFPageView *pageView = linkAnnotation.annotationController.pageView;
-    CGRect highlightViewFrame = [self convertRect:[pageView convertRectFromPDFPageSpace:linkAnnotation.Rect] fromView:pageView];
-    RetainPtr<_UIHighlightView> highlightView = adoptNS([[_UIHighlightView alloc] initWithFrame:CGRectInset(highlightViewFrame, -highlightBorderRadius, -highlightBorderRadius)]);
-    [highlightView setOpaque:NO];
-    [highlightView setCornerRadius:highlightBorderRadius];
-    [highlightView setColor:highlightColor];
-
-    ASSERT(RunLoop::isMain());
-    [self addSubview:highlightView.get()];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, duration * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        [highlightView removeFromSuperview];
-        completionHandler();
-    });
-}
-
-- (NSURL *)_URLForLinkAnnotation:(UIPDFLinkAnnotation *)linkAnnotation
-{
-    NSURL *documentURL = _webView.URL;
-
-    if (NSURL *url = linkAnnotation.url)
-        return [NSURL URLWithString:url.relativeString relativeToURL:documentURL];
-
-    if (NSUInteger pageNumber = linkAnnotation.pageNumber) {
-        String anchorString = ASCIILiteral("#page");
-        anchorString.append(String::number(pageNumber));
-        return [NSURL URLWithString:anchorString relativeToURL:documentURL];
-    }
-
-    return nil;
-}
-
-#pragma mark Find-in-Page
-
-static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
-{
-    NSStringCompareOptions findOptions = 0;
-    if (options & _WKFindOptionsCaseInsensitive)
-        findOptions |= NSCaseInsensitiveSearch;
-    if (options & _WKFindOptionsBackwards)
-        findOptions |= NSBackwardsSearch;
-    return findOptions;
-}
-
-- (void)_computeMatchesForString:(NSString *)string options:(_WKFindOptions)options maxCount:(NSUInteger)maxCount completionHandler:(void (^)(BOOL success))completionHandler
-{
-    if (!_pdfDocument) {
-        completionHandler(NO);
-        return;
-    }
-
-    _WKFindOptions optionsAffectingResults = options & ~_WKFindOptionsIrrelevantForBatchResults;
-
-    // If this search is equivalent to the currently cached search, bail and call the completion handler, because the existing cached results are valid.
-    if (!_cachedFindMatches.isEmpty() && [_cachedFindString isEqualToString:string] && _cachedFindOptionsAffectingResults == optionsAffectingResults && _cachedFindMaximumCount == maxCount) {
-        // Also, cancel any running search, because it will eventually replace the now-valid results.
-        ++_nextComputeMatchesOperationID;
-
-        completionHandler(YES);
-        return;
-    }
-
-    // If this search is equivalent to the currently running asynchronous search, bail as if this search were cancelled; the original search's completion handler will eventually fire.
-    if ([_nextCachedFindString isEqualToString:string] && _nextCachedFindOptionsAffectingResults == optionsAffectingResults && _nextCachedFindMaximumCount == maxCount) {
-        completionHandler(NO);
-        return;
-    }
-
-    NSStringCompareOptions findOptions = stringCompareOptions(optionsAffectingResults);
-
-    Vector<PDFPageInfo> pages = _pages;
-
-    unsigned computeMatchesOperationID = ++_nextComputeMatchesOperationID;
-    _nextCachedFindString = string;
-    _nextCachedFindOptionsAffectingResults = optionsAffectingResults;
-    _nextCachedFindMaximumCount = maxCount;
-
-    RetainPtr<WKPDFView> retainedSelf = self;
-    typeof(completionHandler) completionHandlerCopy = Block_copy(completionHandler);
-
-    dispatch_async(_findQueue, [pages, string, findOptions, optionsAffectingResults, maxCount, computeMatchesOperationID, retainedSelf, completionHandlerCopy] {
-        Vector<RetainPtr<UIPDFSelection>> matches;
-
-        for (unsigned pageIndex = 0; pageIndex < pages.size(); ++pageIndex) {
-            UIPDFSelection *match = nullptr;
-            while ((match = [pages[pageIndex].page findString:string fromSelection:match options:findOptions])) {
-                matches.append(match);
-                if (matches.size() > maxCount)
-                    goto maxCountExceeded;
-
-                // If we've enqueued another search, cancel this one.
-                if (retainedSelf->_nextComputeMatchesOperationID != computeMatchesOperationID) {
-                    dispatch_async(dispatch_get_main_queue(), [completionHandlerCopy] {
-                        completionHandlerCopy(NO);
-                        Block_release(completionHandlerCopy);
-                    });
-                    return;
-                }
-            };
-        }
-
-    maxCountExceeded:
-        dispatch_async(dispatch_get_main_queue(), [computeMatchesOperationID, string, optionsAffectingResults, maxCount, matches, completionHandlerCopy, retainedSelf] {
-
-            // If another search has been enqueued in the meantime, ignore this result.
-            if (retainedSelf->_nextComputeMatchesOperationID != computeMatchesOperationID) {
-                Block_release(completionHandlerCopy);
-                return;
-            }
-
-            retainedSelf->_cachedFindString = string;
-            retainedSelf->_cachedFindOptionsAffectingResults = optionsAffectingResults;
-            retainedSelf->_cachedFindMaximumCount = maxCount;
-            retainedSelf->_cachedFindMatches = matches;
-
-            retainedSelf->_nextCachedFindString = nil;
-
-            completionHandlerCopy(YES);
-            Block_release(completionHandlerCopy);
-        });
-    });
+    _findCompletion = completion;
+    _findString = adoptNS([string copy]);
+    _findStringMaxCount = maxCount;
+    [_hostViewController findString:_findString.get() withOptions:stringCompareOptions(options)];
 }
 
 - (void)web_countStringMatches:(NSString *)string options:(_WKFindOptions)options maxCount:(NSUInteger)maxCount
 {
-    RefPtr<WebKit::WebPageProxy> page = _webView->_page;
-    [self _computeMatchesForString:string options:options maxCount:maxCount completionHandler:^(BOOL success) {
-        if (!success)
-            return;
-        page->findClient().didCountStringMatches(page.get(), string, _cachedFindMatches.size());
+    [self _findString:string withOptions:options maxCount:maxCount completion:^{
+        ASSERT([_findString isEqualToString:string]);
+        if (auto page = [_webView _page])
+            page->findClient().didCountStringMatches(page, _findString.get(), _findStringCount);
     }];
 }
 
-- (void)_didFindMatch:(UIPDFSelection *)match
+- (BOOL)_computeFocusedSearchResultIndexWithOptions:(_WKFindOptions)options didWrapAround:(BOOL *)didWrapAround
 {
-    for (auto& pageInfo : _pages) {
-        if (pageInfo.page == match.page) {
-            [self _ensureViewForPage:pageInfo];
+    BOOL isBackwards = options & _WKFindOptionsBackwards;
+    NSInteger singleOffset = isBackwards ? -1 : 1;
 
-            [pageInfo.view highlightSearchSelection:match animated:NO];
-
-            _currentFindPageIndex = pageInfo.index;
-            _currentFindSelection = match;
-
-            CGRect zoomRect = [pageInfo.view convertRectFromPDFPageSpace:match.bounds];
-            if (CGRectIsNull(zoomRect))
-                return;
-
-            [self zoom:pageInfo.view.get() to:zoomRect atPoint:CGPointZero kind:kUIPDFObjectKindText];
-
-            return;
-        }
+    if (_findCompletion) {
+        ASSERT(!_focusedSearchResultIndex);
+        _focusedSearchResultPendingOffset += singleOffset;
+        return NO;
     }
+
+    if (!_findStringCount)
+        return NO;
+
+    NSInteger newIndex;
+    if (_focusedSearchResultIndex) {
+        ASSERT(!_focusedSearchResultPendingOffset);
+        newIndex = *_focusedSearchResultIndex + singleOffset;
+    } else {
+        newIndex = isBackwards ? _findStringCount - 1 : 0;
+        newIndex += std::exchange(_focusedSearchResultPendingOffset, 0);
+    }
+
+    if (newIndex < 0 || static_cast<NSUInteger>(newIndex) >= _findStringCount) {
+        if (!(options & _WKFindOptionsWrapAround))
+            return NO;
+
+        NSUInteger wrappedIndex = std::abs(newIndex) % _findStringCount;
+        if (newIndex < 0)
+            wrappedIndex = _findStringCount - wrappedIndex;
+        newIndex = wrappedIndex;
+        *didWrapAround = YES;
+    }
+
+    _focusedSearchResultIndex = newIndex;
+    ASSERT(*_focusedSearchResultIndex < _findStringCount);
+    return YES;
+}
+
+- (void)_focusOnSearchResultWithOptions:(_WKFindOptions)options
+{
+    auto page = [_webView _page];
+    if (!page)
+        return;
+
+    BOOL didWrapAround = NO;
+    if (![self _computeFocusedSearchResultIndexWithOptions:options didWrapAround:&didWrapAround]) {
+        if (!_findCompletion)
+            page->findClient().didFailToFindString(page, _findString.get());
+        return;
+    }
+
+    auto focusedIndex = *_focusedSearchResultIndex;
+    [_hostViewController focusOnSearchResultAtIndex:focusedIndex];
+    page->findClient().didFindString(page, _findString.get(), { }, _findStringCount, focusedIndex, didWrapAround);
 }
 
 - (void)web_findString:(NSString *)string options:(_WKFindOptions)options maxCount:(NSUInteger)maxCount
 {
-    if (_currentFindSelection)
-        [_pages[_currentFindPageIndex].view clearSearchHighlights];
-
-    RetainPtr<UIPDFSelection> previousFindSelection = _currentFindSelection;
-    unsigned previousFindPageIndex = 0;
-    if (previousFindSelection) {
-        previousFindPageIndex = _currentFindPageIndex;
-        if (![_cachedFindString isEqualToString:string]) {
-            NSUInteger location = [_currentFindSelection startIndex];
-            if (location)
-                previousFindSelection = adoptNS([[UIPDFSelection alloc] initWithPage:[_currentFindSelection page] fromIndex:location - 1 toIndex:location]);
-        }
+    if ([_findString isEqualToString:string]) {
+        [self _focusOnSearchResultWithOptions:options];
+        return;
     }
 
-    NSStringCompareOptions findOptions = stringCompareOptions(options);
-    bool backwards = (options & _WKFindOptionsBackwards);
-    RefPtr<WebKit::WebPageProxy> page = _webView->_page;
-
-    [self _computeMatchesForString:string options:options maxCount:maxCount completionHandler:^(BOOL success) {
-        if (!success)
-            return;
-
-        unsigned pageIndex = previousFindPageIndex;
-        for (unsigned i = 0; i < _pages.size(); ++i) {
-            UIPDFSelection *match = [_pages[pageIndex].page findString:string fromSelection:(pageIndex == previousFindPageIndex ? previousFindSelection.get() : nil) options:findOptions];
-
-            if (!match) {
-                if (!pageIndex && backwards)
-                    pageIndex = _pages.size() - 1;
-                else if (pageIndex == _pages.size() - 1 && !backwards)
-                    pageIndex = 0;
-                else
-                    pageIndex += backwards ? -1 : 1;
-                continue;
-            }
-
-            [self _didFindMatch:match];
-
-            if (_cachedFindMatches.size() <= maxCount) {
-                _currentFindMatchIndex = 0;
-                for (const auto& knownMatch : _cachedFindMatches) {
-                    if (match.stringRange.location == [knownMatch stringRange].location && match.stringRange.length == [knownMatch stringRange].length) {
-                        page->findClient().didFindString(page.get(), string, { }, _cachedFindMatches.size(), _currentFindMatchIndex, false);
-                        break;
-                    }
-                    _currentFindMatchIndex++;
-                }
-            }
-
-            return;
-        }
-        
-        page->findClient().didFailToFindString(page.get(), string);
+    [self _findString:string withOptions:options maxCount:maxCount completion:^{
+        ASSERT([_findString isEqualToString:string]);
+        [self _focusOnSearchResultWithOptions:options];
     }];
 }
 
 - (void)web_hideFindUI
 {
-    if (_currentFindSelection)
-        [_pages[_currentFindPageIndex].view clearSearchHighlights];
-
-    _currentFindSelection = nullptr;
-    _cachedFindString = nullptr;
-    _cachedFindMatches.clear();
+    [self _resetFind];
 }
 
-#pragma mark UIPDFPageViewDelegate
-
-- (void)zoom:(UIPDFPageView *)pageView to:(CGRect)targetRect atPoint:(CGPoint)origin kind:(UIPDFObjectKind)kind
+- (UIView *)web_contentView
 {
-    _isStartingZoom = YES;
-
-    BOOL isImage = kind == kUIPDFObjectKindGraphic;
-
-    if (!isImage)
-        targetRect = CGRectInset(targetRect, smartMagnificationElementPadding * targetRect.size.width, smartMagnificationElementPadding * targetRect.size.height);
-
-    CGRect rectInDocumentCoordinates = [pageView convertRect:targetRect toView:self];
-    CGPoint originInDocumentCoordinates = [pageView convertPoint:origin toView:self];
-
-    [_webView _zoomToRect:rectInDocumentCoordinates withOrigin:originInDocumentCoordinates fitEntireRect:isImage minimumScale:pdfMinimumZoomScale maximumScale:pdfMaximumZoomScale minimumScrollDistance:0];
-
-    _isStartingZoom = NO;
+    return _hostViewController ? [_hostViewController view] : self;
 }
 
-- (void)resetZoom:(UIPDFPageView *)pageView
+- (void)web_scrollViewDidScroll:(UIScrollView *)scrollView
 {
-    [self _resetZoomAnimated:YES];
+    [_hostViewController updatePDFViewLayout];
 }
 
-#pragma mark UIPDFAnnotationControllerDelegate
-
-- (void)annotation:(UIPDFAnnotation *)annotation wasTouchedAtPoint:(CGPoint)point controller:(UIPDFAnnotationController *)controller
+- (void)web_scrollViewWillBeginZooming:(UIScrollView *)scrollView withView:(UIView *)view
 {
-    if (![annotation isKindOfClass:[UIPDFLinkAnnotation class]])
+    [_hostViewController updatePDFViewLayout];
+}
+
+- (void)web_scrollViewDidEndZooming:(UIScrollView *)scrollView withView:(UIView *)view atScale:(CGFloat)scale
+{
+    [_hostViewController updatePDFViewLayout];
+}
+
+- (void)web_scrollViewDidZoom:(UIScrollView *)scrollView
+{
+    [_hostViewController updatePDFViewLayout];
+}
+
+- (NSData *)web_dataRepresentation
+{
+    return _data.get();
+}
+
+- (NSString *)web_suggestedFilename
+{
+    return _suggestedFilename.get();
+}
+
+- (BOOL)web_isBackground
+{
+    return self.isBackground;
+}
+
+#pragma mark PDFHostViewControllerDelegate
+
+- (void)pdfHostViewController:(PDFHostViewController *)controller updatePageCount:(NSInteger)pageCount
+{
+    [self _scrollToURLFragment:[_webView URL].fragment];
+}
+
+- (void)pdfHostViewController:(PDFHostViewController *)controller findStringUpdate:(NSUInteger)numFound done:(BOOL)done
+{
+    // FIXME: We should stop searching once numFound exceeds _findStringMaxCount, but PDFKit doesn't
+    // allow us to stop the search without also clearing the search highlights. See <rdar://problem/39546973>.
+    if (!done)
         return;
 
-    UIPDFLinkAnnotation *linkAnnotation = (UIPDFLinkAnnotation *)annotation;
-    RetainPtr<NSURL> url = [self _URLForLinkAnnotation:linkAnnotation];
-    if (!url)
+    _findStringCount = numFound;
+    if (auto findCompletion = std::exchange(_findCompletion, nil))
+        findCompletion();
+}
+
+- (void)pdfHostViewController:(PDFHostViewController *)controller goToURL:(NSURL *)url
+{
+    WKWebView *webView = _webView.getAutoreleased();
+    if (!webView)
         return;
 
-    CGPoint documentPoint = [controller.pageView convertPoint:point toView:self];
+    // FIXME: We'd use the real tap location if we knew it.
+    WebCore::IntPoint point;
+    webView->_page->navigateToPDFLinkWithSimulatedClick(url.absoluteString, point, point);
+}
+
+- (void)pdfHostViewController:(PDFHostViewController *)controller goToPageIndex:(NSInteger)pageIndex withViewFrustum:(CGRect)documentViewRect
+{
+    WKWebView *webView = _webView.getAutoreleased();
+    if (!webView)
+        return;
+
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"#page%ld", (long)pageIndex + 1] relativeToURL:webView.URL];
+    CGPoint documentPoint = documentViewRect.origin;
     CGPoint screenPoint = [self.window convertPoint:[self convertPoint:documentPoint toView:nil] toWindow:nil];
-    RetainPtr<WKWebView> retainedWebView = _webView;
-
-    [self _highlightLinkAnnotation:linkAnnotation forDuration:.2 completionHandler:^{
-        retainedWebView->_page->navigateToPDFLinkWithSimulatedClick([url absoluteString], roundedIntPoint(documentPoint), roundedIntPoint(screenPoint));
-    }];
-}
-
-- (void)annotation:(UIPDFAnnotation *)annotation isBeingPressedAtPoint:(CGPoint)point controller:(UIPDFAnnotationController *)controller
-{
-    if (![annotation isKindOfClass:[UIPDFLinkAnnotation class]])
-        return;
-
-    UIPDFLinkAnnotation *linkAnnotation = (UIPDFLinkAnnotation *)annotation;
-    NSURL *url = [self _URLForLinkAnnotation:linkAnnotation];
-    if (!url)
-        return;
-
-    _positionInformation.request.point = roundedIntPoint([controller.pageView convertPoint:point toView:self]);
-
-    _positionInformation.url = url;
-    _positionInformation.bounds = roundedIntRect([self convertRect:[controller.pageView convertRectFromPDFPageSpace:annotation.Rect] fromView:controller.pageView]);
-
-    [self _highlightLinkAnnotation:linkAnnotation forDuration:.75 completionHandler:^{
-        [_actionSheetAssistant showLinkSheet];
-    }];
-}
-
-#pragma mark WKActionSheetAssistantDelegate
-
-- (std::optional<WebKit::InteractionInformationAtPosition>)positionInformationForActionSheetAssistant:(WKActionSheetAssistant *)assistant
-{
-    return _positionInformation;
-}
-
-- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant performAction:(WebKit::SheetAction)action
-{
-    if (action != WebKit::SheetAction::Copy)
-        return;
-
-    NSDictionary *representations = @{
-        (NSString *)kUTTypeUTF8PlainText : (NSString *)_positionInformation.url,
-        (NSString *)kUTTypeURL : (NSURL *)_positionInformation.url
-    };
-
-    [UIPasteboard generalPasteboard].items = @[ representations ];
-}
-
-- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant openElementAtLocation:(CGPoint)location
-{
-    CGPoint screenPoint = [self.window convertPoint:[self convertPoint:location toView:nil] toWindow:nil];
-    _webView->_page->navigateToPDFLinkWithSimulatedClick(_positionInformation.url, roundedIntPoint(location), roundedIntPoint(screenPoint));
-}
-
-- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant shareElementWithURL:(NSURL *)url rect:(CGRect)boundingRect
-{
-    _webSelectionAssistant = adoptNS([[UIWKSelectionAssistant alloc] initWithView:self]);
-    [_webSelectionAssistant showShareSheetFor:userVisibleString(url) fromRect:boundingRect];
-    _webSelectionAssistant = nil;
-}
-
-#if HAVE(APP_LINKS)
-- (BOOL)actionSheetAssistant:(WKActionSheetAssistant *)assistant shouldIncludeAppLinkActionsForElement:(_WKActivatedElementInfo *)element
-{
-    return _webView->_page->uiClient().shouldIncludeAppLinkActionsForElement(element);
-}
-#endif
-
-- (RetainPtr<NSArray>)actionSheetAssistant:(WKActionSheetAssistant *)assistant decideActionsForElement:(_WKActivatedElementInfo *)element defaultActions:(RetainPtr<NSArray>)defaultActions
-{
-    return _webView->_page->uiClient().actionsForElement(element, WTFMove(defaultActions));
-}
-
-#pragma mark Password protection UI
-
-- (void)_showPasswordEntryField
-{
-    [_webView _showPasswordViewWithDocumentName:_suggestedFilename.get() passwordHandler:[retainedSelf = retainPtr(self), webView = retainPtr(_webView)](NSString *password) {
-        if (!CGPDFDocumentUnlockWithPassword(retainedSelf->_cgPDFDocument.get(), password.UTF8String)) {
-            [[webView _passwordView] showPasswordFailureAlert];
-            return;
-        }
-
-        [webView _hidePasswordView];
-        [retainedSelf _didLoadPDFDocument];
-    }];
-}
-
-- (void)willMoveToWindow:(UIWindow *)newWindow
-{
-    if (newWindow)
-        return;
-    
-    ASSERT(self.window);
-    ASSERT(_applicationStateTracker);
-    _applicationStateTracker = nullptr;
-}
-
-- (void)didMoveToWindow
-{
-    if (!self.window)
-        return;
-
-    ASSERT(!_applicationStateTracker);
-    _applicationStateTracker = std::make_unique<ApplicationStateTracker>(self, @selector(_applicationDidEnterBackground), @selector(_applicationDidCreateWindowContext), @selector(_applicationDidFinishSnapshottingAfterEnteringBackground), @selector(_applicationWillEnterForeground));
-}
-
-- (BOOL)isBackground
-{
-    if (!_applicationStateTracker)
-        return YES;
-
-    return _applicationStateTracker->isInBackground();
-}
-
-- (void)_applicationDidEnterBackground
-{
-    _webView->_page->applicationDidEnterBackground();
-    _webView->_page->activityStateDidChange(ActivityState::AllFlags & ~ActivityState::IsInWindow);
-}
-
-- (void)_applicationDidCreateWindowContext
-{
-}
-
-- (void)_applicationDidFinishSnapshottingAfterEnteringBackground
-{
-    _webView->_page->applicationDidFinishSnapshottingAfterEnteringBackground();
-}
-
-- (void)_applicationWillEnterForeground
-{
-    _webView->_page->applicationWillEnterForeground();
-    if (auto drawingArea = _webView->_page->drawingArea())
-        drawingArea->hideContentUntilAnyUpdate();
-    _webView->_page->activityStateDidChange(ActivityState::AllFlags & ~ActivityState::IsInWindow, true, WebPageProxy::ActivityStateChangeDispatchMode::Immediate);
+    webView->_page->navigateToPDFLinkWithSimulatedClick(url.absoluteString, WebCore::roundedIntPoint(documentPoint), WebCore::roundedIntPoint(screenPoint));
 }
 
 @end
 
-#pragma mark Printing
+#pragma mark _WKWebViewPrintProvider
+
+#if !ENABLE(MINIMAL_SIMULATOR)
 
 @interface WKPDFView (_WKWebViewPrintFormatter) <_WKWebViewPrintProvider>
 @end
@@ -872,24 +398,20 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions options)
 
 - (NSUInteger)_wk_pageCountForPrintFormatter:(_WKWebViewPrintFormatter *)printFormatter
 {
-    CGPDFDocumentRef document = _cgPDFDocument.get();
-    if (!CGPDFDocumentAllowsPrinting(document))
-        return 0;
-
-    size_t numberOfPages = CGPDFDocumentGetNumberOfPages(document);
+    NSUInteger pageCount = std::max<NSInteger>([_hostViewController pageCount], 0);
     if (printFormatter.snapshotFirstPage)
-        return std::min<NSUInteger>(numberOfPages, 1);
-
-    return numberOfPages;
+        return std::min<NSUInteger>(pageCount, 1);
+    return pageCount;
 }
 
 - (CGPDFDocumentRef)_wk_printedDocument
 {
-    return _cgPDFDocument.get();
+    auto dataProvider = adoptCF(CGDataProviderCreateWithCFData((CFDataRef)_data.get()));
+    return adoptCF(CGPDFDocumentCreateWithProvider(dataProvider.get())).autorelease();
 }
 
 @end
 
-#pragma clang diagnostic pop
+#endif // !ENABLE(MINIMAL_SIMULATOR)
 
-#endif /* PLATFORM(IOS) */
+#endif // ENABLE(WKPDFVIEW)

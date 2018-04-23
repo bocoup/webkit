@@ -35,12 +35,13 @@
 #include "Document.h"
 #include "FontCascade.h"
 #include "FontGenericFamilies.h"
+#include "Frame.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "HistoryItem.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PageCache.h"
+#include "RenderWidget.h"
 #include "RuntimeApplicationChecks.h"
 #include "Settings.h"
 #include "StorageMap.h"
@@ -92,33 +93,6 @@ bool SettingsBase::defaultTextAutosizingEnabled()
     return false;
 }
 #endif
-
-float SettingsBase::defaultOneLineTextMultiplierCoefficient()
-{
-#if ENABLE(EXTRA_ZOOM_MODE)
-    return 2.23125f;
-#else
-    return 1.7f;
-#endif
-}
-
-float SettingsBase::defaultMultiLineTextMultiplierCoefficient()
-{
-#if ENABLE(EXTRA_ZOOM_MODE)
-    return 2.48125f;
-#else
-    return 1.95f;
-#endif
-}
-
-float SettingsBase::defaultMaxTextAutosizingScaleIncrease()
-{
-#if ENABLE(EXTRA_ZOOM_MODE)
-    return 5.0f;
-#else
-    return 1.7f;
-#endif
-}
 
 bool SettingsBase::defaultDownloadableBinaryFontsEnabled()
 {
@@ -269,6 +243,18 @@ void SettingsBase::setNeedsRecalcStyleInAllFrames()
         m_page->setNeedsRecalcStyleInAllFrames();
 }
 
+void SettingsBase::setNeedsRelayoutAllFrames()
+{
+    if (!m_page)
+        return;
+
+    for (Frame* frame = &m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        if (!frame->ownerRenderer())
+            continue;
+        frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
+    }
+}
+
 void SettingsBase::mediaTypeOverrideChanged()
 {
     if (!m_page)
@@ -319,6 +305,23 @@ void SettingsBase::pluginsEnabledChanged()
 {
     Page::refreshPlugins(false);
 }
+
+#if ENABLE(TEXT_AUTOSIZING)
+
+void SettingsBase::shouldEnableTextAutosizingBoostChanged()
+{
+    if (!m_page)
+        return;
+
+    bool boostAutosizing = m_page->settings().shouldEnableTextAutosizingBoost();
+    m_oneLineTextMultiplierCoefficient = boostAutosizing ? boostedOneLineTextMultiplierCoefficient : defaultOneLineTextMultiplierCoefficient;
+    m_multiLineTextMultiplierCoefficient = boostAutosizing ? boostedMultiLineTextMultiplierCoefficient : defaultMultiLineTextMultiplierCoefficient;
+    m_maxTextAutosizingScaleIncrease = boostAutosizing ? boostedMaxTextAutosizingScaleIncrease : defaultMaxTextAutosizingScaleIncrease;
+
+    setNeedsRecalcStyleInAllFrames();
+}
+
+#endif
 
 void SettingsBase::userStyleSheetLocationChanged()
 {

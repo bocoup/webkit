@@ -32,6 +32,8 @@
 #include "WebCredentialsMessengerProxyMessages.h"
 #include "WebPage.h"
 #include "WebProcess.h"
+#include <WebCore/PublicKeyCredentialCreationOptions.h>
+#include <WebCore/PublicKeyCredentialRequestOptions.h>
 
 namespace WebKit {
 
@@ -46,12 +48,16 @@ WebCredentialsMessenger::~WebCredentialsMessenger()
     WebProcess::singleton().removeMessageReceiver(*this);
 }
 
-void WebCredentialsMessenger::makeCredential(const Vector<uint8_t>&, const WebCore::PublicKeyCredentialCreationOptions&, WebCore::CreationCompletionHandler&&)
+void WebCredentialsMessenger::makeCredential(const Vector<uint8_t>& hash, const WebCore::PublicKeyCredentialCreationOptions& options, WebCore::CreationCompletionHandler&& handler)
 {
+    auto messageId = addCreationCompletionHandler(WTFMove(handler));
+    m_webPage.send(Messages::WebCredentialsMessengerProxy::MakeCredential(messageId, hash, options));
 }
 
-void WebCredentialsMessenger::getAssertion(const Vector<uint8_t>&, const WebCore::PublicKeyCredentialRequestOptions&, WebCore::RequestCompletionHandler&&)
+void WebCredentialsMessenger::getAssertion(const Vector<uint8_t>& hash, const WebCore::PublicKeyCredentialRequestOptions& options, WebCore::RequestCompletionHandler&& handler)
 {
+    auto messageId = addRequestCompletionHandler(WTFMove(handler));
+    m_webPage.send(Messages::WebCredentialsMessengerProxy::GetAssertion(messageId, hash, options));
 }
 
 void WebCredentialsMessenger::isUserVerifyingPlatformAuthenticatorAvailable(WebCore::QueryCompletionHandler&& handler)
@@ -60,12 +66,16 @@ void WebCredentialsMessenger::isUserVerifyingPlatformAuthenticatorAvailable(WebC
     m_webPage.send(Messages::WebCredentialsMessengerProxy::IsUserVerifyingPlatformAuthenticatorAvailable(messageId));
 }
 
-void WebCredentialsMessenger::makeCredentialReply(uint64_t messageId, const Vector<uint8_t>&)
+void WebCredentialsMessenger::makeCredentialReply(uint64_t messageId, const Vector<uint8_t>& credentialId, const Vector<uint8_t>& attestationObject)
 {
+    auto handler = takeCreationCompletionHandler(messageId);
+    handler(WebCore::CreationReturnBundle(ArrayBuffer::create(credentialId.data(), credentialId.size()), ArrayBuffer::create(attestationObject.data(), attestationObject.size())));
 }
 
 void WebCredentialsMessenger::getAssertionReply(uint64_t messageId, const Vector<uint8_t>& credentialId, const Vector<uint8_t>& authenticatorData, const Vector<uint8_t>& signature, const Vector<uint8_t>& userHandle)
 {
+    auto handler = takeRequestCompletionHandler(messageId);
+    handler(WebCore::AssertionReturnBundle(ArrayBuffer::create(credentialId.data(), credentialId.size()), ArrayBuffer::create(authenticatorData.data(), authenticatorData.size()), ArrayBuffer::create(signature.data(), signature.size()), ArrayBuffer::create(userHandle.data(), userHandle.size())));
 }
 
 void WebCredentialsMessenger::isUserVerifyingPlatformAuthenticatorAvailableReply(uint64_t messageId, bool result)

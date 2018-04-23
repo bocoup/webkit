@@ -29,7 +29,7 @@
 #if ENABLE(VIDEO) && ENABLE(MEDIA_SOURCE) && USE(GSTREAMER)
 
 #include "AudioTrackPrivateGStreamer.h"
-#include "GStreamerUtilities.h"
+#include "GStreamerCommon.h"
 #include "MediaDescription.h"
 #include "MediaPlayerPrivateGStreamerMSE.h"
 #include "MediaSample.h"
@@ -48,7 +48,6 @@
 #include <gst/video/video.h>
 #include <wtf/Condition.h>
 #include <wtf/MainThread.h>
-#include <wtf/glib/GMutexLocker.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 

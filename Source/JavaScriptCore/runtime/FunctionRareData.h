@@ -39,7 +39,7 @@ class SpeculativeJIT;
 class JITCompiler;
 }
 
-class FunctionRareData : public JSCell {
+class FunctionRareData final : public JSCell {
     friend class JIT;
     friend class DFG::SpeculativeJIT;
     friend class DFG::JITCompiler;
@@ -87,6 +87,10 @@ public:
     Structure* createInternalFunctionAllocationStructureFromBase(VM& vm, JSGlobalObject* globalObject, JSObject* prototype, Structure* baseStructure)
     {
         return m_internalFunctionAllocationProfile.createAllocationStructureFromBase(vm, globalObject, this, prototype, baseStructure);
+    }
+    void clearInternalFunctionAllocationProfile()
+    {
+        m_internalFunctionAllocationProfile.clear();
     }
 
     Structure* getBoundFunctionStructure() { return m_boundFunctionStructure.get(); }

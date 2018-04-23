@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2009, 2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -100,11 +100,11 @@ static const double executablePoolReservationFraction = 0.15;
 static const double executablePoolReservationFraction = 0.25;
 #endif
 
-JS_EXPORTDATA uintptr_t startOfFixedExecutableMemoryPool;
-JS_EXPORTDATA uintptr_t endOfFixedExecutableMemoryPool;
-JS_EXPORTDATA bool useFastPermisionsJITCopy { false };
+JS_EXPORT_PRIVATE uintptr_t startOfFixedExecutableMemoryPool;
+JS_EXPORT_PRIVATE uintptr_t endOfFixedExecutableMemoryPool;
+JS_EXPORT_PRIVATE bool useFastPermisionsJITCopy { false };
 
-JS_EXPORTDATA JITWriteSeparateHeapsFunction jitWriteSeparateHeapsFunction;
+JS_EXPORT_PRIVATE JITWriteSeparateHeapsFunction jitWriteSeparateHeapsFunction;
 
 #if !USE(EXECUTE_ONLY_JIT_WRITE_FUNCTION) && HAVE(REMAP_JIT)
 static uintptr_t startOfFixedWritableMemoryPool;
@@ -206,7 +206,7 @@ private:
             return;
 
         // Assemble a thunk that will serve as the means for writing into the JIT region.
-        MacroAssemblerCodeRef writeThunk = jitWriteThunkGenerator(reinterpret_cast<void*>(writableAddr), stubBase, stubSize);
+        MacroAssemblerCodeRef<JITThunkPtrTag> writeThunk = jitWriteThunkGenerator(reinterpret_cast<void*>(writableAddr), stubBase, stubSize);
 
         int result = 0;
 
@@ -231,13 +231,14 @@ private:
     }
 
 #if CPU(ARM64) && USE(EXECUTE_ONLY_JIT_WRITE_FUNCTION)
-    MacroAssemblerCodeRef jitWriteThunkGenerator(void* writableAddr, void* stubBase, size_t stubSize)
+    MacroAssemblerCodeRef<JITThunkPtrTag> jitWriteThunkGenerator(void* writableAddr, void* stubBase, size_t stubSize)
     {
         using namespace ARM64Registers;
         using TrustedImm32 = MacroAssembler::TrustedImm32;
 
         MacroAssembler jit;
 
+        jit.tagReturnAddress();
         jit.move(MacroAssembler::TrustedImmPtr(writableAddr), x7);
         jit.addPtr(x7, x0);
 
@@ -298,7 +299,7 @@ private:
         // to appear in the console or anywhere in memory, via the PrintStream buffer.
         // The second is we can't guarantee that the code is readable when using the
         // asyncDisassembly option as our caller will set our pages execute only.
-        return linkBuffer.finalizeCodeWithoutDisassembly();
+        return linkBuffer.finalizeCodeWithoutDisassembly<JITThunkPtrTag>();
     }
 #else // CPU(ARM64) && USE(EXECUTE_ONLY_JIT_WRITE_FUNCTION)
     static void genericWriteToJITRegion(off_t offset, const void* data, size_t dataSize)
@@ -306,15 +307,18 @@ private:
         memcpy((void*)(startOfFixedWritableMemoryPool + offset), data, dataSize);
     }
 
-    MacroAssemblerCodeRef jitWriteThunkGenerator(void* address, void*, size_t)
+    MacroAssemblerCodeRef<JITThunkPtrTag> jitWriteThunkGenerator(void* address, void*, size_t)
     {
         startOfFixedWritableMemoryPool = reinterpret_cast<uintptr_t>(address);
-        uintptr_t function = (uintptr_t)((void*)&genericWriteToJITRegion);
+        void* function = reinterpret_cast<void*>(&genericWriteToJITRegion);
 #if CPU(ARM_THUMB2)
         // Handle thumb offset
-        function -= 1;
+        uintptr_t functionAsInt = reinterpret_cast<uintptr_t>(function);
+        functionAsInt -= 1;
+        function = reinterpret_cast<void*>(functionAsInt);
 #endif
-        return MacroAssemblerCodeRef::createSelfManagedCodeRef(MacroAssemblerCodePtr((void*)function));
+        auto codePtr = MacroAssemblerCodePtr<JITThunkPtrTag>(tagCFunctionPtr<JITThunkPtrTag>(function));
+        return MacroAssemblerCodeRef<JITThunkPtrTag>::createSelfManagedCodeRef(codePtr);
     }
 #endif
 

@@ -36,24 +36,26 @@ if (USE_COORDINATED_GRAPHICS)
         platform/graphics/texmap/TextureMapperPlatformLayerBuffer.cpp
         platform/graphics/texmap/TextureMapperPlatformLayerProxy.cpp
 
-        platform/graphics/texmap/coordinated/AreaAllocator.cpp
         platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp
         platform/graphics/texmap/coordinated/CoordinatedImageBacking.cpp
         platform/graphics/texmap/coordinated/Tile.cpp
         platform/graphics/texmap/coordinated/TiledBackingStore.cpp
-        platform/graphics/texmap/coordinated/UpdateAtlas.cpp
     )
 
     # FIXME: Move this into Nicosia.cmake once the component is set for long-term use.
     list(APPEND WebCore_INCLUDE_DIRECTORIES
         "${WEBCORE_DIR}/platform/graphics/nicosia"
+        "${WEBCORE_DIR}/platform/graphics/nicosia/cairo"
     )
     list(APPEND WebCore_SOURCES
         platform/graphics/nicosia/NicosiaBuffer.cpp
         platform/graphics/nicosia/NicosiaPaintingContext.cpp
-        platform/graphics/nicosia/NicosiaPaintingContextCairo.cpp
         platform/graphics/nicosia/NicosiaPaintingEngine.cpp
         platform/graphics/nicosia/NicosiaPaintingEngineBasic.cpp
+        platform/graphics/nicosia/NicosiaPaintingEngineThreaded.cpp
+
+        platform/graphics/nicosia/cairo/NicosiaCairoOperationRecorder.cpp
+        platform/graphics/nicosia/cairo/NicosiaPaintingContextCairo.cpp
     )
 else ()
     list(APPEND WebCore_SOURCES

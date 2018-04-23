@@ -52,6 +52,9 @@ class HeadlessViewBackend;
 struct wpe_view_backend;
 typedef WKViewRef PlatformWKView;
 typedef HeadlessViewBackend *PlatformWindow;
+#elif PLATFORM(WIN)
+typedef WKViewRef PlatformWKView;
+typedef HWND PlatformWindow;
 #endif
 
 namespace TestWebKitAPI {
@@ -82,15 +85,16 @@ public:
 private:
 #if PLATFORM(MAC)
     void initialize(WKPageConfigurationRef, Class wkViewSubclass);
-#elif PLATFORM(GTK) || PLATFORM(WPE)
+#elif PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN)
     void initialize(WKPageConfigurationRef);
+#endif
+#if PLATFORM(WIN)
+    static void registerWindowClass();
+    static LRESULT CALLBACK wndProc(HWND, UINT message, WPARAM, LPARAM);
 #endif
 
     PlatformWKView m_view;
     PlatformWindow m_window;
-#if PLATFORM(WPE)
-    struct wpe_view_backend* m_backend { nullptr };
-#endif
 };
 
 } // namespace TestWebKitAPI

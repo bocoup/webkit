@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "SecurityOriginData.h"
+#include "URL.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
@@ -88,12 +88,12 @@ inline bool operator==(PluginInfo& a, PluginInfo& b)
     return result;
 }
 
-struct SupportedPluginNames {
-    HashSet<String> allOriginPlugins;
-    HashMap<SecurityOriginData, HashSet<String>> originSpecificPlugins;
+struct SupportedPluginName {
+    String matchingDomain;
+    String pluginName;
 
     template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static std::optional<SupportedPluginNames> decode(Decoder&);
+    template<class Decoder> static std::optional<SupportedPluginName> decode(Decoder&);
 };
 
 // FIXME: merge with PluginDatabase in the future
@@ -102,7 +102,7 @@ public:
     static Ref<PluginData> create(Page& page) { return adoptRef(*new PluginData(page)); }
 
     const Vector<PluginInfo>& plugins() const { return m_plugins; }
-    Vector<PluginInfo> webVisiblePlugins() const;
+    const Vector<PluginInfo>& webVisiblePlugins() const;
     Vector<PluginInfo> publiclyVisiblePlugins() const;
     WEBCORE_EXPORT void getWebVisibleMimesAndPluginIndices(Vector<MimeClassInfo>&, Vector<size_t>&) const;
 
@@ -115,6 +115,7 @@ public:
     String pluginFileForWebVisibleMimeType(const String& mimeType) const;
 
     WEBCORE_EXPORT bool supportsMimeType(const String& mimeType, const AllowedPluginTypes) const;
+    WEBCORE_EXPORT bool supportsWebVisibleMimeTypeForURL(const String& mimeType, const AllowedPluginTypes, const URL&) const;
 
 private:
     explicit PluginData(Page&);
@@ -122,43 +123,46 @@ private:
     bool getPluginInfoForWebVisibleMimeType(const String& mimeType, PluginInfo&) const;
     void getMimesAndPluginIndices(Vector<MimeClassInfo>&, Vector<size_t>&) const;
     void getMimesAndPluginIndiciesForPlugins(const Vector<PluginInfo>&, Vector<MimeClassInfo>&, Vector<size_t>&) const;
+    bool supportsWebVisibleMimeType(const String& mimeType, const AllowedPluginTypes, const Vector<PluginInfo>&) const;
 
 protected:
     Page& m_page;
     Vector<PluginInfo> m_plugins;
-    std::optional<SupportedPluginNames> m_supportedPluginNames;
+    std::optional<Vector<SupportedPluginName>> m_supportedPluginNames;
+
+    struct CachedVisiblePlugins {
+        URL pageURL;
+        std::optional<Vector<PluginInfo>> pluginList;
+    };
+    mutable CachedVisiblePlugins m_cachedVisiblePlugins;
 };
 
-inline bool isSupportedPlugin(SupportedPluginNames& pluginNames, SecurityOriginData& origin, const String& pluginName)
+inline bool isSupportedPlugin(const Vector<SupportedPluginName>& pluginNames, const URL& pageURL, const String& pluginName)
 {
-    auto iterator = pluginNames.originSpecificPlugins.find(origin);
-    if (iterator != pluginNames.originSpecificPlugins.end()) {
-        if (iterator->value.contains(pluginName))
-            return true;
-    }
-
-    return pluginNames.allOriginPlugins.contains(pluginName);
+    return pluginNames.findMatching([&] (auto&& plugin) {
+        return pageURL.isMatchingDomain(plugin.matchingDomain) && plugin.pluginName == pluginName;
+    }) != notFound;
 }
 
-template<class Decoder> inline std::optional<SupportedPluginNames> SupportedPluginNames::decode(Decoder& decoder)
+template<class Decoder> inline std::optional<SupportedPluginName> SupportedPluginName::decode(Decoder& decoder)
 {
-    std::optional<HashSet<String>> allOriginPlugins;
-    decoder >> allOriginPlugins;
-    if (!allOriginPlugins)
+    std::optional<String> matchingDomain;
+    decoder >> matchingDomain;
+    if (!matchingDomain)
         return std::nullopt;
 
-    std::optional<HashMap<SecurityOriginData, HashSet<String>>> originSpecificPlugins;
-    decoder >> originSpecificPlugins;
-    if (!originSpecificPlugins)
+    std::optional<String> pluginName;
+    decoder >> pluginName;
+    if (!pluginName)
         return std::nullopt;
 
-    return SupportedPluginNames { WTFMove(allOriginPlugins.value()), WTFMove(originSpecificPlugins.value()) };
+    return SupportedPluginName { WTFMove(matchingDomain.value()), WTFMove(pluginName.value()) };
 }
 
-template<class Encoder> inline void SupportedPluginNames::encode(Encoder& encoder) const
+template<class Encoder> inline void SupportedPluginName::encode(Encoder& encoder) const
 {
-    encoder << allOriginPlugins;
-    encoder << originSpecificPlugins;
+    encoder << matchingDomain;
+    encoder << pluginName;
 }
 
 } // namespace WebCore

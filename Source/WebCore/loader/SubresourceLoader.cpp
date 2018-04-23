@@ -38,8 +38,9 @@
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "HTTPParsers.h"
+#include "LinkLoader.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "MemoryCache.h"
 #include "Page.h"
 #include "ResourceLoadObserver.h"
@@ -181,7 +182,7 @@ void SubresourceLoader::willSendRequestInternal(ResourceRequest&& newRequest, co
     }
 
     if (newRequest.requester() != ResourceRequestBase::Requester::Main) {
-        TracePoint(SubresourceLoadWillStart);
+        tracePoint(SubresourceLoadWillStart);
         ResourceLoadObserver::shared().logSubresourceLoading(m_frame.get(), newRequest, redirectResponse);
     }
 
@@ -359,6 +360,8 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
         return;
 
     bool isResponseMultipart = response.isMultipart();
+    if (options().mode != FetchOptions::Mode::Navigate)
+        LinkLoader::loadLinksFromHeader(response.httpHeaderField(HTTPHeaderName::Link), m_documentLoader->url(), *m_frame->document(), LinkLoader::MediaAttributeCheck::SkipMediaAttributeCheck);
     ResourceLoader::didReceiveResponse(response, [this, protectedThis = WTFMove(protectedThis), isResponseMultipart, completionHandlerCaller = WTFMove(completionHandlerCaller)]() mutable {
         if (reachedTerminalState())
             return;
@@ -505,10 +508,7 @@ static void logResourceLoaded(Frame* frame, CachedResource::Type type)
         resourceType = DiagnosticLoggingKeys::applicationManifestKey();
         break;
 #endif
-#if ENABLE(LINK_PREFETCH)
     case CachedResource::LinkPrefetch:
-    case CachedResource::LinkSubresource:
-#endif
 #if ENABLE(VIDEO_TRACK)
     case CachedResource::TextTrackResource:
 #endif
@@ -568,12 +568,32 @@ bool SubresourceLoader::checkRedirectionCrossOriginAccessControl(const ResourceR
     if (crossOriginFlag && redirectingToNewOrigin)
         m_origin = SecurityOrigin::createUnique();
 
+    updateReferrerPolicy(redirectResponse.httpHeaderField(HTTPHeaderName::ReferrerPolicy));
+    
     if (redirectingToNewOrigin) {
         cleanHTTPRequestHeadersForAccessControl(newRequest);
         updateRequestForAccessControl(newRequest, *m_origin, options().storedCredentialsPolicy);
     }
+    
+    updateRequestReferrer(newRequest, referrerPolicy(), previousRequest.httpReferrer());
 
     return true;
+}
+
+void SubresourceLoader::updateReferrerPolicy(const String& referrerPolicyValue)
+{
+    if (referrerPolicyValue.isEmpty())
+        return;
+    
+    // Implementing https://www.w3.org/TR/2017/CR-referrer-policy-20170126/#parse-referrer-policy-from-header.
+    ReferrerPolicy referrerPolicy = ReferrerPolicy::EmptyString;
+    for (auto tokenView : StringView { referrerPolicyValue }.split(',')) {
+        auto token = parseReferrerPolicy(stripLeadingAndTrailingHTTPSpaces(tokenView), ShouldParseLegacyKeywords::No);
+        if (token && token.value() != ReferrerPolicy::EmptyString)
+            referrerPolicy = token.value();
+    }
+    if (referrerPolicy != ReferrerPolicy::EmptyString)
+        setReferrerPolicy(referrerPolicy);
 }
 
 void SubresourceLoader::didFinishLoading(const NetworkLoadMetrics& networkLoadMetrics)
@@ -610,7 +630,7 @@ void SubresourceLoader::didFinishLoading(const NetworkLoadMetrics& networkLoadMe
     }
 
     if (m_resource->type() != CachedResource::MainResource)
-        TracePoint(SubresourceLoadDidEnd);
+        tracePoint(SubresourceLoadDidEnd);
 
     m_state = Finishing;
     m_resource->finishLoading(resourceData());
@@ -645,7 +665,7 @@ void SubresourceLoader::didFail(const ResourceError& error)
     m_state = Finishing;
 
     if (m_resource->type() != CachedResource::MainResource)
-        TracePoint(SubresourceLoadDidEnd);
+        tracePoint(SubresourceLoadDidEnd);
 
     if (m_resource->resourceToRevalidate())
         MemoryCache::singleton().revalidationFailed(*m_resource);
@@ -674,9 +694,6 @@ void SubresourceLoader::willCancel(const ResourceError& error)
     ASSERT(!reachedTerminalState());
     LOG(ResourceLoading, "Cancelled load of '%s'.\n", m_resource->url().string().latin1().data());
 
-    if (auto policyForResponseCompletionHandler = WTFMove(m_policyForResponseCompletionHandler))
-        policyForResponseCompletionHandler();
-
     Ref<SubresourceLoader> protectedThis(*this);
 #if PLATFORM(IOS)
     m_state = m_state == Uninitialized ? CancelledWhileInitializing : Finishing;
@@ -696,7 +713,7 @@ void SubresourceLoader::didCancel(const ResourceError&)
         return;
 
     if (m_resource->type() != CachedResource::MainResource)
-        TracePoint(SubresourceLoadDidEnd);
+        tracePoint(SubresourceLoadDidEnd);
 
     m_resource->cancelLoad();
     notifyDone();

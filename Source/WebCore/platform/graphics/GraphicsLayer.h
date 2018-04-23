@@ -452,9 +452,10 @@ public:
     // These methods handle both transitions and keyframe animations.
     virtual bool addAnimation(const KeyframeValueList&, const FloatSize& /*boxSize*/, const Animation*, const String& /*animationName*/, double /*timeOffset*/)  { return false; }
     virtual void pauseAnimation(const String& /*animationName*/, double /*timeOffset*/) { }
+    virtual void seekAnimation(const String& /*animationName*/, double /*timeOffset*/) { }
     virtual void removeAnimation(const String& /*animationName*/) { }
 
-    WEBCORE_EXPORT virtual void suspendAnimations(double time);
+    WEBCORE_EXPORT virtual void suspendAnimations(MonotonicTime);
     WEBCORE_EXPORT virtual void resumeAnimations();
 
     // Layer contents

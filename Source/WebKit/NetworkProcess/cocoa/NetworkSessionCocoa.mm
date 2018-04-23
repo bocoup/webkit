@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,6 +50,7 @@
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
+#import <wtf/ProcessPrivilege.h>
 
 using namespace WebKit;
 
@@ -62,6 +63,9 @@ using namespace WebKit;
 static NSURLSessionResponseDisposition toNSURLSessionResponseDisposition(WebCore::PolicyAction disposition)
 {
     switch (disposition) {
+    case WebCore::PolicyAction::Suspend:
+        LOG_ERROR("PolicyAction::Suspend encountered - Treating as PolicyAction::Ignore for now");
+        FALLTHROUGH;
     case WebCore::PolicyAction::Ignore:
         return NSURLSessionResponseCancel;
     case WebCore::PolicyAction::Use:
@@ -177,6 +181,24 @@ static NSURLRequest* downgradeRequest(NSURLRequest *request)
 
     ASSERT_NOT_REACHED();
     return request;
+}
+
+static bool schemeWasUpgradedDueToDynamicHSTS(NSURLRequest *request)
+{
+    return [request respondsToSelector:@selector(_schemeWasUpgradedDueToDynamicHSTS)]
+        && [request _schemeWasUpgradedDueToDynamicHSTS];
+}
+
+static void setIgnoreHSTS(NSMutableURLRequest *request, bool ignoreHSTS)
+{
+    if ([request respondsToSelector:@selector(_setIgnoreHSTS:)])
+        [request _setIgnoreHSTS:ignoreHSTS];
+}
+
+static bool ignoreHSTS(NSURLRequest *request)
+{
+    return [request respondsToSelector:@selector(_ignoreHSTS)]
+        && [request _ignoreHSTS];
 }
 #endif
 
@@ -634,6 +656,8 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkSessionCreationParameters&& para
     : NetworkSession(parameters.sessionID)
     , m_boundInterfaceIdentifier(parameters.boundInterfaceIdentifier)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     relaxAdoptionRequirement();
 
 #if !ASSERT_DISABLED
@@ -673,9 +697,10 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkSessionCreationParameters&& para
         configuration._CTDataConnectionServiceType = ctDataConnectionServiceType;
 #endif
 
-    if (parameters.legacyCustomProtocolManager)
-        parameters.legacyCustomProtocolManager->registerProtocolClass(configuration);
-    
+#if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
+    NetworkProcess::singleton().supplement<LegacyCustomProtocolManager>()->registerProtocolClass(configuration);
+#endif
+
 #if HAVE(TIMINGDATAOPTIONS)
     configuration._timingDataOptions = _TimingDataOptionsEnableW3CNavigationTiming;
 #else

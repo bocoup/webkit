@@ -515,6 +515,16 @@ bool WKPreferencesGetWebAnimationsEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->webAnimationsEnabled();
 }
 
+void WKPreferencesSetCSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setCSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled(flag);
+}
+
+bool WKPreferencesGetCSSAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled();
+}
+
 void WKPreferencesSetNeedsSiteSpecificQuirks(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setNeedsSiteSpecificQuirks(flag);
@@ -1404,6 +1414,16 @@ bool WKPreferencesGetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->webRTCLegacyAPIEnabled();
 }
 
+void WKPreferencesSetWebRTCMDNSICECandidatesEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setMDNSICECandidatesEnabled(enabled);
+}
+
+bool WKPreferencesGetWebRTCMDNSICECandidatesEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->mDNSICECandidatesEnabled();
+}
+
 void WKPreferencesSetSpatialNavigationEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
     toImpl(preferencesRef)->setSpatialNavigationEnabled(enabled);
@@ -1942,4 +1962,14 @@ void WKPreferencesSetAllowCrossOriginSubresourcesToAskForCredentials(WKPreferenc
 bool WKPreferencesGetAllowCrossOriginSubresourcesToAskForCredentials(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->allowCrossOriginSubresourcesToAskForCredentials();
+}
+
+void WKPreferencesSetRestrictedHTTPResponseAccess(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setRestrictedHTTPResponseAccess(flag);
+}
+
+bool WKPreferencesGetRestrictedHTTPResponseAccess(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->restrictedHTTPResponseAccess();
 }

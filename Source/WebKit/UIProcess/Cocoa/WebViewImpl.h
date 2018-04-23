@@ -142,6 +142,8 @@ public:
 
     void setDrawsBackground(bool);
     bool drawsBackground() const;
+    void setBackgroundColor(NSColor *);
+    NSColor *backgroundColor() const;
     bool isOpaque() const;
 
     void setShouldSuppressFirstResponderChanges(bool);
@@ -533,6 +535,10 @@ public:
 
     bool beginBackSwipeForTesting();
     bool completeBackSwipeForTesting();
+    
+    void setUseSystemAppearance(bool);
+    bool useSystemAppearance();
+    void setDefaultAppearance(bool);
 
 private:
 #if HAVE(TOUCH_BAR)
@@ -660,6 +666,8 @@ private:
     std::unique_ptr<WebCore::TextIndicatorWindow> m_textIndicatorWindow;
 
     RetainPtr<NSColorSpace> m_colorSpace;
+
+    RetainPtr<NSColor> m_backgroundColor;
 
     RetainPtr<NSEvent> m_lastMouseDownEvent;
     RetainPtr<NSEvent> m_lastPressureEvent;

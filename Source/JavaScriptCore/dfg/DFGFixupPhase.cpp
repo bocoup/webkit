@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -616,6 +616,11 @@ private:
                 fixEdge<SymbolUse>(node->child2());
                 break;
             }
+            if (Node::shouldSpeculateBigInt(node->child1().node(), node->child2().node())) {
+                fixEdge<BigIntUse>(node->child1());
+                fixEdge<BigIntUse>(node->child2());
+                break;
+            }
             if (node->child1()->shouldSpeculateStringIdent() && node->child2()->shouldSpeculateStringIdent()) {
                 fixEdge<StringIdentUse>(node->child1());
                 fixEdge<StringIdentUse>(node->child2());
@@ -685,9 +690,10 @@ private:
         }
             
         case StringFromCharCode:
-            if (node->child1()->shouldSpeculateInt32())
+            if (node->child1()->shouldSpeculateInt32()) {
                 fixEdge<Int32Use>(node->child1());
-            else
+                node->clearFlags(NodeMustGenerate);
+            } else
                 fixEdge<UntypedUse>(node->child1());
             break;
 
@@ -1075,9 +1081,11 @@ private:
 
         case ArraySlice: {
             fixEdge<KnownCellUse>(m_graph.varArgChild(node, 0));
-            fixEdge<Int32Use>(m_graph.varArgChild(node, 1));
-            if (node->numChildren() == 4)
-                fixEdge<Int32Use>(m_graph.varArgChild(node, 2));
+            if (node->numChildren() >= 3) {
+                fixEdge<Int32Use>(m_graph.varArgChild(node, 1));
+                if (node->numChildren() == 4)
+                    fixEdge<Int32Use>(m_graph.varArgChild(node, 2));
+            }
             break;
         }
 
@@ -1365,6 +1373,13 @@ private:
         }
 
         case TryGetById: {
+            if (node->child1()->shouldSpeculateCell())
+                fixEdge<CellUse>(node->child1());
+            break;
+        }
+
+        case GetByIdDirect:
+        case GetByIdDirectFlush: {
             if (node->child1()->shouldSpeculateCell())
                 fixEdge<CellUse>(node->child1());
             break;
@@ -1673,6 +1688,7 @@ private:
         case SetRegExpObjectLastIndex:
         case RecordRegExpCachedResult:
         case RegExpExecNonGlobalOrSticky:
+        case RegExpMatchFastGlobal:
             // These are just nodes that we don't currently expect to see during fixup.
             // If we ever wanted to insert them prior to fixup, then we just have to create
             // fixup rules for them.
@@ -2196,7 +2212,6 @@ private:
         case GetGlobalThis:
         case ExtractValueFromWeakMapGet:
         case CPUIntrinsic:
-        case GetArrayMask:
             break;
 #else
         default:
@@ -2484,6 +2499,12 @@ private:
 
             if (node->child1()->shouldSpeculateString()) {
                 fixEdge<StringUse>(node->child1());
+                node->convertToIdentity();
+                return;
+            }
+            
+            if (node->child1()->shouldSpeculateBigInt()) {
+                fixEdge<BigIntUse>(node->child1());
                 node->convertToIdentity();
                 return;
             }
@@ -2885,7 +2906,6 @@ private:
                 m_indexInBlock, SpecNone, GetButterfly, origin, Edge(array, CellUse));
         }
         
-        ASSERT(arrayMode.type() == Array::String || arrayMode.typedArrayType() != NotTypedArray);
         return m_insertionSet.insertNode(
             m_indexInBlock, SpecNone, GetIndexedPropertyStorage, origin,
             OpInfo(arrayMode.asWord()), Edge(array, KnownCellUse));
@@ -2984,6 +3004,7 @@ private:
         case StringUse:
         case KnownStringUse:
         case SymbolUse:
+        case BigIntUse:
         case StringObjectUse:
         case StringOrStringObjectUse:
             if (alwaysUnboxSimplePrimitives()

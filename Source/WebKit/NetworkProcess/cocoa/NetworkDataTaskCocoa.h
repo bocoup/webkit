@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #include "NetworkDataTask.h"
 #include "NetworkLoadParameters.h"
+#include "WiFiAssertionHolder.h"
 #include <WebCore/NetworkLoadMetrics.h>
 #include <wtf/RetainPtr.h>
 
@@ -71,6 +72,14 @@ public:
     uint64_t frameID() const { return m_frameID; };
     uint64_t pageID() const { return m_pageID; };
 
+#if ENABLE(WIFI_ASSERTIONS)
+    void acquireWiFiAssertion()
+    {
+        ASSERT(!m_wiFiAssertionHolder);
+        m_wiFiAssertionHolder.emplace();
+    }
+#endif
+
 private:
     NetworkDataTaskCocoa(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, uint64_t frameID, uint64_t pageID, WebCore::StoredCredentialsPolicy, WebCore::ContentSniffingPolicy, WebCore::ContentEncodingSniffingPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, PreconnectOnly);
 
@@ -83,6 +92,7 @@ private:
     void applyCookiePartitioningPolicy(const String& requiredStoragePartition, const String& currentStoragePartition);
 #endif
     bool isThirdPartyRequest(const WebCore::ResourceRequest&);
+    bool isAlwaysOnLoggingAllowed() const;
 
     RefPtr<SandboxExtension> m_sandboxExtension;
     RetainPtr<NSURLSessionDataTask> m_task;
@@ -92,6 +102,10 @@ private:
 
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
     bool m_hasBeenSetToUseStatelessCookieStorage { false };
+#endif
+
+#if ENABLE(WIFI_ASSERTIONS)
+    std::optional<WiFiAssertionHolder> m_wiFiAssertionHolder;
 #endif
 };
 

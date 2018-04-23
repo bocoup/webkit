@@ -1,4 +1,4 @@
-set(WTF_HEADERS
+set(WTF_PUBLIC_HEADERS
     ASCIICType.h
     Algorithms.h
     Assertions.h
@@ -41,7 +41,6 @@ set(WTF_HEADERS
     CrossThreadTaskHandler.h
     CryptographicUtilities.h
     CryptographicallyRandomNumber.h
-    CurrentTime.h
     DataLog.h
     DateMath.h
     DebugUtilities.h
@@ -68,6 +67,7 @@ set(WTF_HEADERS
     Forward.h
     Function.h
     FunctionDispatcher.h
+    FunctionTraits.h
     GetPtr.h
     Gigacage.h
     GlobalVersion.h
@@ -119,6 +119,7 @@ set(WTF_HEADERS
     LoggingHashSet.h
     LoggingHashTraits.h
     MD5.h
+    MachSendRight.h
     MainThread.h
     MallocPtr.h
     MathExtras.h
@@ -165,6 +166,7 @@ set(WTF_HEADERS
     PrintStream.h
     PriorityQueue.h
     ProcessID.h
+    ProcessPrivilege.h
     RAMSize.h
     RandomDevice.h
     RandomNumber.h
@@ -209,6 +211,11 @@ set(WTF_HEADERS
     StackStats.h
     StackTrace.h
     StdLibExtras.h
+    StdList.h
+    StdMap.h
+    StdSet.h
+    StdUnorderedMap.h
+    StdUnorderedSet.h
     Stopwatch.h
     StreamBuffer.h
     StringExtras.h
@@ -233,6 +240,7 @@ set(WTF_HEADERS
     Unexpected.h
     UniStdExtras.h
     UnionFind.h
+    UniqueArray.h
     UniqueRef.h
     UnsafePointer.h
     VMTags.h
@@ -315,7 +323,6 @@ set(WTF_HEADERS
 
 set(WTF_SOURCES
     Assertions.cpp
-    Atomics.cpp
     AutomaticThread.cpp
     BitVector.cpp
     CPUTime.cpp
@@ -358,6 +365,7 @@ set(WTF_SOURCES
     ParkingLot.cpp
     Poisoned.cpp
     PrintStream.cpp
+    ProcessPrivilege.cpp
     RAMSize.cpp
     RandomDevice.cpp
     RandomNumber.cpp
@@ -446,7 +454,7 @@ set(WTF_LIBRARIES
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    list(APPEND WTF_HEADERS
+    list(APPEND WTF_PUBLIC_HEADERS
         spi/darwin/CommonCryptoSPI.h
     )
 list(APPEND WTF_PRIVATE_INCLUDE_DIRECTORIES
@@ -496,7 +504,7 @@ WEBKIT_FRAMEWORK(WTF)
 
 WEBKIT_MAKE_FORWARDING_HEADERS(WTF
     DESTINATION ${FORWARDING_HEADERS_DIR}/wtf
-    FILES ${WTF_HEADERS}
+    FILES ${WTF_PUBLIC_HEADERS}
 )
 
 if (MSVC)

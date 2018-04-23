@@ -6,6 +6,12 @@ set(WPE_API_VERSION 0.1)
 
 CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 1 0 0)
 
+# These are shared variables, but we special case their definition so that we can use the
+# CMAKE_INSTALL_* variables that are populated by the GNUInstallDirs macro.
+set(LIB_INSTALL_DIR "${CMAKE_INSTALL_FULL_LIBDIR}" CACHE PATH "Absolute path to library installation directory")
+set(EXEC_INSTALL_DIR "${CMAKE_INSTALL_FULL_BINDIR}" CACHE PATH "Absolute path to executable installation directory")
+set(LIBEXEC_INSTALL_DIR "${CMAKE_INSTALL_FULL_LIBEXECDIR}/wpe-webkit-${WPE_API_VERSION}" CACHE PATH "Absolute path to install executables executed by the library")
+
 WEBKIT_OPTION_BEGIN()
 
 include(GStreamerDefinitions)
@@ -24,14 +30,21 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_SYSTEM_MALLOC PUBLIC OFF)
 # Private options shared with other WebKit ports. Add options here only if
 # we need a value different from the default defined in WebKitFeatures.cmake.
 # Changing these options is completely unsupported.
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_ACCESSIBILITY PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FULLSCREEN_API PRIVATE OFF)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_GEOLOCATION PRIVATE OFF)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MHTML PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_NETSCAPE_PLUGIN_API PRIVATE OFF)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_NOTIFICATIONS PRIVATE OFF)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SERVICE_WORKER PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SMOOTH_SCROLLING PRIVATE OFF)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_TOUCH_EVENTS PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBGL2 PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
+
+# Public options specific to the WPE port. Do not add any options here unless
+# there is a strong reason we should support changing the value of the option,
+# and the option is not relevant to any other WebKit ports.
+WEBKIT_OPTION_DEFINE(USE_WOFF2 "Whether to enable support for WOFF2 Web Fonts." PUBLIC ON)
 
 # Private options specific to the WPE port.
 WEBKIT_OPTION_DEFINE(USE_OPENVR "Whether to use OpenVR as WebVR backend." PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
@@ -71,6 +84,13 @@ find_package(WebP REQUIRED)
 find_package(WPEBackend REQUIRED)
 find_package(ZLIB REQUIRED)
 
+if (USE_WOFF2)
+    find_package(WOFF2Dec 1.0.2)
+    if (NOT WOFF2DEC_FOUND)
+        message(FATAL_ERROR "liwoff2dec is needed for USE_WOFF2.")
+    endif ()
+endif ()
+
 if (ENABLE_ACCELERATED_2D_CANVAS)
     find_package(CairoGL 1.10.2 REQUIRED COMPONENTS cairo-egl)
 endif ()
@@ -91,7 +111,7 @@ endif ()
 
 add_definitions(-DBUILDING_WPE__=1)
 add_definitions(-DGETTEXT_PACKAGE="WPE")
-add_definitions(-DDATA_DIR="${CMAKE_INSTALL_DATADIR}")
+add_definitions(-DJSC_GLIB_API_ENABLED)
 
 SET_AND_EXPOSE_TO_BUILD(USE_CAIRO TRUE)
 SET_AND_EXPOSE_TO_BUILD(USE_EGL TRUE)
@@ -111,6 +131,9 @@ SET_AND_EXPOSE_TO_BUILD(USE_COORDINATED_GRAPHICS_THREADED TRUE)
 set(FORWARDING_HEADERS_DIR ${DERIVED_SOURCES_DIR}/ForwardingHeaders)
 set(FORWARDING_HEADERS_WPE_DIR ${FORWARDING_HEADERS_DIR}/wpe)
 set(FORWARDING_HEADERS_WPE_EXTENSION_DIR ${FORWARDING_HEADERS_DIR}/wpe-webextension)
+set(FORWARDING_HEADERS_WPE_DOM_DIR ${FORWARDING_HEADERS_DIR}/wpe-dom)
+set(DERIVED_SOURCES_JAVASCRIPCOREWPE_DIR ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/javascriptcorewpe)
+set(DERIVED_SOURCES_JAVASCRIPCORE_GLIB_API_DIR ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/javascriptcorewpe/jsc)
 set(DERIVED_SOURCES_WPE_API_DIR ${DERIVED_SOURCES_WEBKIT_DIR}/wpe)
 
 include(GStreamerChecks)

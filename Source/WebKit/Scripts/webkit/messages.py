@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@ LEGACY_RECEIVER_ATTRIBUTE = 'LegacyReceiver'
 DELAYED_ATTRIBUTE = 'Delayed'
 
 _license_header = """/*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -172,9 +172,11 @@ def forward_declarations_and_headers(receiver):
 
     headers = set([
         '"ArgumentCoders.h"',
+        '<wtf/Forward.h>',
     ])
 
     non_template_wtf_types = frozenset([
+        'MachSendRight',
         'String',
     ])
 
@@ -184,6 +186,8 @@ def forward_declarations_and_headers(receiver):
             types_by_namespace['IPC'].update([('class', 'Connection')])
 
     no_forward_declaration_types = frozenset([
+        'MachSendRight',
+        'String',
         'WebCore::DocumentIdentifier',
         'WebCore::ServiceWorkerIdentifier',
         'WebCore::ServiceWorkerJobIdentifier',
@@ -191,6 +195,7 @@ def forward_declarations_and_headers(receiver):
         'WebCore::ServiceWorkerOrClientIdentifier',
         'WebCore::ServiceWorkerRegistrationIdentifier',
         'WebCore::SWServerConnectionIdentifier',
+        'WebKit::UserContentControllerIdentifier',
     ])
 
     for parameter in receiver.iterparameters():
@@ -362,6 +367,7 @@ def headers_for_type(type):
     header_infos_and_types = class_template_headers(type)
 
     special_cases = {
+        'MachSendRight': ['<wtf/MachSendRight.h>'],
         'MonotonicTime': ['<wtf/MonotonicTime.h>'],
         'Seconds': ['<wtf/Seconds.h>'],
         'WallTime': ['<wtf/WallTime.h>'],
@@ -372,6 +378,7 @@ def headers_for_type(type):
         'WebCore::AutoplayEventFlags': ['<WebCore/AutoplayEvent.h>'],
         'WebCore::ExceptionDetails': ['<WebCore/JSDOMExceptionHandling.h>'],
         'WebCore::FileChooserSettings': ['<WebCore/FileChooser.h>'],
+        'WebCore::FrameLoadType': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::GrammarDetail': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::HasInsecureContent': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::Highlight': ['<WebCore/InspectorOverlay.h>'],
@@ -398,11 +405,10 @@ def headers_for_type(type):
         'WebCore::ShippingMethodUpdate': ['<WebCore/ApplePaySessionPaymentRequest.h>'],
         'WebCore::ShouldNotifyWhenResolved': ['<WebCore/ServiceWorkerTypes.h>'],
         'WebCore::ShouldSample': ['<WebCore/DiagnosticLoggingClient.h>'],
-        'WebCore::SupportedPluginNames': ['<WebCore/PluginData.h>'],
+        'WebCore::SupportedPluginName': ['<WebCore/PluginData.h>'],
         'WebCore::TextCheckingRequestData': ['<WebCore/TextChecking.h>'],
         'WebCore::TextCheckingResult': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::TextIndicatorData': ['<WebCore/TextIndicator.h>'],
-        'WebCore::TextureMapperAnimations': ['<WebCore/TextureMapperAnimation.h>'],
         'WebCore::ViewportAttributes': ['<WebCore/ViewportArguments.h>'],
         'WebCore::SelectionRect': ['"EditorState.h"'],
         'WebKit::BackForwardListItemState': ['"SessionState.h"'],

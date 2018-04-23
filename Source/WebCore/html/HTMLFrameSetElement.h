@@ -24,11 +24,12 @@
 #pragma once
 
 #include "HTMLElement.h"
-#include <memory>
+#include <wtf/UniqueArray.h>
 
 namespace WebCore {
 
 class HTMLFrameSetElement final : public HTMLElement {
+    WTF_MAKE_ISO_ALLOCATED(HTMLFrameSetElement);
 public:
     static Ref<HTMLFrameSetElement> create(const QualifiedName&, Document&);
 
@@ -67,8 +68,8 @@ private:
     InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
     void removedFromAncestor(RemovalType, ContainerNode&) final;
 
-    std::unique_ptr<Length[]> m_rowLengths;
-    std::unique_ptr<Length[]> m_colLengths;
+    UniqueArray<Length> m_rowLengths;
+    UniqueArray<Length> m_colLengths;
 
     int m_totalRows;
     int m_totalCols;

@@ -242,6 +242,7 @@ typedef int32_t (JIT_OPERATION *Z_JITOperation_EJ)(ExecState*, EncodedJSValue);
 typedef int32_t (JIT_OPERATION *Z_JITOperation_EJOJ)(ExecState*, EncodedJSValue, JSObject*, EncodedJSValue);
 typedef int32_t (JIT_OPERATION *Z_JITOperation_EJZ)(ExecState*, EncodedJSValue, int32_t);
 typedef int32_t (JIT_OPERATION *Z_JITOperation_EJZZ)(ExecState*, EncodedJSValue, int32_t, int32_t);
+typedef int32_t (JIT_OPERATION *Z_JITOperation_EJUiZ)(ExecState*, EncodedJSValue, uint32_t, int32_t);
 typedef int32_t (JIT_OPERATION *Z_JITOperation_EOI)(ExecState*, JSObject*, UniquedStringImpl*);
 typedef int32_t (JIT_OPERATION *Z_JITOperation_EOJ)(ExecState*, JSObject*, EncodedJSValue);
 typedef int32_t (JIT_OPERATION *Z_JITOperation_EBJssZ)(ExecState*, Butterfly*, JSString*, int32_t);
@@ -259,7 +260,7 @@ typedef size_t (JIT_OPERATION *S_JITOperation_EOJss)(ExecState*, JSObject*, JSSt
 typedef size_t (JIT_OPERATION *S_JITOperation_EReoJ)(ExecState*, RegExpObject*, EncodedJSValue);
 typedef size_t (JIT_OPERATION *S_JITOperation_EReoJss)(ExecState*, RegExpObject*, JSString*);
 typedef size_t (JIT_OPERATION *S_JITOperation_J)(EncodedJSValue);
-typedef SlowPathReturnType (JIT_OPERATION *Sprt_JITOperation_EZ)(ExecState*, int32_t);
+typedef SlowPathReturnType (JIT_OPERATION *Sprt_JITOperation_EUi)(ExecState*, uint32_t);
 typedef void (JIT_OPERATION *V_JITOperation)();
 typedef void (JIT_OPERATION *V_JITOperation_E)(ExecState*);
 typedef void (JIT_OPERATION *V_JITOperation_EC)(ExecState*, JSCell*);
@@ -363,8 +364,12 @@ EncodedJSValue JIT_OPERATION operationTryGetByIdOptimize(ExecState*, StructureSt
 EncodedJSValue JIT_OPERATION operationGetById(ExecState*, StructureStubInfo*, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationGetByIdGeneric(ExecState*, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationGetByIdOptimize(ExecState*, StructureStubInfo*, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
-EncodedJSValue JIT_OPERATION operationGetByIdWithThisGeneric(ExecState*, StructureStubInfo*, EncodedJSValue, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
+EncodedJSValue JIT_OPERATION operationGetByIdWithThis(ExecState*, StructureStubInfo*, EncodedJSValue, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
+EncodedJSValue JIT_OPERATION operationGetByIdWithThisGeneric(ExecState*, EncodedJSValue, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationGetByIdWithThisOptimize(ExecState*, StructureStubInfo*, EncodedJSValue, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
+EncodedJSValue JIT_OPERATION operationGetByIdDirect(ExecState*, StructureStubInfo*, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
+EncodedJSValue JIT_OPERATION operationGetByIdDirectGeneric(ExecState*, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
+EncodedJSValue JIT_OPERATION operationGetByIdDirectOptimize(ExecState*, StructureStubInfo*, EncodedJSValue, UniquedStringImpl*) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationInOptimize(ExecState*, StructureStubInfo*, JSCell*, UniquedStringImpl*) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationIn(ExecState*, StructureStubInfo*, JSCell*, UniquedStringImpl*) WTF_INTERNAL;
 EncodedJSValue JIT_OPERATION operationGenericIn(ExecState*, JSCell*, EncodedJSValue) WTF_INTERNAL;
@@ -395,6 +400,7 @@ size_t JIT_OPERATION operationCompareLessEq(ExecState*, EncodedJSValue, EncodedJ
 size_t JIT_OPERATION operationCompareGreater(ExecState*, EncodedJSValue, EncodedJSValue) WTF_INTERNAL;
 size_t JIT_OPERATION operationCompareGreaterEq(ExecState*, EncodedJSValue, EncodedJSValue) WTF_INTERNAL;
 size_t JIT_OPERATION operationCompareEq(ExecState*, EncodedJSValue, EncodedJSValue) WTF_INTERNAL;
+size_t JIT_OPERATION operationCompareStrictEq(ExecState*, EncodedJSValue, EncodedJSValue) WTF_INTERNAL;
 #if USE(JSVALUE64)
 EncodedJSValue JIT_OPERATION operationCompareStringEq(ExecState*, JSCell* left, JSCell* right) WTF_INTERNAL;
 #else
@@ -417,7 +423,7 @@ UnusedPtr JIT_OPERATION operationHandleTraps(ExecState*) WTF_INTERNAL;
 void JIT_OPERATION operationThrow(ExecState*, EncodedJSValue) WTF_INTERNAL;
 void JIT_OPERATION operationDebug(ExecState*, int32_t) WTF_INTERNAL;
 #if ENABLE(DFG_JIT)
-SlowPathReturnType JIT_OPERATION operationOptimize(ExecState*, int32_t) WTF_INTERNAL;
+SlowPathReturnType JIT_OPERATION operationOptimize(ExecState*, uint32_t) WTF_INTERNAL;
 char* JIT_OPERATION operationTryOSREnterAtCatch(ExecState*, uint32_t) WTF_INTERNAL;
 char* JIT_OPERATION operationTryOSREnterAtCatchAndValueProfile(ExecState*, uint32_t) WTF_INTERNAL;
 #endif

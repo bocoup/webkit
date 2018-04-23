@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -336,7 +336,7 @@ void SamplingProfiler::takeSample(const AbstractLocker&, Seconds& stackTraceProc
 {
     ASSERT(m_lock.isLocked());
     if (m_vm.entryScope) {
-        double nowTime = m_stopwatch->elapsedTime();
+        Seconds nowTime = m_stopwatch->elapsedTime();
 
         auto machineThreadsLocker = holdLock(m_vm.heap.machineThreads().getLock());
         LockHolder codeBlockSetLocker(m_vm.heap.codeBlockSet().getLock());
@@ -356,8 +356,9 @@ void SamplingProfiler::takeSample(const AbstractLocker&, Seconds& stackTraceProc
                 m_jscExecutionThread->getRegisters(registers);
                 machineFrame = MachineContext::framePointer(registers);
                 callFrame = static_cast<ExecState*>(machineFrame);
-                machinePC = MachineContext::instructionPointer(registers);
-                llintPC = MachineContext::llintInstructionPointer(registers);
+                machinePC = MachineContext::instructionPointer(registers).untaggedExecutableAddress();
+                llintPC = removeCodePtrTag(MachineContext::llintInstructionPointer(registers));
+                assertIsNotTagged(machinePC);
             }
             // FIXME: Lets have a way of detecting when we're parsing code.
             // https://bugs.webkit.org/show_bug.cgi?id=152761
@@ -435,10 +436,9 @@ static ALWAYS_INLINE unsigned tryGetBytecodeIndex(unsigned llintPC, CodeBlock* c
     return 0;
 #else
     Instruction* instruction = bitwise_cast<Instruction*>(llintPC);
-    if (instruction >= codeBlock->instructions().begin() && instruction < codeBlock->instructions().begin() + codeBlock->instructionCount()) {
+    if (instruction >= codeBlock->instructions().begin() && instruction < codeBlock->instructions().end()) {
         isValid = true;
-        unsigned bytecodeIndex = instruction - codeBlock->instructions().begin();
-        return bytecodeIndex;
+        return codeBlock->bytecodeOffset(instruction);
     }
     isValid = false;
     return 0;
@@ -909,7 +909,7 @@ String SamplingProfiler::stackTracesAsJSON()
 
 void SamplingProfiler::registerForReportAtExit()
 {
-    static StaticLock registrationLock;
+    static Lock registrationLock;
     static HashSet<RefPtr<SamplingProfiler>>* profilesToReport;
 
     LockHolder holder(registrationLock);

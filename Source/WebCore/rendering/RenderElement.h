@@ -280,7 +280,6 @@ protected:
     void removeFromRenderFragmentedFlowIncludingDescendants(bool shouldUpdateState);
     void adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded();
     
-    bool noLongerAffectsParentBlock() const { return s_noLongerAffectsParentBlock; }
     bool isVisibleInViewport() const;
 
 private:
@@ -348,11 +347,6 @@ private:
     RenderObject* m_lastChild;
 
     RenderStyle m_style;
-
-    // FIXME: Get rid of this hack.
-    // Store state between styleWillChange and styleDidChange
-    static bool s_affectsParentBlock;
-    static bool s_noLongerAffectsParentBlock;
 };
 
 inline void RenderElement::setAncestorLineBoxDirty(bool f)

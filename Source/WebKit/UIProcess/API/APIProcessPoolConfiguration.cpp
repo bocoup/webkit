@@ -127,6 +127,8 @@ Ref<ProcessPoolConfiguration> ProcessPoolConfiguration::copy()
     copy->m_ctDataConnectionServiceType = this->m_ctDataConnectionServiceType;
 #endif
     copy->m_presentingApplicationPID = this->m_presentingApplicationPID;
+    copy->m_processSwapsOnNavigation = this->m_processSwapsOnNavigation;
+    copy->m_processSwapsOnWindowOpenWithOpener = this->m_processSwapsOnWindowOpenWithOpener;
 
     return copy;
 }

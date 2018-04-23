@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,8 +85,8 @@ void JITCompiler::linkOSRExits()
         }
     }
     
-    MacroAssemblerCodeRef osrExitThunk = vm()->getCTIStub(osrExitThunkGenerator);
-    CodeLocationLabel osrExitThunkLabel = CodeLocationLabel(osrExitThunk.code());
+    MacroAssemblerCodeRef<JITThunkPtrTag> osrExitThunk = vm()->getCTIStub(osrExitThunkGenerator);
+    auto osrExitThunkLabel = CodeLocationLabel<JITThunkPtrTag>(osrExitThunk.code());
     for (unsigned i = 0; i < m_jitCode->osrExit.size(); ++i) {
         OSRExitCompilationInfo& info = m_exitCompilationInfo[i];
         JumpList& failureJumps = info.m_failureJumps;
@@ -161,7 +161,7 @@ void JITCompiler::compileExceptionHandlers()
         poke(GPRInfo::argumentGPR0);
         poke(GPRInfo::argumentGPR1, 1);
 #endif
-        m_calls.append(CallLinkRecord(call(), lookupExceptionHandlerFromCallerFrame));
+        m_calls.append(CallLinkRecord(call(OperationPtrTag), FunctionPtr<OperationPtrTag>(lookupExceptionHandlerFromCallerFrame)));
 
         jumpToExceptionHandler(*vm());
     }
@@ -180,7 +180,7 @@ void JITCompiler::compileExceptionHandlers()
         poke(GPRInfo::argumentGPR0);
         poke(GPRInfo::argumentGPR1, 1);
 #endif
-        m_calls.append(CallLinkRecord(call(), lookupExceptionHandler));
+        m_calls.append(CallLinkRecord(call(OperationPtrTag), FunctionPtr<OperationPtrTag>(lookupExceptionHandler)));
 
         jumpToExceptionHandler(*vm());
     }
@@ -214,14 +214,14 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
         
         usedJumpTables.set(data.switchTableIndex);
         SimpleJumpTable& table = m_codeBlock->switchJumpTable(data.switchTableIndex);
-        table.ctiDefault = linkBuffer.locationOf(m_blockHeads[data.fallThrough.block->index]);
+        table.ctiDefault = linkBuffer.locationOf<JSSwitchPtrTag>(m_blockHeads[data.fallThrough.block->index]);
         table.ctiOffsets.grow(table.branchOffsets.size());
         for (unsigned j = table.ctiOffsets.size(); j--;)
             table.ctiOffsets[j] = table.ctiDefault;
         for (unsigned j = data.cases.size(); j--;) {
             SwitchCase& myCase = data.cases[j];
             table.ctiOffsets[myCase.value.switchLookupValue(data.kind) - table.min] =
-                linkBuffer.locationOf(m_blockHeads[myCase.target.block->index]);
+                linkBuffer.locationOf<JSSwitchPtrTag>(m_blockHeads[myCase.target.block->index]);
         }
     }
     
@@ -244,7 +244,8 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
             continue;
         
         StringJumpTable& table = m_codeBlock->stringSwitchJumpTable(data.switchTableIndex);
-        table.ctiDefault = linkBuffer.locationOf(m_blockHeads[data.fallThrough.block->index]);
+
+        table.ctiDefault = linkBuffer.locationOf<JSSwitchPtrTag>(m_blockHeads[data.fallThrough.block->index]);
         StringJumpTable::StringOffsetTable::iterator iter;
         StringJumpTable::StringOffsetTable::iterator end = table.offsetTable.end();
         for (iter = table.offsetTable.begin(); iter != end; ++iter)
@@ -253,7 +254,7 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
             SwitchCase& myCase = data.cases[j];
             iter = table.offsetTable.find(myCase.value.stringImpl());
             RELEASE_ASSERT(iter != end);
-            iter->value.ctiOffset = linkBuffer.locationOf(m_blockHeads[myCase.target.block->index]);
+            iter->value.ctiOffset = linkBuffer.locationOf<JSSwitchPtrTag>(m_blockHeads[myCase.target.block->index]);
         }
     }
 
@@ -271,49 +272,50 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
     for (unsigned i = 0; i < m_ins.size(); ++i) {
         StructureStubInfo& info = *m_ins[i].m_stubInfo;
 
-        CodeLocationLabel start = linkBuffer.locationOf(m_ins[i].m_jump);
+        CodeLocationLabel<JITStubRoutinePtrTag> start = linkBuffer.locationOf<JITStubRoutinePtrTag>(m_ins[i].m_jump);
         info.patch.start = start;
 
         ptrdiff_t inlineSize = MacroAssembler::differenceBetweenCodePtr(
-            start, linkBuffer.locationOf(m_ins[i].m_done));
+            start, linkBuffer.locationOf<JSInternalPtrTag>(m_ins[i].m_done));
         RELEASE_ASSERT(inlineSize >= 0);
         info.patch.inlineSize = inlineSize;
 
         info.patch.deltaFromStartToSlowPathCallLocation = MacroAssembler::differenceBetweenCodePtr(
-            start, linkBuffer.locationOf(m_ins[i].m_slowPathGenerator->call()));
+            start, linkBuffer.locationOf<JSInternalPtrTag>(m_ins[i].m_slowPathGenerator->call()));
 
         info.patch.deltaFromStartToSlowPathStart = MacroAssembler::differenceBetweenCodePtr(
-            start, linkBuffer.locationOf(m_ins[i].m_slowPathGenerator->label()));
+            start, linkBuffer.locationOf<JSInternalPtrTag>(m_ins[i].m_slowPathGenerator->label()));
     }
     
+    auto linkCallThunk = FunctionPtr<NoPtrTag>(vm()->getCTIStub(linkCallThunkGenerator).retaggedCode<NoPtrTag>());
     for (auto& record : m_jsCalls) {
         CallLinkInfo& info = *record.info;
-        linkBuffer.link(record.slowCall, FunctionPtr(vm()->getCTIStub(linkCallThunkGenerator).code()));
+        linkBuffer.link(record.slowCall, linkCallThunk);
         info.setCallLocations(
-            CodeLocationLabel(linkBuffer.locationOfNearCall(record.slowCall)),
-            CodeLocationLabel(linkBuffer.locationOf(record.targetToCheck)),
-            linkBuffer.locationOfNearCall(record.fastCall));
+            CodeLocationLabel<JSInternalPtrTag>(linkBuffer.locationOfNearCall<JSInternalPtrTag>(record.slowCall)),
+            CodeLocationLabel<JSInternalPtrTag>(linkBuffer.locationOf<JSInternalPtrTag>(record.targetToCheck)),
+            linkBuffer.locationOfNearCall<JSInternalPtrTag>(record.fastCall));
     }
     
     for (JSDirectCallRecord& record : m_jsDirectCalls) {
         CallLinkInfo& info = *record.info;
-        linkBuffer.link(record.call, linkBuffer.locationOf(record.slowPath));
+        linkBuffer.link(record.call, linkBuffer.locationOf<NoPtrTag>(record.slowPath));
         info.setCallLocations(
-            CodeLocationLabel(),
-            linkBuffer.locationOf(record.slowPath),
-            linkBuffer.locationOfNearCall(record.call));
+            CodeLocationLabel<JSInternalPtrTag>(),
+            linkBuffer.locationOf<JSInternalPtrTag>(record.slowPath),
+            linkBuffer.locationOfNearCall<JSInternalPtrTag>(record.call));
     }
     
     for (JSDirectTailCallRecord& record : m_jsDirectTailCalls) {
         CallLinkInfo& info = *record.info;
         info.setCallLocations(
-            linkBuffer.locationOf(record.patchableJump),
-            linkBuffer.locationOf(record.slowPath),
-            linkBuffer.locationOfNearCall(record.call));
+            linkBuffer.locationOf<JSInternalPtrTag>(record.patchableJump),
+            linkBuffer.locationOf<JSInternalPtrTag>(record.slowPath),
+            linkBuffer.locationOfNearCall<JSInternalPtrTag>(record.call));
     }
     
-    MacroAssemblerCodeRef osrExitThunk = vm()->getCTIStub(osrExitGenerationThunkGenerator);
-    CodeLocationLabel target = CodeLocationLabel(osrExitThunk.code());
+    MacroAssemblerCodeRef<JITThunkPtrTag> osrExitThunk = vm()->getCTIStub(osrExitGenerationThunkGenerator);
+    auto target = CodeLocationLabel<JITThunkPtrTag>(osrExitThunk.code());
     for (unsigned i = 0; i < m_jitCode->osrExit.size(); ++i) {
         OSRExitCompilationInfo& info = m_exitCompilationInfo[i];
         if (!Options::useProbeOSRExit()) {
@@ -323,8 +325,8 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
         }
         if (info.m_replacementSource.isSet()) {
             m_jitCode->common.jumpReplacements.append(JumpReplacement(
-                linkBuffer.locationOf(info.m_replacementSource),
-                linkBuffer.locationOf(info.m_replacementDestination)));
+                linkBuffer.locationOf<JSInternalPtrTag>(info.m_replacementSource),
+                linkBuffer.locationOf<OSRExitPtrTag>(info.m_replacementDestination)));
         }
     }
     
@@ -332,9 +334,9 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
         ASSERT(m_exitSiteLabels.size() == m_jitCode->osrExit.size());
         for (unsigned i = 0; i < m_exitSiteLabels.size(); ++i) {
             Vector<Label>& labels = m_exitSiteLabels[i];
-            Vector<const void*> addresses;
+            Vector<MacroAssemblerCodePtr<JSInternalPtrTag>> addresses;
             for (unsigned j = 0; j < labels.size(); ++j)
-                addresses.append(linkBuffer.locationOf(labels[j]).executableAddress());
+                addresses.append(linkBuffer.locationOf<JSInternalPtrTag>(labels[j]));
             m_graph.compilation()->addOSRExitSite(addresses);
         }
     } else
@@ -351,7 +353,7 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
             // i.e, we explicitly emitted an exceptionCheck that we know will be caught in this machine frame.
             // If this *is set*, it means we will be landing at this code location from genericUnwind from an
             // exception thrown in a child call frame.
-            CodeLocationLabel catchLabel = linkBuffer.locationOf(info.m_replacementDestination);
+            CodeLocationLabel<ExceptionHandlerPtrTag> catchLabel = linkBuffer.locationOf<ExceptionHandlerPtrTag>(info.m_replacementDestination);
             HandlerInfo newExceptionHandler = m_exceptionHandlerOSRExitCallSites[i].baselineExceptionHandler;
             CallSiteIndex callSite = m_exceptionHandlerOSRExitCallSites[i].callSiteIndex;
             newExceptionHandler.start = callSite.bits();
@@ -388,7 +390,9 @@ void JITCompiler::compile()
     JumpList stackOverflow;
     emitStackOverflowCheck(*this, stackOverflow);
 
-    addPtr(TrustedImm32(m_graph.stackPointerOffset() * sizeof(Register)), GPRInfo::callFrameRegister, stackPointerRegister);
+    addPtr(TrustedImm32(-(m_graph.frameRegisterCount() * sizeof(Register))), GPRInfo::callFrameRegister, stackPointerRegister);
+    if (Options::zeroStackFrame())
+        clearStackFrame(GPRInfo::callFrameRegister, stackPointerRegister, GPRInfo::regT0, m_graph.frameRegisterCount() * sizeof(Register));
     checkStackPointerAlignment();
     compileSetupRegistersForEntry();
     compileEntryExecutionFlag();
@@ -454,7 +458,9 @@ void JITCompiler::compileFunction()
     emitStackOverflowCheck(*this, stackOverflow);
 
     // Move the stack pointer down to accommodate locals
-    addPtr(TrustedImm32(m_graph.stackPointerOffset() * sizeof(Register)), GPRInfo::callFrameRegister, stackPointerRegister);
+    addPtr(TrustedImm32(-(m_graph.frameRegisterCount() * sizeof(Register))), GPRInfo::callFrameRegister, stackPointerRegister);
+    if (Options::zeroStackFrame())
+        clearStackFrame(GPRInfo::callFrameRegister, stackPointerRegister, GPRInfo::regT0, m_graph.frameRegisterCount() * sizeof(Register));
     checkStackPointerAlignment();
 
     compileSetupRegistersForEntry();
@@ -500,9 +506,9 @@ void JITCompiler::compileFunction()
     branchTest32(Zero, GPRInfo::returnValueGPR).linkTo(fromArityCheck, this);
     emitStoreCodeOrigin(CodeOrigin(0));
     move(GPRInfo::returnValueGPR, GPRInfo::argumentGPR0);
-    m_callArityFixup = call();
+    Call callArityFixup = nearCall();
     jump(fromArityCheck);
-    
+
     // Generate slow path code.
     m_speculative->runSlowPathGenerators(m_pcToCodeOriginMapBuilder);
     m_pcToCodeOriginMapBuilder.appendItem(labelIgnoringWatchpoints(), PCToCodeOriginMapBuilder::defaultCodeOrigin());
@@ -526,11 +532,11 @@ void JITCompiler::compileFunction()
     m_jitCode->shrinkToFit();
     codeBlock()->shrinkToFit(CodeBlock::LateShrink);
 
-    linkBuffer->link(m_callArityFixup, FunctionPtr(vm()->getCTIStub(arityFixupGenerator).code()));
+    linkBuffer->link(callArityFixup, FunctionPtr<JITThunkPtrTag>(vm()->getCTIStub(arityFixupGenerator).code()));
 
     disassemble(*linkBuffer);
 
-    MacroAssemblerCodePtr withArityCheck = linkBuffer->locationOf(m_arityCheck);
+    MacroAssemblerCodePtr<JSEntryPtrTag> withArityCheck = linkBuffer->locationOf<JSEntryPtrTag>(m_arityCheck);
 
     m_graph.m_plan.finalizer = std::make_unique<JITFinalizer>(
         m_graph.m_plan, m_jitCode.releaseNonNull(), WTFMove(linkBuffer), withArityCheck);
@@ -570,7 +576,7 @@ void JITCompiler::noticeCatchEntrypoint(BasicBlock& basicBlock, JITCompiler::Lab
 {
     RELEASE_ASSERT(basicBlock.isCatchEntrypoint);
     RELEASE_ASSERT(basicBlock.intersectionOfCFAHasVisited); // An entrypoint is reachable by definition.
-    m_jitCode->common.appendCatchEntrypoint(basicBlock.bytecodeBegin, linkBuffer.locationOf(blockHead).executableAddress(), WTFMove(argumentFormats));
+    m_jitCode->common.appendCatchEntrypoint(basicBlock.bytecodeBegin, linkBuffer.locationOf<ExceptionHandlerPtrTag>(blockHead), WTFMove(argumentFormats));
 }
 
 void JITCompiler::noticeOSREntry(BasicBlock& basicBlock, JITCompiler::Label blockHead, LinkBuffer& linkBuffer)

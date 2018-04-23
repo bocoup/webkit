@@ -41,7 +41,7 @@
 "%@ SDH" = "%@ SDH";
 
 /* Visible name of Service Worker process. The argument is the application name. */
-"%@ Service Worker" = "%@ Service Worker";
+"%@ Service Worker (%@)" = "%@ Service Worker (%@)";
 
 /* visible name of the storage process. The argument is the application name. */
 "%@ Storage" = "%@ Storage";
@@ -114,9 +114,6 @@
 
 /* Label text to be used when an insecure plug-in version was blocked from loading */
 "Blocked Plug-In (Insecure plug-in)" = "Blocked Plug-in";
-
-/* Label text to be used when an insecure plug-in version was blocked from loading */
-"Unsupported Plug-In" = "Unsupported Plug-in";
 
 /* Bold context menu item */
 "Bold" = "Bold";
@@ -215,7 +212,10 @@
 "Cut (Undo action name)" = "Cut";
 
 /* Day label in date picker */
-"Day label in date picker" = "Day";
+"DAY (Date picker for extra zoom mode)" = "DAY";
+
+/* Fullscreen Deceptive Website Warning Sheet Title */
+"Deceptive Website Warning" = "Deceptive Website Warning";
 
 /* Default writing direction context menu item */
 "Default" = "Default";
@@ -229,11 +229,8 @@
 /* Undo action name */
 "Dictation (Undo action name)" = "Dictation";
 
-/* Text of button that exits element fullscreen. */
-"Done" = "Done";
-
 /* Title of the Done button for zoomed form controls. */
-"Done (extra zoomed form controls)" = "Done";
+"Done" = "Done";
 
 /* Download Audio To Disk context menu item */
 "Download Audio" = "Download Audio";
@@ -273,6 +270,9 @@
 
 /* Video Exit Fullscreen context menu item */
 "Exit Full Screen (context menu)" = "Exit Full Screen";
+
+/* Fullscreen Deceptive Website Exit Action */
+"Exit Fullscreen" = "Exit Fullscreen";
 
 /* menu item */
 "Exit Picture in Picture" = "Exit Picture in Picture";
@@ -403,6 +403,9 @@
 /* Undo action name */
 "Lower Baseline (Undo action name)" = "Lower Baseline";
 
+/* Month label in date picker */
+"MONTH (Date picker for extra zoom mode)" = "MONTH";
+
 /* Make Lower Case context menu item */
 "Make Lower Case" = "Make Lower Case";
 
@@ -414,9 +417,6 @@
 
 /* Label text to be used when a plugin is missing */
 "Missing Plug-in" = "Missing Plug-in";
-
-/* Month label in date picker */
-"Month label in date picker" = "Month";
 
 /* Media Mute context menu item */
 "Mute" = "Mute";
@@ -438,6 +438,9 @@
 
 /* Option in segmented control for inserting a numbered list in text editing */
 "Numbered list" = "Numbered list";
+
+/* Title of the OK button for the number pad in zoomed form controls. */
+"OK (OK button title in extra zoomed number pad)" = "OK";
 
 /* OK button label in document password failure alert */
 "OK (document password failure alert)" = "OK";
@@ -574,6 +577,9 @@
 /* Selection direction context sub-menu item */
 "Selection Direction" = "Selection Direction";
 
+/* Set button below date picker */
+"Set (Button below date picker for extra zoom mode)" = "Set";
+
 /* Undo action name */
 "Set Background Color (Undo action name)" = "Set Background Color";
 
@@ -625,9 +631,6 @@
 /* Title of the label to show on a snapshotted plug-in */
 "Snapshotted Plug-In" = "Snapshotted Plug-In";
 
-/* Title of the dictation button for zoomed form controls. */
-"Speak" = "Speak";
-
 /* Speech context sub-menu item */
 "Speech" = "Speech";
 
@@ -643,6 +646,9 @@
 /* Start speaking context menu item */
 "Start Speaking" = "Start Speaking";
 
+/* Fullscreen Deceptive Website Stay Action */
+"Stay in Fullscreen" = "Stay in Fullscreen";
+
 /* Stop context menu item */
 "Stop" = "Stop";
 
@@ -654,6 +660,9 @@
 
 /* Stop speaking context menu item */
 "Stop Speaking" = "Stop Speaking";
+
+/* Label for strong password. */
+"Strong Password" = "Strong Password";
 
 /* Styles context menu item */
 "Styles…" = "Styles…";
@@ -724,6 +733,9 @@
 /* prompt string in authentication panel */
 "The user name or password you entered for this area on %@ was incorrect. Make sure you’re entering them correctly, and then try again." = "The user name or password you entered for this area on %@ was incorrect. Make sure you’re entering them correctly, and then try again.";
 
+/* Fullscreen Deceptive Website Warning Sheet Content Text */
+"The website \"%@\" may be a deceptive website. Would you like to exit fullscreen?" = "The website \"%@\" may be a deceptive website. Would you like to exit fullscreen?";
+
 /* text that appears at the start of nearly-obsolete web pages in the form of a 'searchable index' */
 "This is a searchable index. Enter search keywords: " = "This is a searchable index. Enter search keywords: ";
 
@@ -775,6 +787,9 @@
 /* Undo action name */
 "Unscript (Undo action name)" = "Unscript";
 
+/* Label text to be used when an unsupported plug-in was blocked from loading */
+"Unsupported Plug-In" = "Unsupported Plug-in";
+
 /* Undo action name */
 "Use All Ligatures (Undo action name)" = "Use All Ligatures";
 
@@ -823,11 +838,8 @@
 /* WebKitErrorInternal description */
 "WebKit encountered an internal error" = "WebKit encountered an internal error";
 
-/* Title of the writing button for zoomed form controls. */
-"Write" = "Write";
-
 /* Year label in date picker */
-"Year label in date picker" = "Year";
+"YEAR (Date picker for extra zoom mode)" = "YEAR";
 
 /* message in authentication panel */
 "Your login information will be sent securely." = "Your login information will be sent securely.";
@@ -1198,14 +1210,11 @@
 /* accessibility help text for hide closed captions button */
 "stop displaying closed captions" = "stop displaying closed captions";
 
-/* Label for the strong confirmation password auto fill button inside a text field. */
-"strong confirmation password auto fill" = "strong confirmation password auto fill";
-
-/* Label for strong password. */
-"strong password" = "strong password";
-
 /* Label for the strong password auto fill button inside a text field. */
 "strong password auto fill" = "strong password auto fill";
+
+/* Label for the strong password confirmation auto fill button inside a text field. */
+"strong password confirmation auto fill" = "strong password confirmation auto fill";
 
 /* The suboptimal value description for a meter element. */
 "suboptimal value" = "suboptimal value";

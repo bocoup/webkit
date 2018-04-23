@@ -425,8 +425,6 @@ StorageManager::SessionStorageNamespace::~SessionStorageNamespace()
 
 void StorageManager::SessionStorageNamespace::setAllowedConnection(IPC::Connection* allowedConnection)
 {
-    ASSERT(!allowedConnection || !m_allowedConnection);
-
     m_allowedConnection = allowedConnection;
 }
 
@@ -604,7 +602,7 @@ void StorageManager::getLocalStorageOriginDetails(Function<void (Vector<LocalSto
     });
 }
 
-void StorageManager::deleteLocalStorageEntriesForOrigin(SecurityOriginData&& securityOrigin)
+void StorageManager::deleteLocalStorageEntriesForOrigin(const SecurityOriginData& securityOrigin)
 {
     m_queue->dispatch([this, protectedThis = makeRef(*this), copiedOrigin = securityOrigin.isolatedCopy()]() mutable {
         for (auto& localStorageNamespace : m_localStorageNamespaces.values())

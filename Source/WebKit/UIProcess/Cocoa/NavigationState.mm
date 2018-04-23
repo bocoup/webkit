@@ -476,6 +476,7 @@ static void tryAppLink(Ref<API::NavigationAction>&& navigationAction, const Stri
 
 void NavigationState::NavigationClient::decidePolicyForNavigationAction(WebPageProxy& webPageProxy, Ref<API::NavigationAction>&& navigationAction, Ref<WebFramePolicyListenerProxy>&& listener, API::Object* userInfo)
 {
+    ASSERT(webPageProxy.mainFrame());
     String mainFrameURLString = webPageProxy.mainFrame()->url();
     bool subframeNavigation = navigationAction->targetFrame() && !navigationAction->targetFrame()->isMainFrame();
 
@@ -607,7 +608,7 @@ void NavigationState::NavigationClient::contentRuleListNotification(WebPageProxy
     [(id <WKNavigationDelegatePrivate>)navigationDelegate _webView:m_navigationState.m_webView URL:url contentRuleListIdentifiers:identifiers.get() notifications:nsNotifications.get()];
 }
     
-void NavigationState::NavigationClient::decidePolicyForNavigationResponse(WebPageProxy&, Ref<API::NavigationResponse>&& navigationResponse, Ref<WebFramePolicyListenerProxy>&& listener, API::Object* userData)
+void NavigationState::NavigationClient::decidePolicyForNavigationResponse(WebPageProxy& page, Ref<API::NavigationResponse>&& navigationResponse, Ref<WebFramePolicyListenerProxy>&& listener, API::Object* userData)
 {
     if (!m_navigationState.m_navigationDelegateMethods.webViewDecidePolicyForNavigationResponseDecisionHandler) {
         NSURL *url = navigationResponse->response().nsURLResponse().URL;
@@ -635,6 +636,7 @@ void NavigationState::NavigationClient::decidePolicyForNavigationResponse(WebPag
 
     RefPtr<WebFramePolicyListenerProxy> localListener = WTFMove(listener);
     RefPtr<CompletionHandlerCallChecker> checker = CompletionHandlerCallChecker::create(navigationDelegate.get(), @selector(webView:decidePolicyForNavigationResponse:decisionHandler:));
+    RefPtr<API::NavigationResponse> navigationResponseRefPtr(navigationResponse.ptr());
     [navigationDelegate webView:m_navigationState.m_webView decidePolicyForNavigationResponse:wrapper(navigationResponse) decisionHandler:[localListener, checker](WKNavigationResponsePolicy responsePolicy) {
         if (checker->completionHandlerHasBeenCalled())
             return;
@@ -653,8 +655,8 @@ void NavigationState::NavigationClient::decidePolicyForNavigationResponse(WebPag
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wswitch"
         case _WKNavigationResponsePolicyBecomeDownload:
-#pragma clang diagnostic pop
             localListener->download();
+#pragma clang diagnostic pop
             break;
         }
     }];
@@ -961,6 +963,10 @@ static _WKProcessTerminationReason wkProcessTerminationReason(ProcessTermination
         return _WKProcessTerminationReasonExceededMemoryLimit;
     case ProcessTerminationReason::ExceededCPULimit:
         return _WKProcessTerminationReasonExceededCPULimit;
+    case ProcessTerminationReason::NavigationSwap:
+        // We probably shouldn't bother coming up with a new API type for process-swapping.
+        // "Requested by client" seems like the best match for existing types.
+        FALLTHROUGH;
     case ProcessTerminationReason::RequestedByClient:
         return _WKProcessTerminationReasonRequestedByClient;
     case ProcessTerminationReason::Crash:

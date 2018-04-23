@@ -1369,10 +1369,8 @@ static LayoutUnit alignmentOffset(LayoutUnit availableFreeSpace, ItemPosition po
     case ItemPositionEnd:
     case ItemPositionLeft:
     case ItemPositionRight:
-        // FIXME: Implement these. The extended grammar
-        // is not enabled by default so we shouldn't hit this codepath.
-        // The new grammar is only used when Grid Layout feature is enabled.
-        ASSERT(RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled());
+        // FIXME: Implement the extended grammar, enabled when the Grid Layout
+        // feature was enabled by default.
         break;
     }
     return 0;
@@ -1554,6 +1552,7 @@ void RenderFlexibleBox::layoutAndPlaceChildren(LayoutUnit& crossAxisOffset, Vect
     for (size_t i = 0; i < children.size(); ++i) {
         const auto& flexItem = children[i];
         auto& child = flexItem.box;
+        bool childHadLayout = child.everHadLayout();
 
         ASSERT(!flexItem.box.isOutOfFlowPositioned());
 
@@ -1584,6 +1583,10 @@ void RenderFlexibleBox::layoutAndPlaceChildren(LayoutUnit& crossAxisOffset, Vect
         if (child.needsLayout())
             m_relaidOutChildren.add(&child);
         child.layoutIfNeeded();
+        if (!childHadLayout && child.checkForRepaintDuringLayout()) {
+            child.repaint();
+            child.repaintOverhangingFloats(true);
+        }
 
         updateAutoMarginsInMainAxis(child, autoMarginOffset);
 

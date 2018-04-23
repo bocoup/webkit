@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2018 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -24,9 +24,9 @@
 
 #include "ArrayConventions.h"
 #include "ArrayStorage.h"
-#include "AuxiliaryBarrier.h"
 #include "Butterfly.h"
 #include "CPU.h"
+#include "CagedBarrierPtr.h"
 #include "CallFrame.h"
 #include "ClassInfo.h"
 #include "CustomGetterSetter.h"
@@ -71,14 +71,14 @@ struct HashTable;
 struct HashTableValue;
 
 JS_EXPORT_PRIVATE JSObject* throwTypeError(ExecState*, ThrowScope&, const String&);
-extern JS_EXPORTDATA const char* const NonExtensibleObjectPropertyDefineError;
-extern JS_EXPORTDATA const char* const ReadonlyPropertyWriteError;
-extern JS_EXPORTDATA const char* const ReadonlyPropertyChangeError;
-extern JS_EXPORTDATA const char* const UnableToDeletePropertyError;
-extern JS_EXPORTDATA const char* const UnconfigurablePropertyChangeAccessMechanismError;
-extern JS_EXPORTDATA const char* const UnconfigurablePropertyChangeConfigurabilityError;
-extern JS_EXPORTDATA const char* const UnconfigurablePropertyChangeEnumerabilityError;
-extern JS_EXPORTDATA const char* const UnconfigurablePropertyChangeWritabilityError;
+extern JS_EXPORT_PRIVATE const char* const NonExtensibleObjectPropertyDefineError;
+extern JS_EXPORT_PRIVATE const char* const ReadonlyPropertyWriteError;
+extern JS_EXPORT_PRIVATE const char* const ReadonlyPropertyChangeError;
+extern JS_EXPORT_PRIVATE const char* const UnableToDeletePropertyError;
+extern JS_EXPORT_PRIVATE const char* const UnconfigurablePropertyChangeAccessMechanismError;
+extern JS_EXPORT_PRIVATE const char* const UnconfigurablePropertyChangeConfigurabilityError;
+extern JS_EXPORT_PRIVATE const char* const UnconfigurablePropertyChangeEnumerabilityError;
+extern JS_EXPORT_PRIVATE const char* const UnconfigurablePropertyChangeWritabilityError;
 
 COMPILE_ASSERT(PropertyAttribute::None < FirstInternalAttribute, None_is_below_FirstInternalAttribute);
 COMPILE_ASSERT(PropertyAttribute::ReadOnly < FirstInternalAttribute, ReadOnly_is_below_FirstInternalAttribute);
@@ -174,6 +174,7 @@ public:
 
     static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
     JS_EXPORT_PRIVATE static bool getOwnPropertySlotByIndex(JSObject*, ExecState*, unsigned propertyName, PropertySlot&);
+    bool getOwnPropertySlotInline(ExecState*, PropertyName, PropertySlot&);
 
     // The key difference between this and getOwnPropertySlot is that getOwnPropertySlot
     // currently returns incorrect results for the DOM window (with non-own properties)
@@ -268,11 +269,11 @@ public:
             return false;
         case ALL_INT32_INDEXING_TYPES:
         case ALL_CONTIGUOUS_INDEXING_TYPES:
-            return i < butterfly->vectorLength() && butterfly->contiguous().at(this, i);
+            return i < butterfly->vectorLength() && butterfly->contiguous().at(i);
         case ALL_DOUBLE_INDEXING_TYPES: {
             if (i >= butterfly->vectorLength())
                 return false;
-            double value = butterfly->contiguousDouble().at(this, i);
+            double value = butterfly->contiguousDouble().at(i);
             if (value != value)
                 return false;
             return true;
@@ -290,11 +291,11 @@ public:
         Butterfly* butterfly = this->butterfly();
         switch (indexingType()) {
         case ALL_INT32_INDEXING_TYPES:
-            return jsNumber(butterfly->contiguous().at(this, i).get().asInt32());
+            return jsNumber(butterfly->contiguous().at(i).get().asInt32());
         case ALL_CONTIGUOUS_INDEXING_TYPES:
-            return butterfly->contiguous().at(this, i).get();
+            return butterfly->contiguous().at(i).get();
         case ALL_DOUBLE_INDEXING_TYPES:
-            return JSValue(JSValue::EncodeAsDouble, butterfly->contiguousDouble().at(this, i));
+            return JSValue(JSValue::EncodeAsDouble, butterfly->contiguousDouble().at(i));
         case ALL_ARRAY_STORAGE_INDEXING_TYPES:
             return butterfly->arrayStorage()->m_vector[i].get();
         default:
@@ -312,19 +313,19 @@ public:
             break;
         case ALL_INT32_INDEXING_TYPES:
             if (i < butterfly->publicLength()) {
-                JSValue result = butterfly->contiguous().at(this, i).get();
+                JSValue result = butterfly->contiguous().at(i).get();
                 ASSERT(result.isInt32() || !result);
                 return result;
             }
             break;
         case ALL_CONTIGUOUS_INDEXING_TYPES:
             if (i < butterfly->publicLength())
-                return butterfly->contiguous().at(this, i).get();
+                return butterfly->contiguous().at(i).get();
             break;
         case ALL_DOUBLE_INDEXING_TYPES: {
             if (i >= butterfly->publicLength())
                 break;
-            double result = butterfly->contiguousDouble().at(this, i);
+            double result = butterfly->contiguousDouble().at(i);
             if (result != result)
                 break;
             return JSValue(JSValue::EncodeAsDouble, result);
@@ -394,7 +395,7 @@ public:
         }
         case ALL_CONTIGUOUS_INDEXING_TYPES: {
             ASSERT(i < butterfly->vectorLength());
-            butterfly->contiguous().at(this, i).set(vm, this, v);
+            butterfly->contiguous().at(i).set(vm, this, v);
             if (i >= butterfly->publicLength())
                 butterfly->setPublicLength(i + 1);
             break;
@@ -410,7 +411,7 @@ public:
                 convertDoubleToContiguousWhilePerformingSetIndex(vm, i, v);
                 return;
             }
-            butterfly->contiguousDouble().at(this, i) = value;
+            butterfly->contiguousDouble().at(i) = value;
             if (i >= butterfly->publicLength())
                 butterfly->setPublicLength(i + 1);
             break;
@@ -460,7 +461,7 @@ public:
         case ALL_CONTIGUOUS_INDEXING_TYPES: {
             ASSERT(i < butterfly->publicLength());
             ASSERT(i < butterfly->vectorLength());
-            butterfly->contiguous().at(this, i).set(vm, this, v);
+            butterfly->contiguous().at(i).set(vm, this, v);
             break;
         }
         case ALL_DOUBLE_INDEXING_TYPES: {
@@ -475,7 +476,7 @@ public:
                 convertDoubleToContiguousWhilePerformingSetIndex(vm, i, v);
                 return;
             }
-            butterfly->contiguousDouble().at(this, i) = value;
+            butterfly->contiguousDouble().at(i) = value;
             break;
         }
         case ALL_ARRAY_STORAGE_INDEXING_TYPES: {
@@ -514,7 +515,7 @@ public:
         case ALL_CONTIGUOUS_INDEXING_TYPES: {
             ASSERT(i < butterfly->publicLength());
             ASSERT(i < butterfly->vectorLength());
-            butterfly->contiguous().at(this, i).setWithoutWriteBarrier(v);
+            butterfly->contiguous().at(i).setWithoutWriteBarrier(v);
             break;
         }
         case ALL_DOUBLE_INDEXING_TYPES: {
@@ -523,7 +524,7 @@ public:
             RELEASE_ASSERT(v.isNumber());
             double value = v.asNumber();
             RELEASE_ASSERT(value == value);
-            butterfly->contiguousDouble().at(this, i) = value;
+            butterfly->contiguousDouble().at(i) = value;
             break;
         }
         case ALL_ARRAY_STORAGE_INDEXING_TYPES: {
@@ -775,11 +776,8 @@ public:
     
     // Call this if you do need to change the structure, or if you changed something about a structure
     // in-place.
-    void nukeStructureAndSetButterfly(VM&, StructureID oldStructureID, Butterfly*, IndexingType newIndexingType);
+    void nukeStructureAndSetButterfly(VM&, StructureID oldStructureID, Butterfly*);
 
-    // Call this only if you are a JSGenericTypedArrayView or are clearing the butterfly.
-    void setButterflyWithIndexingMask(VM&, Butterfly*, uint32_t indexingMask);
-    
     void setStructure(VM&, Structure*);
 
     JS_EXPORT_PRIVATE void convertToDictionary(VM&);
@@ -867,9 +865,6 @@ public:
     {
         return OBJECT_OFFSETOF(JSObject, m_butterfly);
     }
-    static ptrdiff_t butterflyIndexingMaskOffset() { return OBJECT_OFFSETOF(JSObject, m_butterflyIndexingMask); }
-    uintptr_t butterflyIndexingMask() const { return m_butterflyIndexingMask; }
-        
     void* butterflyAddress()
     {
         return &m_butterfly;
@@ -982,7 +977,7 @@ protected:
     // the array is contiguous.
     bool WARN_UNUSED_RETURN ensureLength(VM& vm, unsigned length)
     {
-        ASSERT(length <= MAX_STORAGE_VECTOR_LENGTH);
+        RELEASE_ASSERT(length <= MAX_STORAGE_VECTOR_LENGTH);
         ASSERT(hasContiguous(indexingType()) || hasInt32(indexingType()) || hasDouble(indexingType()) || hasUndecided(indexingType()));
 
         if (m_butterfly->vectorLength() < length) {
@@ -1063,7 +1058,9 @@ private:
     PropertyOffset prepareToPutDirectWithoutTransition(VM&, PropertyName, unsigned attributes, StructureID, Structure*);
 
     AuxiliaryBarrier<Butterfly*> m_butterfly;
-    uint32_t m_butterflyIndexingMask { 0 };
+#if USE(JSVALUE32_64)
+    unsigned m_32BitPadding;
+#endif
 };
 
 // JSNonFinalObject is a type of JSObject that has some internal storage,
@@ -1096,9 +1093,9 @@ protected:
 
 class JSFinalObject;
 
-// JSFinalObject is a type of JSObject that contains sufficent internal
-// storage to fully make use of the colloctor cell containing it.
-class JSFinalObject : public JSObject {
+// JSFinalObject is a type of JSObject that contains sufficient internal
+// storage to fully make use of the collector cell containing it.
+class JSFinalObject final : public JSObject {
     friend class JSObject;
 
 public:
@@ -1195,16 +1192,6 @@ inline JSFinalObject* JSFinalObject::create(VM& vm, Structure* structure)
     return finalObject;
 }
 
-inline bool isJSFinalObject(JSCell* cell)
-{
-    return cell->type() == FinalObjectType;
-}
-
-inline bool isJSFinalObject(JSValue value)
-{
-    return value.isCell() && isJSFinalObject(value.asCell());
-}
-
 inline size_t JSObject::offsetOfInlineStorage()
 {
     return sizeof(JSObject);
@@ -1254,28 +1241,8 @@ inline void JSObject::setStructure(VM& vm, Structure* structure)
     JSCell::setStructure(vm, structure);
 }
 
-inline void JSObject::setButterflyWithIndexingMask(VM& vm, Butterfly* butterfly, uint32_t indexingMask)
-{
-    // These are the only two current use cases for this.
-    ASSERT(structure()->hijacksIndexingHeader() || !butterfly);
-    m_butterflyIndexingMask = indexingMask;
-    if (isX86() || vm.heap.mutatorShouldBeFenced()) {
-        WTF::storeStoreFence();
-        m_butterfly.set(vm, this, butterfly);
-        WTF::storeStoreFence();
-        return;
-    }
-
-    m_butterfly.set(vm, this, butterfly);
-}
-
 inline void JSObject::setButterfly(VM& vm, Butterfly* butterfly)
 {
-    if (hasIndexedProperties(indexingType())) {
-        m_butterflyIndexingMask = butterfly->computeIndexingMask();
-        ASSERT(m_butterflyIndexingMask >= butterfly->vectorLength());
-    }
-
     if (isX86() || vm.heap.mutatorShouldBeFenced()) {
         WTF::storeStoreFence();
         m_butterfly.set(vm, this, butterfly);
@@ -1286,13 +1253,8 @@ inline void JSObject::setButterfly(VM& vm, Butterfly* butterfly)
     m_butterfly.set(vm, this, butterfly);
 }
 
-inline void JSObject::nukeStructureAndSetButterfly(VM& vm, StructureID oldStructureID, Butterfly* butterfly, IndexingType newIndexingType)
+inline void JSObject::nukeStructureAndSetButterfly(VM& vm, StructureID oldStructureID, Butterfly* butterfly)
 {
-    if (hasIndexedProperties(newIndexingType)) {
-        m_butterflyIndexingMask = butterfly->computeIndexingMask();
-        ASSERT(m_butterflyIndexingMask >= butterfly->vectorLength());
-    }
-
     if (isX86() || vm.heap.mutatorShouldBeFenced()) {
         setStructureIDDirectly(nuke(oldStructureID));
         WTF::storeStoreFence();
@@ -1333,8 +1295,6 @@ inline JSObject::JSObject(VM& vm, Structure* structure, Butterfly* butterfly)
     : JSCell(vm, structure)
     , m_butterfly(vm, this, butterfly)
 {
-    if (butterfly)
-        m_butterflyIndexingMask = butterfly->computeIndexingMask();
 }
 
 inline JSValue JSObject::getPrototypeDirect(VM& vm) const
@@ -1389,7 +1349,7 @@ ALWAYS_INLINE bool JSObject::getOwnNonIndexPropertySlot(VM& vm, Structure* struc
 
 ALWAYS_INLINE void JSObject::fillCustomGetterPropertySlot(VM& vm, PropertySlot& slot, CustomGetterSetter* customGetterSetter, unsigned attributes, Structure* structure)
 {
-    if (isDOMAttributeGetterSetter(vm, customGetterSetter)) {
+    if (customGetterSetter->inherits<DOMAttributeGetterSetter>(vm)) {
         auto* domAttribute = jsCast<DOMAttributeGetterSetter*>(customGetterSetter);
         if (structure->isUncacheableDictionary())
             slot.setCustom(this, attributes, domAttribute->getter(), domAttribute->domAttribute());

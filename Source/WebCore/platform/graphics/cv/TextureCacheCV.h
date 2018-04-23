@@ -23,8 +23,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TextureCacheCV_h
-#define TextureCacheCV_h
+#pragma once
+
+#if HAVE(CORE_VIDEO)
 
 #include "GraphicsTypes3D.h"
 #include <wtf/Ref.h>
@@ -46,12 +47,12 @@ class TextureCacheCV {
 public:
     static std::unique_ptr<TextureCacheCV> create(GraphicsContext3D&);
 
-#if PLATFORM(IOS)
-    typedef CVOpenGLESTextureCacheRef  TextureCacheType;
-    typedef CVOpenGLESTextureRef TextureType;
+#if USE(OPENGL_ES)
+    using TextureCacheType = CVOpenGLESTextureCacheRef;
+    using TextureType = CVOpenGLESTextureRef;
 #else
-    typedef CVOpenGLTextureCacheRef  TextureCacheType;
-    typedef CVOpenGLTextureRef TextureType;
+    using TextureCacheType = CVOpenGLTextureCacheRef;
+    using TextureType = CVOpenGLTextureRef;
 #endif
 
     TextureCacheCV(GraphicsContext3D&, RetainPtr<TextureCacheType>&&);
@@ -67,4 +68,4 @@ private:
 
 }
 
-#endif // TextureCacheCV_h
+#endif // HAVE(CORE_VIDEO)

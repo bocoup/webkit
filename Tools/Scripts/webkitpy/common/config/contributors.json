@@ -1094,6 +1094,16 @@
       ],
       "status" : "reviewer"
    },
+   "Carlos Eduardo Ramalho" : {
+      "emails" : [
+         "cadubentzen@gmail.com",
+         "cramalho@igalia.com"
+      ],
+      "nicks" : [
+         "cadubentzen",
+         "cramalho"
+      ]
+   },
    "Carlos Garcia Campos" : {
       "emails" : [
          "cgarcia@igalia.com",
@@ -2102,7 +2112,8 @@
       ],
       "nicks" : [
          "fujihiro"
-      ]
+      ],
+      "status" : "committer"
    },
    "Fumitoshi Ukai" : {
       "emails" : [
@@ -5353,8 +5364,8 @@
    },
    "Thibault Saunier" : {
       "emails" : [
-         "tsaunier@igalia.com",
-         "tsaunier@gnome.org"
+         "tsaunier@gnome.org",
+         "tsaunier@igalia.com"
       ],
       "expertise" : "WebRTC",
       "nicks" : [
@@ -5431,11 +5442,11 @@
          "Tim Hatcher"
       ],
       "emails" : [
+         "timothy@apple.com",
          "timothy@hatcher.name",
-         "thatcher@tesla.com",
-         "timothy@apple.com"
+         "thatcher@tesla.com"
       ],
-      "expertise" : "WebKit API (Mac), WebKit Web Site, Developer Tools (Web Inspector, JavaScript Debugger)",
+      "expertise" : "WebKit (Mac), Developer Tools (Web Inspector)",
       "nicks" : [
          "xenon"
       ],
@@ -5816,6 +5827,15 @@
       "emails" : [
          "yongjun_zhang@apple.com",
          "yongjun.zhang@nokia.com"
+      ],
+      "status" : "committer"
+   },
+   "Yoshiaki Jitsukawa" : {
+      "emails" : [
+         "yoshiaki.jitsukawa@sony.com"
+      ],
+      "nicks" : [
+         "yjitsukawa"
       ],
       "status" : "committer"
    },

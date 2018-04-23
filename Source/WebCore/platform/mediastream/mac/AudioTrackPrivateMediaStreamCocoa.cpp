@@ -33,6 +33,7 @@
 #include "Logging.h"
 
 #include <pal/cf/CoreMediaSoftLink.h>
+#include <pal/spi/cocoa/AudioToolboxSPI.h>
 
 #if ENABLE(VIDEO_TRACK) && ENABLE(MEDIA_STREAM)
 
@@ -169,6 +170,7 @@ void AudioTrackPrivateMediaStreamCocoa::audioSamplesAvailable(const MediaTime& s
     // This function is called on a background thread. The following protectedThis object ensures the object is not
     // destroyed on the main thread before this function exits.
     Ref<AudioTrackPrivateMediaStreamCocoa> protectedThis { *this };
+
     ASSERT(description.platformDescription().type == PlatformDescription::CAAudioStreamBasicType);
 
     if (!m_inputDescription || *m_inputDescription != description) {

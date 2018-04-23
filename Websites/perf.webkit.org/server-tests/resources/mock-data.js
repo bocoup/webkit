@@ -17,8 +17,19 @@ MockData = {
     jscRepositoryId() { return 222; },
     gitWebkitRepositoryId() { return 111; },
     sharedRepositoryId() { return 14; },
-    buildbotBuildersURLDeprecated() {return '/json/builders'},
     buildbotBuildersURL() {return '/api/v2/builders'},
+    pendingBuildsUrl: function (builderName) {
+        const builderId = this.builderIDForName(builderName);
+        return `/api/v2/builders/${builderId}/buildrequests?complete=false&claimed=false&property=*`;
+    },
+    recentBuildsUrl: function (builderName, count) {
+        const builderId = this.builderIDForName(builderName);
+        return `/api/v2/builders/${builderId}/builds?limit=${count}&order=-number&property=*`; 
+    },
+    statusUrl: function (builderName, buildId) {
+        const builderId = this.builderIDForName(builderName);
+        return `http://build.webkit.org/#/builders/${builderId}/builds/${buildId}`; 
+    },
     addMockConfiguration: function (db)
     {
         return Promise.all([
@@ -197,7 +208,7 @@ MockData = {
             },
             'builders': {
                 'builder-1': {'builder': 'some-builder-1',
-                     properties: {forcescheduler: 'force-some-builder-1'}} 
+                     properties: {forcescheduler: 'force-some-builder-1'}}
             },
             'testConfigurations': [
                 {
@@ -239,29 +250,6 @@ MockData = {
             ]
         }
     },
-    mockBuildbotBuildersDeprecated: function ()
-    {
-        return {
-            "some builder": {
-                "slaves": [ "some-slave-1" ]
-            },
-            "some-builder-1": {
-                "slaves": [ "some-slave-2" ]
-            },
-            "some builder 2": {
-                "slaves": [ "some-slave-3" ]
-            },
-            "other builder": {
-                "slaves": [ "some-slave-4" ]
-            },
-            "some tester": {
-                "slaves": [ "some-slave-5" ]
-            },
-            "another tester": {
-                "slaves": [ "some-slave-6" ]
-            }
-        }
-    },
     mockBuildbotBuilders: function ()
     {
         return {
@@ -293,77 +281,99 @@ MockData = {
             ]
         }
     },
+    builderIDForName: function(builderName)
+    {
+        for (let builder of this.mockBuildbotBuilders().builders) {
+            if (builder.name == builderName)
+                return builder.builderid;
+        }
+        return -1;
+    },
+    pendingBuildData(options)
+    {
+        return {
+            "builderid": options.builderId || 2,
+            "buildrequestid": options.buildbotBuildRequestId || 18,
+            "buildsetid": 894720,
+            "claimed": false,
+            "claimed_at": null,
+            "claimed_by_masterid": null,
+            "complete": false,
+            "complete_at": null,
+            "priority": 0,
+            "results": -1,
+            "submitted_at": options.buildTime || (new Date('2016-03-23T03:49:43Z') / 1000),
+            "waited_for": false,
+            "properties": {
+                "build-request-id": [(options.buildRequestId || 702).toString(), "Force Build Form"],
+                "scheduler": ["ABTest-iPad-RunBenchmark-Tests-ForceScheduler", "Scheduler"],
+                "wk": [options.webkitRevision || '191622', "Unknown"],
+                "os": [options.osxRevision || '10.11 15A284', "Unknown"],
+                "slavename": [options.workerName || "bot202", "Worker (deprecated)"],
+                "workername": [options.workerName || "bot202", "Worker"]
+            }
+        };
+    },
     pendingBuild(options)
     {
         options = options || {};
         return {
-            'builderName': options.builder || 'some-builder-1',
-            'builds': [],
-            'properties': [
-                ['wk', options.webkitRevision || '191622'],
-                ['os', options.osxRevision || '10.11 15A284'],
-                ['build-request-id', (options.buildRequestId || 702).toString(), ]
-            ],
-            'source': {
-                'branch': '',
-                'changes': [],
-                'codebase': 'WebKit',
-                'hasPatch': false,
-                'project': '',
-                'repository': '',
-                'revision': ''
-            },
+            "buildrequests": [this.pendingBuildData(options)]
         };
+    },
+    sampleBuildData(options, overrides)
+    {
+        options = options || {};
+        overrides = overrides || {};
+        return {
+            "builderid": options.builderId || 2,
+            "number":  options.buildNumber || 124, 
+            "buildrequestid": options.buildbotBuildRequestId || 19,
+            "complete": 'isComplete' in overrides ? overrides.isComplete : (options.isComplete || false),
+            "complete_at": null,
+            "buildid": options.buildid || 418744,
+            "masterid": 1,
+            "results": null,
+            "started_at": new Date('2017-12-19T23:11:49Z') / 1000,
+            "state_string": "building",
+            "workerid": 41,
+            "properties": {
+                "build-request-id": [(options.buildRequestId || 701).toString(), "Force Build Form"],
+                "os": [options.osxRevision || '10.11 15A284', "Unknown"],
+                "wk": [options.webkitRevision || '192736', "Unknown"],
+                "project": ['', "Unknown"],
+                "repository": ['', "Unknown"],
+                "revision": ['', "Unknown"],
+                "slavename": [options.workerName || "bot202", "Worker (deprecated)"],
+                "workername": [options.workerName || "bot202", "Worker"]
+            }
+        };   
+    },
+    runningBuildData(options)
+    {
+        return this.sampleBuildData(options);
     },
     runningBuild(options)
     {
-        options = options || {};
         return {
-            'builderName': options.builder || 'some-builder-1',
-            'builds': [],
-            'properties': [
-                ['wk', options.webkitRevision || '192736'],
-                ['os', options.osxRevision || '10.11 15A284'],
-                ['build-request-id', (options.buildRequestId || 701).toString(), ]
-            ],
-            'currentStep': {},
-            'eta': 721,
-            'number': options.buildNumber || 124,
-            'source': {
-                'branch': '',
-                'changes': [],
-                'codebase': 'WebKit',
-                'hasPatch': false,
-                'project': '',
-                'repository': '',
-                'revision': ''
-            },
+            "builds": [this.runningBuildData(options)]
         };
+    },
+    finishedBuildData(options)
+    {
+        options = options || {};
+        if (!options.buildRequestId)
+            options.buildRequestId = 700;
+        if (!options.buildNumber)
+            options.buildNumber = 123;
+        if (!options.webkitRevision)
+            options.webkitRevision = '191622';
+        return this.sampleBuildData(options, {isComplete: true});
     },
     finishedBuild(options)
     {
-        options = options || {};
         return {
-            'builderName': options.builder || 'some-builder-1',
-            'builds': [],
-            'properties': [
-                ['wk', options.webkitRevision || '191622'],
-                ['os', options.osxRevision || '10.11 15A284'],
-                ['build-request-id', (options.buildRequestId || 700).toString(), ]
-            ],
-            'currentStep': null,
-            'eta': null,
-            'number': options.buildNumber || 123,
-            'source': {
-                'branch': '',
-                'changes': [],
-                'codebase': 'WebKit',
-                'hasPatch': false,
-                'project': '',
-                'repository': '',
-                'revision': ''
-            },
-            'times': [0, 1],
+            "builds": [this.finishedBuildData(options)]
         };
     }
 }

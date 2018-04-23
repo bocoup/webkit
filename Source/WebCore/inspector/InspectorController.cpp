@@ -36,6 +36,7 @@
 #include "CommonVM.h"
 #include "DOMWindow.h"
 #include "DOMWrapperWorld.h"
+#include "Frame.h"
 #include "GraphicsContext.h"
 #include "InspectorApplicationCacheAgent.h"
 #include "InspectorCSSAgent.h"
@@ -58,7 +59,6 @@
 #include "JSDOMWindow.h"
 #include "JSDOMWindowCustom.h"
 #include "JSMainThreadExecState.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PageConsoleAgent.h"
 #include "PageDebuggerAgent.h"
@@ -354,11 +354,6 @@ void InspectorController::show()
         m_inspectorClient->bringFrontendToFront();
     else if (Inspector::FrontendChannel* frontendChannel = m_inspectorClient->openLocalFrontend(this))
         connectFrontend(frontendChannel);
-}
-
-void InspectorController::setProcessId(long processId)
-{
-    IdentifiersFactory::setProcessId(processId);
 }
 
 void InspectorController::setIsUnderTest(bool value)

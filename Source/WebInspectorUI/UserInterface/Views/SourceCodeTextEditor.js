@@ -309,7 +309,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     toggleTypeAnnotations()
     {
         if (!this._typeTokenAnnotator)
-            return false;
+            return Promise.reject(new Error("TypeTokenAnnotator is not initialized."));
 
         var newActivatedState = !this._typeTokenAnnotator.isActive();
         if (newActivatedState && this._isProbablyMinified && !this.formatted) {
@@ -325,7 +325,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     toggleUnexecutedCodeHighlights()
     {
         if (!this._basicBlockAnnotator)
-            return false;
+            return Promise.reject(new Error("BasicBlockAnnotator is not initialized."));
 
         let newActivatedState = !this._basicBlockAnnotator.isActive();
         if (newActivatedState && this._isProbablyMinified && !this.formatted) {
@@ -1248,7 +1248,14 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         if (breakpoints.length === 1) {
             WI.breakpointPopoverController.appendContextMenuItems(contextMenu, breakpoints[0], event.target);
 
-            if (!WI.isShowingDebuggerTab()) {
+            if (WI.settings.experimentalEnableSourcesTab.value) {
+                if (!WI.isShowingSourcesTab()) {
+                    contextMenu.appendSeparator();
+                    contextMenu.appendItem(WI.UIString("Reveal in Sources Tab"), () => {
+                        WI.showSourcesTab({breakpointToSelect: breakpoints[0]});
+                    });
+                }
+            } else if (!WI.isShowingDebuggerTab()) {
                 contextMenu.appendSeparator();
                 contextMenu.appendItem(WI.UIString("Reveal in Debugger Tab"), () => {
                     WI.showDebuggerTab({breakpointToSelect: breakpoints[0]});

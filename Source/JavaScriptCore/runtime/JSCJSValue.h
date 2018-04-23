@@ -161,6 +161,7 @@ public:
     enum { DeletedValueTag = 0xfffffff9 };
 
     enum { LowestTag =  DeletedValueTag };
+
 #endif
 
     static EncodedJSValue encode(JSValue);
@@ -170,6 +171,7 @@ public:
     enum JSUndefinedTag { JSUndefined };
     enum JSTrueTag { JSTrue };
     enum JSFalseTag { JSFalse };
+    enum JSCellTag { JSCellType };
     enum EncodeAsDoubleTag { EncodeAsDouble };
 
     JSValue();
@@ -234,6 +236,7 @@ public:
     bool isCustomGetterSetter() const;
     bool isObject() const;
     bool inherits(VM&, const ClassInfo*) const;
+    template<typename Target> bool inherits(VM&) const;
     const ClassInfo* classInfoOrNull(VM&) const;
         
     // Extracting the value.
@@ -287,6 +290,8 @@ public:
     bool getPropertySlot(ExecState*, PropertyName, PropertySlot&) const;
     template<typename CallbackWhenNoException> typename std::result_of<CallbackWhenNoException(bool, PropertySlot&)>::type getPropertySlot(ExecState*, PropertyName, CallbackWhenNoException) const;
     template<typename CallbackWhenNoException> typename std::result_of<CallbackWhenNoException(bool, PropertySlot&)>::type getPropertySlot(ExecState*, PropertyName, PropertySlot&, CallbackWhenNoException) const;
+
+    bool getOwnPropertySlot(ExecState*, PropertyName, PropertySlot&) const;
 
     bool put(ExecState*, PropertyName, JSValue, PutPropertySlot&);
     bool putInline(ExecState*, PropertyName, JSValue, PutPropertySlot&);

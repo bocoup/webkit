@@ -79,8 +79,6 @@
 #include <WebCore/ViewportArguments.h>
 #include <WebCore/WindowFeatures.h>
 #include <pal/SessionID.h>
-#include <wtf/MonotonicTime.h>
-#include <wtf/Seconds.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
 
@@ -171,36 +169,6 @@ static bool decodeTypesAndData(Decoder& decoder, Vector<String>& types, Vector<R
     for (auto& buffer : data)
         decodeSharedBuffer(decoder, buffer);
 
-    return true;
-}
-
-void ArgumentCoder<MonotonicTime>::encode(Encoder& encoder, const MonotonicTime& time)
-{
-    encoder << time.secondsSinceEpoch().value();
-}
-
-bool ArgumentCoder<MonotonicTime>::decode(Decoder& decoder, MonotonicTime& time)
-{
-    double value;
-    if (!decoder.decode(value))
-        return false;
-
-    time = MonotonicTime::fromRawSeconds(value);
-    return true;
-}
-
-void ArgumentCoder<Seconds>::encode(Encoder& encoder, const Seconds& seconds)
-{
-    encoder << seconds.value();
-}
-
-bool ArgumentCoder<Seconds>::decode(Decoder& decoder, Seconds& seconds)
-{
-    double value;
-    if (!decoder.decode(value))
-        return false;
-
-    seconds = Seconds(value);
     return true;
 }
 
@@ -1301,12 +1269,28 @@ bool ArgumentCoder<ResourceRequest>::decode(Decoder& decoder, ResourceRequest& r
 
 void ArgumentCoder<ResourceError>::encode(Encoder& encoder, const ResourceError& resourceError)
 {
+    encoder.encodeEnum(resourceError.type());
+    if (resourceError.type() == ResourceError::Type::Null)
+        return;
     encodePlatformData(encoder, resourceError);
 }
 
 bool ArgumentCoder<ResourceError>::decode(Decoder& decoder, ResourceError& resourceError)
 {
-    return decodePlatformData(decoder, resourceError);
+    ResourceError::Type type;
+    if (!decoder.decodeEnum(type))
+        return false;
+
+    if (type == ResourceError::Type::Null) {
+        resourceError = { };
+        return true;
+    }
+
+    if (!decodePlatformData(decoder, resourceError))
+        return false;
+
+    resourceError.setType(type);
+    return true;
 }
 
 #if PLATFORM(IOS)
@@ -2552,6 +2536,7 @@ void ArgumentCoder<ResourceLoadStatistics>::encode(Encoder& encoder, const WebCo
 
     // Prevalent Resource
     encoder << statistics.isPrevalentResource;
+    encoder << statistics.isVeryPrevalentResource;
     encoder << statistics.dataRecordsRemoved;
 }
 
@@ -2607,6 +2592,9 @@ std::optional<ResourceLoadStatistics> ArgumentCoder<ResourceLoadStatistics>::dec
     if (!decoder.decode(statistics.isPrevalentResource))
         return std::nullopt;
 
+    if (!decoder.decode(statistics.isVeryPrevalentResource))
+        return std::nullopt;
+    
     if (!decoder.decode(statistics.dataRecordsRemoved))
         return std::nullopt;
 

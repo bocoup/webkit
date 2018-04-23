@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #import "config.h"
 #import "PlatformCookieJar.h"
 
+#import "CookieRequestHeaderFieldProxy.h"
 #import "CookiesStrategy.h"
 #import "NetworkStorageSession.h"
 #import <pal/spi/cf/CFNetworkSPI.h>
@@ -35,6 +36,7 @@
 #import "CookieStorage.h"
 #import "URL.h"
 #import <wtf/Optional.h>
+#import <wtf/ProcessPrivilege.h>
 #import <wtf/text/StringBuilder.h>
 
 @interface NSURL ()
@@ -45,6 +47,7 @@ namespace WebCore {
 
 static NSArray *httpCookies(CFHTTPCookieStorageRef cookieStorage)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     if (!cookieStorage)
         return [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookies];
     
@@ -54,6 +57,7 @@ static NSArray *httpCookies(CFHTTPCookieStorageRef cookieStorage)
 
 static void deleteHTTPCookie(CFHTTPCookieStorageRef cookieStorage, NSHTTPCookie *cookie)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     if (!cookieStorage) {
         [[NSHTTPCookieStorage sharedHTTPCookieStorage] deleteCookie:cookie];
         return;
@@ -64,6 +68,7 @@ static void deleteHTTPCookie(CFHTTPCookieStorageRef cookieStorage, NSHTTPCookie 
 
 static NSArray *httpCookiesForURL(CFHTTPCookieStorageRef cookieStorage, NSURL *firstParty, NSURL *url)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     if (!cookieStorage)
         cookieStorage = _CFHTTPCookieStorageGetDefault(kCFAllocatorDefault);
 
@@ -78,6 +83,7 @@ static NSArray *httpCookiesForURL(CFHTTPCookieStorageRef cookieStorage, NSURL *f
     
 static RetainPtr<NSArray> filterCookies(NSArray *unfilteredCookies)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     NSUInteger count = [unfilteredCookies count];
     RetainPtr<NSMutableArray> filteredCookies = adoptNS([[NSMutableArray alloc] initWithCapacity:count]);
 
@@ -104,6 +110,8 @@ static RetainPtr<NSArray> filterCookies(NSArray *unfilteredCookies)
 
 static NSArray *applyPartitionToCookies(NSString *partition, NSArray *cookies)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     // FIXME 24747739: CFNetwork should expose this key as SPI
     static NSString * const partitionKey = @"StoragePartition";
 
@@ -124,6 +132,7 @@ static bool cookiesAreBlockedForURL(const NetworkStorageSession& session, const 
 
 static NSArray *cookiesInPartitionForURL(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     String partition = session.cookieStoragePartition(firstParty, url, frameID, pageID);
     if (partition.isEmpty())
         return nil;
@@ -166,6 +175,8 @@ static NSArray *cookiesForURL(const NetworkStorageSession& session, const URL& f
 enum IncludeHTTPOnlyOrNot { DoNotIncludeHTTPOnly, IncludeHTTPOnly };
 static std::pair<String, bool> cookiesForSession(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, IncludeHTTPOnlyOrNot includeHTTPOnly, IncludeSecureCookies includeSecureCookies)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     NSArray *cookies = cookiesForURL(session, firstParty, url, frameID, pageID);
@@ -202,6 +213,8 @@ static std::pair<String, bool> cookiesForSession(const NetworkStorageSession& se
 
 static void setHTTPCookiesForURL(CFHTTPCookieStorageRef cookieStorage, NSArray *cookies, NSURL *url, NSURL *mainDocumentURL)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     if (!cookieStorage) {
         [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookies:cookies forURL:url mainDocumentURL:mainDocumentURL];
         return;
@@ -213,6 +226,8 @@ static void setHTTPCookiesForURL(CFHTTPCookieStorageRef cookieStorage, NSArray *
 
 static void deleteAllHTTPCookies(CFHTTPCookieStorageRef cookieStorage)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     if (!cookieStorage) {
         NSHTTPCookieStorage *cookieStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
         NSArray *cookies = [cookieStorage cookies];
@@ -237,8 +252,15 @@ std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSessio
     return cookiesForSession(session, firstParty, url, frameID, pageID, IncludeHTTPOnly, includeSecureCookies);
 }
 
+std::pair<String, bool> cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const CookieRequestHeaderFieldProxy& headerFieldProxy)
+{
+    return cookiesForSession(session, headerFieldProxy.firstParty, headerFieldProxy.url, headerFieldProxy.frameID, headerFieldProxy.pageID, IncludeHTTPOnly, headerFieldProxy.includeSecureCookies);
+}
+
 void setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url, std::optional<uint64_t> frameID, std::optional<uint64_t> pageID, const String& cookieStr)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     // <rdar://problem/5632883> On 10.5, NSHTTPCookieStorage would store an empty cookie,
@@ -263,6 +285,9 @@ void setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstPar
     ASSERT([filteredCookies.get() count] <= 1);
 
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+    if (session.shouldBlockCookies(firstParty, url))
+        return;
+
     String partition = session.cookieStoragePartition(firstParty, url, frameID, pageID);
     if (!partition.isEmpty())
         filteredCookies = applyPartitionToCookies(partition, filteredCookies.get());
@@ -278,6 +303,8 @@ void setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstPar
 
 static NSHTTPCookieAcceptPolicy httpCookieAcceptPolicy(CFHTTPCookieStorageRef cookieStorage)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     if (!cookieStorage)
         return [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookieAcceptPolicy];
 
@@ -314,6 +341,8 @@ bool getRawCookies(const NetworkStorageSession& session, const URL& firstParty, 
 
 void deleteCookie(const NetworkStorageSession& session, const URL& url, const String& cookieName)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     RetainPtr<CFHTTPCookieStorageRef> cookieStorage = session.cookieStorage();
@@ -350,6 +379,8 @@ void deleteAllCookies(const NetworkStorageSession& session)
 
 void deleteCookiesForHostnames(const NetworkStorageSession& session, const Vector<String>& hostnames)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     RetainPtr<CFHTTPCookieStorageRef> cookieStorage = session.cookieStorage();
@@ -379,6 +410,8 @@ void deleteCookiesForHostnames(const NetworkStorageSession& session, const Vecto
 
 void deleteAllCookiesModifiedSince(const NetworkStorageSession& session, WallTime timePoint)
 {
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
+
     if (![NSHTTPCookieStorage instancesRespondToSelector:@selector(removeCookiesSinceDate:)])
         return;
 

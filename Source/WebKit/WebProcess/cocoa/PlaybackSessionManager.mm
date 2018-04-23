@@ -250,28 +250,29 @@ void PlaybackSessionManager::removeClientForContext(uint64_t contextId)
 
 void PlaybackSessionManager::setUpPlaybackControlsManager(WebCore::HTMLMediaElement& mediaElement)
 {
-#if PLATFORM(MAC)
     auto foundIterator = m_mediaElements.find(&mediaElement);
     if (foundIterator != m_mediaElements.end()) {
         uint64_t contextId = foundIterator->value;
         if (m_controlsManagerContextId == contextId)
             return;
 
-        if (m_controlsManagerContextId)
-            removeClientForContext(m_controlsManagerContextId);
+        auto previousContextId = m_controlsManagerContextId;
         m_controlsManagerContextId = contextId;
+        if (previousContextId)
+            removeClientForContext(previousContextId);
     } else {
-        auto addResult = m_mediaElements.ensure(&mediaElement, [&] { return nextContextId(); });
-        auto contextId = addResult.iterator->value;
-        if (m_controlsManagerContextId)
-            removeClientForContext(m_controlsManagerContextId);
+        auto contextId = m_mediaElements.ensure(&mediaElement, [&] { return nextContextId(); }).iterator->value;
+
+        auto previousContextId = m_controlsManagerContextId;
         m_controlsManagerContextId = contextId;
+        if (previousContextId)
+            removeClientForContext(previousContextId);
+
         ensureModel(contextId).setMediaElement(&mediaElement);
     }
 
     addClientForContext(m_controlsManagerContextId);
     m_page->send(Messages::PlaybackSessionManagerProxy::SetUpPlaybackControlsManagerWithID(m_controlsManagerContextId), m_page->pageID());
-#endif
 }
 
 void PlaybackSessionManager::clearPlaybackControlsManager()

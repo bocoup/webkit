@@ -28,6 +28,7 @@
 #if USE(CURL)
 #include "Cookie.h"
 #include "CookieJarDB.h"
+#include "CookieRequestHeaderFieldProxy.h"
 #include "NetworkStorageSession.h"
 #include "NotImplemented.h"
 #include "URL.h"
@@ -91,6 +92,11 @@ std::pair<String, bool> CookieJarCurlDatabase::cookieRequestHeaderFieldValue(con
 
     // FIXME: This should filter secure cookies out if the caller requests it.
     return { cookiesForSession(session, firstParty, url, true), false };
+}
+
+std::pair<String, bool> CookieJarCurlDatabase::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const CookieRequestHeaderFieldProxy& headerFieldProxy) const
+{
+    return cookieRequestHeaderFieldValue(session, headerFieldProxy.firstParty, headerFieldProxy.url, headerFieldProxy.frameID, headerFieldProxy.pageID, headerFieldProxy.includeSecureCookies);    
 }
 
 bool CookieJarCurlDatabase::cookiesEnabled(const NetworkStorageSession& session) const

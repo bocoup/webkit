@@ -424,6 +424,11 @@ private:
                     changed |= mergePrediction(SpecSymbol);
                     break;
                 }
+                
+                if (node->child1()->shouldSpeculateBigInt()) {
+                    changed |= mergePrediction(SpecBigInt);
+                    break;
+                }
 
                 if (node->child1()->shouldSpeculateStringIdent()) {
                     changed |= mergePrediction(SpecStringIdent);
@@ -699,11 +704,14 @@ private:
         case RegExpExecNonGlobalOrSticky:
         case RegExpTest:
         case RegExpMatchFast:
+        case RegExpMatchFastGlobal:
         case StringReplace:
         case StringReplaceRegExp:
         case GetById:
         case GetByIdFlush:
         case GetByIdWithThis:
+        case GetByIdDirect:
+        case GetByIdDirectFlush:
         case TryGetById:
         case GetByValWithThis:
         case GetByOffset:
@@ -1066,7 +1074,6 @@ private:
             break;
         }
 
-        case GetArrayMask:
         case PutByValAlias:
         case DoubleAsInt32:
         case CheckArray:

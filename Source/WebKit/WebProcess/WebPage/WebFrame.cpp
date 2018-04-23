@@ -71,8 +71,6 @@
 #include <WebCore/JSElement.h>
 #include <WebCore/JSFile.h>
 #include <WebCore/JSRange.h>
-#include <WebCore/MainFrame.h>
-#include <WebCore/NetworkingContext.h>
 #include <WebCore/NodeTraversal.h>
 #include <WebCore/Page.h>
 #include <WebCore/PluginDocument.h>
@@ -695,7 +693,7 @@ WebFrame* WebFrame::frameForContext(JSContextRef context)
 {
 
     JSC::JSGlobalObject* globalObjectObj = toJS(context)->lexicalGlobalObject();
-    JSDOMWindow* window = jsDynamicDowncast<JSDOMWindow*>(globalObjectObj->vm(), globalObjectObj);
+    JSDOMWindow* window = jsDynamicCast<JSDOMWindow*>(globalObjectObj->vm(), globalObjectObj);
     if (!window)
         return nullptr;
     return WebFrame::fromCoreFrame(*(window->wrapped().frame()));
@@ -739,7 +737,7 @@ JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleFileHandle* fileHandle, Inj
 
 String WebFrame::counterValue(JSObjectRef element)
 {
-    if (!toJS(element)->inherits(*toJS(element)->vm(), JSElement::info()))
+    if (!toJS(element)->inherits<JSElement>(*toJS(element)->vm()))
         return String();
 
     return counterValueForElement(&jsCast<JSElement*>(toJS(element))->wrapped());

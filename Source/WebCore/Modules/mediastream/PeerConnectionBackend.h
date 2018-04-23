@@ -34,6 +34,7 @@
 #if ENABLE(WEB_RTC)
 
 #include "JSDOMPromiseDeferred.h"
+#include "LibWebRTCProvider.h"
 #include "RTCRtpParameters.h"
 #include "RTCSessionDescription.h"
 #include "RTCSignalingState.h"
@@ -125,6 +126,10 @@ public:
     WTFLogChannel& logChannel() const final;
 #endif
 
+    virtual bool isLocalDescriptionSet() const = 0;
+
+    void finishedRegisteringMDNSName(const String& ipAddress, const String& name);
+
 protected:
     void fireICECandidateEvent(RefPtr<RTCIceCandidate>&&);
     void doneGatheringCandidates();
@@ -157,6 +162,8 @@ private:
     virtual void endOfIceCandidates(DOMPromiseDeferred<void>&& promise) { promise.resolve(); }
     virtual void doStop() = 0;
 
+    void registerMDNSName(const String& ipAddress);
+
 protected:
     RTCPeerConnection& m_peerConnection;
 
@@ -164,6 +171,7 @@ private:
     std::optional<PeerConnection::SessionDescriptionPromise> m_offerAnswerPromise;
     std::optional<DOMPromiseDeferred<void>> m_setDescriptionPromise;
     std::optional<DOMPromiseDeferred<void>> m_addIceCandidatePromise;
+    std::optional<DOMPromiseDeferred<void>> m_endOfIceCandidatePromise;
 
     bool m_shouldFilterICECandidates { true };
     struct PendingICECandidate {
@@ -179,6 +187,13 @@ private:
     const void* m_logIdentifier;
 #endif
     bool m_negotiationNeeded { false };
+    bool m_finishedGatheringCandidates { false };
+    uint64_t m_waitingForMDNSRegistration { 0 };
+
+    bool m_finishedReceivingCandidates { false };
+    uint64_t m_waitingForMDNSResolution { 0 };
+
+    HashMap<String, String> m_mdnsMapping;
 };
 
 } // namespace WebCore

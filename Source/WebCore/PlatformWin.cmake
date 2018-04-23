@@ -1,6 +1,7 @@
 add_definitions(/bigobj -D__STDC_CONSTANT_MACROS)
 
 list(APPEND WebCore_INCLUDE_DIRECTORIES
+    "${DERIVED_SOURCES_DIR}/ForwardingHeaders"
     "${CMAKE_BINARY_DIR}/../include/private"
     "${CMAKE_BINARY_DIR}/../include/private/JavaScriptCore"
     "${WEBCORE_DIR}/accessibility/win"
@@ -70,6 +71,8 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/TransformationMatrixWin.cpp
     platform/graphics/win/UniscribeController.cpp
 
+    platform/mediastream/libwebrtc/LibWebRTCProviderWin.cpp
+
     platform/network/win/DownloadBundleWin.cpp
     platform/network/win/NetworkStateNotifierWin.cpp
 
@@ -102,6 +105,7 @@ list(APPEND WebCore_SOURCES
     platform/win/SharedBufferWin.cpp
     platform/win/StructuredExceptionHandlerSuppressor.cpp
     platform/win/SystemInfo.cpp
+    platform/win/UserAgentWin.cpp
     platform/win/WCDataObject.cpp
     platform/win/WebCoreBundleWin.cpp
     platform/win/WebCoreInstanceHandle.cpp
@@ -167,6 +171,7 @@ set(WebCore_FORWARDING_HEADERS_DIRECTORIES
 
     css/parser
 
+    html/canvas
     html/forms
     html/parser
     html/shadow

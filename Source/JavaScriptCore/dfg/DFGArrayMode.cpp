@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -118,6 +118,10 @@ ArrayMode ArrayMode::fromObserved(const ConcurrentJSLocker& locker, ArrayProfile
         return ArrayMode(Array::Float64Array, nonArray, Array::AsIs).withProfile(locker, profile, makeSafe);
 
     default:
+        // If we have seen multiple TypedArray types, or a TypedArray and non-typed array, it doesn't make sense to try to convert the object since you can't convert typed arrays.
+        if (observed & ALL_TYPED_ARRAY_MODES)
+            return ArrayMode(Array::Generic, nonArray, Array::AsIs).withProfile(locker, profile, makeSafe);
+
         if ((observed & asArrayModes(NonArray)) && profile->mayInterceptIndexedAccesses(locker))
             return ArrayMode(Array::SelectUsingPredictions).withSpeculationFromProfile(locker, profile, makeSafe);
         
@@ -271,6 +275,8 @@ ArrayMode ArrayMode::refine(
                     return ArrayMode(type, Array::NonArray, Array::OutOfBounds, Array::AsIs);
                 return ArrayMode(Array::Generic);
             }
+            if (isX86() && is32Bit() && isScopedArgumentsSpeculation(base))
+                return ArrayMode(Array::Generic);
             return withType(type);
         }
         

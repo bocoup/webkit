@@ -36,6 +36,7 @@ class HTMLFormElement;
 struct ImageCandidate;
 
 class HTMLImageElement : public HTMLElement, public FormNamedItem {
+    WTF_MAKE_ISO_ALLOCATED(HTMLImageElement);
     friend class HTMLFormElement;
 public:
     static Ref<HTMLImageElement> create(Document&);
@@ -98,6 +99,8 @@ public:
     
     HTMLPictureElement* pictureElement() const;
     void setPictureElement(HTMLPictureElement*);
+
+    WEBCORE_EXPORT bool isSystemPreviewImage() const;
 
 protected:
     HTMLImageElement(const QualifiedName&, Document&, HTMLFormElement* = 0);

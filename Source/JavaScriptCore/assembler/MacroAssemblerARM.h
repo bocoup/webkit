@@ -789,21 +789,25 @@ public:
         return Jump(m_assembler.jmp());
     }
 
-    void jump(RegisterID target)
+    void jump(RegisterID target, PtrTag)
     {
         m_assembler.bx(target);
     }
 
-    void jump(Address address)
+    void jump(Address address, PtrTag)
     {
         load32(address, ARMRegisters::pc);
     }
 
-    void jump(AbsoluteAddress address)
+    void jump(AbsoluteAddress address, PtrTag)
     {
         move(TrustedImmPtr(address.m_ptr), ARMRegisters::S0);
         load32(Address(ARMRegisters::S0, 0), ARMRegisters::pc);
     }
+
+    ALWAYS_INLINE void jump(RegisterID target, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(target, NoPtrTag); }
+    ALWAYS_INLINE void jump(Address address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
+    ALWAYS_INLINE void jump(AbsoluteAddress address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
 
     void moveDoubleToInts(FPRegisterID src, RegisterID dest1, RegisterID dest2)
     {
@@ -988,12 +992,12 @@ public:
         return Call(m_assembler.jmp(), Call::LinkableNearTail);
     }
 
-    Call call(RegisterID target)
+    Call call(RegisterID target, PtrTag)
     {
         return Call(m_assembler.blx(target), Call::None);
     }
 
-    void call(Address address)
+    void call(Address address, PtrTag)
     {
         call32(address.base, address.offset);
     }
@@ -1118,12 +1122,16 @@ public:
         m_assembler.mov(ARMRegisters::r0, ARMRegisters::r0);
     }
 
-    Call call()
+    Call call(PtrTag)
     {
         ensureSpace(2 * sizeof(ARMWord), sizeof(ARMWord));
         m_assembler.loadBranchTarget(ARMRegisters::S1, ARMAssembler::AL, true);
         return Call(m_assembler.blx(ARMRegisters::S1), Call::Linkable);
     }
+
+    ALWAYS_INLINE Call call(RegisterID callTag) { return UNUSED_PARAM(callTag), call(NoPtrTag); }
+    ALWAYS_INLINE Call call(RegisterID target, RegisterID callTag) { return UNUSED_PARAM(callTag), call(target, NoPtrTag); }
+    ALWAYS_INLINE void call(Address address, RegisterID callTag) { UNUSED_PARAM(callTag), call(address, NoPtrTag); }
 
     Call tailRecursiveCall()
     {
@@ -1149,7 +1157,7 @@ public:
         return dataLabel;
     }
 
-    Jump branchPtrWithPatch(RelationalCondition cond, RegisterID left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
+    Jump branchPtrWithPatch(RelationalCondition cond, RegisterID left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(nullptr))
     {
         ensureSpace(3 * sizeof(ARMWord), 2 * sizeof(ARMWord));
         dataLabel = moveWithPatch(initialRightValue, ARMRegisters::S1);
@@ -1157,7 +1165,7 @@ public:
         return jump;
     }
 
-    Jump branchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
+    Jump branchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(nullptr))
     {
         load32(left, ARMRegisters::S1);
         ensureSpace(3 * sizeof(ARMWord), 2 * sizeof(ARMWord));
@@ -1184,7 +1192,7 @@ public:
 
     DataLabelPtr storePtrWithPatch(ImplicitAddress address)
     {
-        return storePtrWithPatch(TrustedImmPtr(0), address);
+        return storePtrWithPatch(TrustedImmPtr(nullptr), address);
     }
 
     // Floating point operators
@@ -1497,12 +1505,14 @@ public:
         m_assembler.dmbISHST();
     }
 
-    static FunctionPtr readCallTarget(CodeLocationCall call)
+    template<PtrTag resultTag, PtrTag locationTag>
+    static FunctionPtr<resultTag> readCallTarget(CodeLocationCall<locationTag> call)
     {
-        return FunctionPtr(reinterpret_cast<void(*)()>(ARMAssembler::readCallTarget(call.dataLocation())));
+        return FunctionPtr<resultTag>(reinterpret_cast<void(*)()>(ARMAssembler::readCallTarget(call.dataLocation())));
     }
 
-    static void replaceWithJump(CodeLocationLabel instructionStart, CodeLocationLabel destination)
+    template<PtrTag startTag, PtrTag destTag>
+    static void replaceWithJump(CodeLocationLabel<startTag> instructionStart, CodeLocationLabel<destTag> destination)
     {
         ARMAssembler::replaceWithJump(instructionStart.dataLocation(), destination.dataLocation());
     }
@@ -1520,44 +1530,52 @@ public:
     static bool canJumpReplacePatchableBranchPtrWithPatch() { return false; }
     static bool canJumpReplacePatchableBranch32WithPatch() { return false; }
 
-    static CodeLocationLabel startOfPatchableBranch32WithPatchOnAddress(CodeLocationDataLabel32)
+    template<PtrTag tag>
+    static CodeLocationLabel<tag> startOfPatchableBranch32WithPatchOnAddress(CodeLocationDataLabel32<tag>)
     {
         UNREACHABLE_FOR_PLATFORM();
-        return CodeLocationLabel();
+        return CodeLocationLabel<tag>();
     }
 
-    static CodeLocationLabel startOfPatchableBranchPtrWithPatchOnAddress(CodeLocationDataLabelPtr)
+    template<PtrTag tag>
+    static CodeLocationLabel<tag> startOfPatchableBranchPtrWithPatchOnAddress(CodeLocationDataLabelPtr<tag>)
     {
         UNREACHABLE_FOR_PLATFORM();
-        return CodeLocationLabel();
+        return CodeLocationLabel<tag>();
     }
 
-    static CodeLocationLabel startOfBranchPtrWithPatchOnRegister(CodeLocationDataLabelPtr label)
+    template<PtrTag tag>
+    static CodeLocationLabel<tag> startOfBranchPtrWithPatchOnRegister(CodeLocationDataLabelPtr<tag> label)
     {
         return label.labelAtOffset(0);
     }
 
-    static void revertJumpReplacementToBranchPtrWithPatch(CodeLocationLabel instructionStart, RegisterID reg, void* initialValue)
+    template<PtrTag tag>
+    static void revertJumpReplacementToBranchPtrWithPatch(CodeLocationLabel<tag> instructionStart, RegisterID reg, void* initialValue)
     {
         ARMAssembler::revertBranchPtrWithPatch(instructionStart.dataLocation(), reg, reinterpret_cast<uintptr_t>(initialValue) & 0xffff);
     }
 
-    static void revertJumpReplacementToPatchableBranch32WithPatch(CodeLocationLabel, Address, int32_t)
+    template<PtrTag tag>
+    static void revertJumpReplacementToPatchableBranch32WithPatch(CodeLocationLabel<tag>, Address, int32_t)
     {
         UNREACHABLE_FOR_PLATFORM();
     }
 
-    static void revertJumpReplacementToPatchableBranchPtrWithPatch(CodeLocationLabel, Address, void*)
+    template<PtrTag tag>
+    static void revertJumpReplacementToPatchableBranchPtrWithPatch(CodeLocationLabel<tag>, Address, void*)
     {
         UNREACHABLE_FOR_PLATFORM();
     }
 
-    static void repatchCall(CodeLocationCall call, CodeLocationLabel destination)
+    template<PtrTag callTag, PtrTag destTag>
+    static void repatchCall(CodeLocationCall<callTag> call, CodeLocationLabel<destTag> destination)
     {
         ARMAssembler::relinkCall(call.dataLocation(), destination.executableAddress());
     }
 
-    static void repatchCall(CodeLocationCall call, FunctionPtr destination)
+    template<PtrTag callTag, PtrTag destTag>
+    static void repatchCall(CodeLocationCall<callTag> call, FunctionPtr<destTag> destination)
     {
         ARMAssembler::relinkCall(call.dataLocation(), destination.executableAddress());
     }
@@ -1611,12 +1629,13 @@ private:
             m_assembler.cmp(ARMRegisters::S1, m_assembler.getImm(right.m_value, ARMRegisters::S0));
     }
 
-    static void linkCall(void* code, Call call, FunctionPtr function)
+    template<PtrTag tag>
+    static void linkCall(void* code, Call call, FunctionPtr<tag> function)
     {
         if (call.isFlagSet(Call::Tail))
-            ARMAssembler::linkJump(code, call.m_label, function.value());
+            ARMAssembler::linkJump(code, call.m_label, function.executableAddress());
         else
-            ARMAssembler::linkCall(code, call.m_label, function.value());
+            ARMAssembler::linkCall(code, call.m_label, function.executableAddress());
     }
 
     static const bool s_isVFPPresent;

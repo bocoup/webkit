@@ -83,13 +83,12 @@ class WebPageProxy;
 @class _UIHighlightView;
 @class _UIWebHighlightLongPressGestureRecognizer;
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKContentViewInteractionAdditionsBefore.h>
+#endif
+
 #if ENABLE(EXTRA_ZOOM_MODE)
-@class WKDatePickerViewController;
-@class WKFocusedFormControlViewController;
-@class WKNumberPadViewController;
-@class WKSelectMenuViewController;
-@class WKTextInputViewController;
-@class WKTimePickerViewController;
+@class WKFocusedFormControlView;
 #endif
 
 typedef void (^UIWKAutocorrectionCompletionHandler)(UIWKAutocorrectionRects *rectsForInput);
@@ -152,6 +151,10 @@ struct WKAutoCorrectionData {
 
     BOOL _canSendTouchEventsAsynchronously;
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKContentViewInteractionAdditionsAfter.h>
+#endif
+
     RetainPtr<WKSyntheticClickTapGestureRecognizer> _singleTapGestureRecognizer;
     RetainPtr<_UIWebHighlightLongPressGestureRecognizer> _highlightLongPressGestureRecognizer;
     RetainPtr<UILongPressGestureRecognizer> _longPressGestureRecognizer;
@@ -171,7 +174,9 @@ struct WKAutoCorrectionData {
     RetainPtr<UIView> _interactionViewsContainerView;
     RetainPtr<NSString> _markedText;
     RetainPtr<WKActionSheetAssistant> _actionSheetAssistant;
+#if ENABLE(AIRPLAY_PICKER)
     RetainPtr<WKAirPlayRoutePicker> _airPlayRoutePicker;
+#endif
     RetainPtr<WKFormInputSession> _formInputSession;
     RetainPtr<WKFileUploadPanel> _fileUploadPanel;
     RetainPtr<UIGestureRecognizer> _previewGestureRecognizer;
@@ -235,6 +240,7 @@ struct WKAutoCorrectionData {
     BOOL _resigningFirstResponder;
     BOOL _needsDeferredEndScrollingSelectionUpdate;
     BOOL _isChangingFocus;
+    BOOL _isBlurringFocusedNode;
 
     BOOL _focusRequiresStrongPasswordAssistance;
 
@@ -249,12 +255,11 @@ struct WKAutoCorrectionData {
 #endif
 
 #if ENABLE(EXTRA_ZOOM_MODE)
-    RetainPtr<WKDatePickerViewController> _datePickerViewController;
-    RetainPtr<WKTextInputViewController> _textInputViewController;
-    RetainPtr<WKFocusedFormControlViewController> _focusedFormControlViewController;
-    RetainPtr<WKNumberPadViewController> _numberPadViewController;
-    RetainPtr<WKSelectMenuViewController> _selectMenuViewController;
-    RetainPtr<WKTimePickerViewController> _timePickerViewController;
+    RetainPtr<WKFocusedFormControlView> _focusedFormControlView;
+    RetainPtr<UIViewController> _presentedFullScreenInputViewController;
+    RetainPtr<UINavigationController> _inputNavigationViewControllerForFullScreenInputs;
+
+    BOOL _shouldRestoreFirstResponderStatusAfterLosingFocus;
 #endif
 }
 
@@ -313,9 +318,6 @@ FOR_EACH_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_didEndScrollingOrZooming;
 - (void)_overflowScrollingWillBegin;
 - (void)_overflowScrollingDidEnd;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED < 120000
-- (void)_didUpdateBlockSelectionWithTouch:(WebKit::SelectionTouch)touch withFlags:(WebKit::SelectionFlags)flags growThreshold:(CGFloat)growThreshold shrinkThreshold:(CGFloat)shrinkThreshold;
-#endif
 - (void)_showPlaybackTargetPicker:(BOOL)hasVideo fromRect:(const WebCore::IntRect&)elementRect;
 - (void)_showRunOpenPanel:(API::OpenPanelParameters*)parameters resultListener:(WebKit::WebOpenPanelResultListenerProxy*)listener;
 - (void)accessoryDone;
@@ -350,13 +352,18 @@ FOR_EACH_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_didChangeDataInteractionCaretRect:(CGRect)previousRect currentRect:(CGRect)rect;
 #endif
 
+- (void)reloadContextViewForPresentedListViewController;
+
 @end
 
 @interface WKContentView (WKTesting)
 
 - (void)_simulateLongPressActionAtLocation:(CGPoint)location;
+- (void)_simulateTextEntered:(NSString *)text;
 - (void)selectFormAccessoryPickerRow:(NSInteger)rowIndex;
 - (NSDictionary *)_contentsOfUserInterfaceItem:(NSString *)userInterfaceItem;
+
+@property (nonatomic, readonly) NSString *selectFormPopoverTitle;
 
 @end
 

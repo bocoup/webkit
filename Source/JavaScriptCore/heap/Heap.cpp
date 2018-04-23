@@ -81,7 +81,6 @@
 #if PLATFORM(IOS)
 #include <bmalloc/bmalloc.h>
 #endif
-#include <wtf/CurrentTime.h>
 #include <wtf/ListDump.h>
 #include <wtf/MainThread.h>
 #include <wtf/ParallelVectorIterator.h>
@@ -98,6 +97,10 @@ extern "C" void* objc_autoreleasePoolPush(void);
 extern "C" void objc_autoreleasePoolPop(void *context);
 #endif
 #endif // USE(FOUNDATION)
+
+#if USE(GLIB)
+#include "JSCGLibWrapperObject.h"
+#endif
 
 using namespace std;
 
@@ -462,7 +465,7 @@ void Heap::lastChanceToFinalize()
 
 void Heap::releaseDelayedReleasedObjects()
 {
-#if USE(FOUNDATION)
+#if USE(FOUNDATION) || USE(GLIB)
     // We need to guard against the case that releasing an object can create more objects due to the
     // release calling into JS. When those JS call(s) exit and all locks are being dropped we end up
     // back here and could try to recursively release objects. We guard that with a recursive entry
@@ -474,15 +477,19 @@ void Heap::releaseDelayedReleasedObjects()
         while (!m_delayedReleaseObjects.isEmpty()) {
             ASSERT(m_vm->currentThreadIsHoldingAPILock());
 
-            Vector<RetainPtr<CFTypeRef>> objectsToRelease = WTFMove(m_delayedReleaseObjects);
+            auto objectsToRelease = WTFMove(m_delayedReleaseObjects);
 
             {
                 // We need to drop locks before calling out to arbitrary code.
                 JSLock::DropAllLocks dropAllLocks(m_vm);
 
+#if USE(FOUNDATION)
                 void* context = objc_autoreleasePoolPush();
+#endif
                 objectsToRelease.clear();
+#if USE(FOUNDATION)
                 objc_autoreleasePoolPop(context);
+#endif
             }
         }
     }
@@ -944,6 +951,7 @@ void Heap::clearUnmarkedExecutables()
 void Heap::deleteUnmarkedCompiledCode()
 {
     clearUnmarkedExecutables();
+    vm()->forEachCodeBlockSpace([] (auto& space) { space.space.sweep(); }); // Sweeping must occur before deleting stubs, otherwise the stubs might still think they're alive as they get deleted.
     m_jitStubRoutines->deleteUnmarkedJettisonedStubRoutines();
 }
 
@@ -2081,7 +2089,6 @@ void Heap::waitForCollection(Ticket ticket)
 void Heap::sweepInFinalize()
 {
     m_objectSpace.sweepLargeAllocations();
-    vm()->forEachCodeBlockSpace([] (auto& space) { space.space.sweep(); });
     vm()->eagerlySweptDestructibleObjectSpace.sweep();
 }
 

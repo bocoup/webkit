@@ -82,7 +82,6 @@ class Frame;
 class FrameView;
 class IntPoint;
 class IntSize;
-class MainFrame;
 class Node;
 class Page;
 class RenderObject;
@@ -253,6 +252,17 @@ enum class AccessibilityTextSource {
     Title,
     Subtitle,
     Action,
+};
+
+enum class AccessibilityEventType {
+    ContextMenu,
+    Click,
+    Decrement,
+    Dismiss,
+    Focus,
+    Increment,
+    ScrollIntoView,
+    Select,
 };
     
 struct AccessibilityText {
@@ -831,7 +841,7 @@ public:
     virtual Document* document() const;
     virtual FrameView* documentFrameView() const;
     Frame* frame() const;
-    MainFrame* mainFrame() const;
+    Frame* mainFrame() const;
     Document* topDocument() const;
     ScrollView* scrollViewAncestor() const;
     String language() const;
@@ -895,7 +905,10 @@ public:
     const AtomicString& getAttribute(const QualifiedName&) const;
     bool hasTagName(const QualifiedName&) const;
     
-    void dispatchAccessibilityEvent(Event&);
+    bool shouldDispatchAccessibilityEvent() const;
+    bool dispatchAccessibilityEvent(Event&) const;
+    bool dispatchAccessibilityEventWithType(AccessibilityEventType) const;
+    bool dispatchAccessibleSetValueEvent(const String&) const;
 
     virtual VisiblePositionRange visiblePositionRange() const { return VisiblePositionRange(); }
     virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const { return VisiblePositionRange(); }
@@ -1110,6 +1123,7 @@ public:
     int accessibilityPasswordFieldLength();
     bool hasTouchEventListener() const;
     bool isInputTypePopupButton() const;
+    bool hasAccessibleDismissEventListener() const;
 #endif
     
     // allows for an AccessibilityObject to update its render tree or perform

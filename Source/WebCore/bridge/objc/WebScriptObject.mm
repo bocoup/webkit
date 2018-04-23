@@ -71,7 +71,7 @@ using JSC::makeSource;
 
 namespace WebCore {
 
-static StaticLock spinLock;
+static Lock spinLock;
 static CreateWrapperFunction createDOMWrapperFunction;
 static DisconnectWindowWrapperFunction disconnectWindowWrapperFunction;
 
@@ -276,7 +276,9 @@ void disconnectWindowWrapper(WebScriptObject *windowWrapper)
     // It's not actually correct to call shouldAllowAccessToFrame in this way because
     // JSDOMWindowBase* isn't the right object to represent the currently executing
     // JavaScript. Instead, we should use ExecState, like we do elsewhere.
-    JSDOMWindowBase* target = jsCast<JSDOMWindowBase*>(root->globalObject());
+    auto* target = JSC::jsDynamicCast<JSDOMWindowBase*>(root->globalObject()->vm(), root->globalObject());
+    if (!target)
+        return false;
     return BindingSecurity::shouldAllowAccessToDOMWindow(_private->originRootObject->globalObject()->globalExec(), target->wrapped());
 }
 
@@ -401,7 +403,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     auto scope = DECLARE_CATCH_SCOPE(vm);
     ExecState* exec = globalObject->globalExec();
 
-    JSObject* object = jsDynamicDowncast<JSObject*>(vm, [self _imp]);
+    JSObject* object = JSC::jsDynamicCast<JSObject*>(vm, [self _imp]);
     PutPropertySlot slot(object);
     object->methodTable(vm)->put(object, exec, Identifier::fromString(exec, String(key)), convertObjcValueToValue(exec, &value, ObjcObjectType, [self _rootObject]), slot);
 
@@ -570,11 +572,11 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         JSC::VM& vm = rootObject->globalObject()->vm();
         JSLockHolder lock(vm);
 
-        if (object->inherits(vm, JSHTMLElement::info())) {
+        if (object->inherits<JSHTMLElement>(vm)) {
             // Plugin elements cache the instance internally.
             if (ObjcInstance* instance = static_cast<ObjcInstance*>(pluginInstance(jsCast<JSHTMLElement*>(object)->wrapped())))
                 return instance->getObject();
-        } else if (object->inherits(vm, ObjCRuntimeObject::info())) {
+        } else if (object->inherits<ObjCRuntimeObject>(vm)) {
             ObjCRuntimeObject* runtimeObject = static_cast<ObjCRuntimeObject*>(object);
             ObjcInstance* instance = runtimeObject->getInternalObjCInstance();
             if (instance)

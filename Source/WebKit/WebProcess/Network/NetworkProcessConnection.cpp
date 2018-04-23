@@ -34,6 +34,7 @@
 #include "WebCacheStorageProvider.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebLoaderStrategy.h"
+#include "WebMDNSRegisterMessages.h"
 #include "WebProcess.h"
 #include "WebRTCMonitor.h"
 #include "WebRTCMonitorMessages.h"
@@ -86,6 +87,12 @@ void NetworkProcessConnection::didReceiveMessage(IPC::Connection& connection, IP
     }
     if (decoder.messageReceiverName() == Messages::WebRTCResolver::messageReceiverName()) {
         WebProcess::singleton().libWebRTCNetwork().resolver(decoder.destinationID()).didReceiveMessage(connection, decoder);
+        return;
+    }
+#endif
+#if ENABLE(WEB_RTC)
+    if (decoder.messageReceiverName() == Messages::WebMDNSRegister::messageReceiverName()) {
+        WebProcess::singleton().libWebRTCNetwork().mdnsRegister().didReceiveMessage(connection, decoder);
         return;
     }
 #endif
@@ -144,6 +151,11 @@ void NetworkProcessConnection::didFinishPingLoad(uint64_t pingLoadIdentifier, Re
 void NetworkProcessConnection::didFinishPreconnection(uint64_t preconnectionIdentifier, ResourceError&& error)
 {
     WebProcess::singleton().webLoaderStrategy().didFinishPreconnection(preconnectionIdentifier, WTFMove(error));
+}
+
+void NetworkProcessConnection::setOnLineState(bool isOnLine)
+{
+    WebProcess::singleton().webLoaderStrategy().setOnLineState(isOnLine);
 }
 
 #if ENABLE(SHAREABLE_RESOURCE)

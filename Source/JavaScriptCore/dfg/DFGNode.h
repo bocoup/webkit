@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -205,7 +205,7 @@ struct SwitchData {
     Vector<SwitchCase> cases;
     BranchTarget fallThrough;
     SwitchKind kind;
-    unsigned switchTableIndex;
+    size_t switchTableIndex;
     bool didUseJumpTable;
 };
 
@@ -247,7 +247,7 @@ struct StackAccessData {
 };
 
 struct CallDOMGetterData {
-    PropertySlot::GetValueFunc customAccessorGetter { nullptr };
+    FunctionPtr<OperationPtrTag> customAccessorGetter;
     const DOMJIT::GetterSetter* domJIT { nullptr };
     DOMJIT::CallDOMGetterSnippet* snippet { nullptr };
     unsigned identifierNumber { 0 };
@@ -552,7 +552,7 @@ public:
     
     void convertToGetByOffset(StorageAccessData& data, Edge storage, Edge base)
     {
-        ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == MultiGetByOffset);
+        ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == GetByIdDirect || m_op == GetByIdDirectFlush || m_op == MultiGetByOffset);
         m_opInfo = &data;
         children.setChild1(storage);
         children.setChild2(base);
@@ -562,7 +562,7 @@ public:
     
     void convertToMultiGetByOffset(MultiGetByOffsetData* data)
     {
-        ASSERT(m_op == GetById || m_op == GetByIdFlush);
+        ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == GetByIdDirect || m_op == GetByIdDirectFlush);
         m_opInfo = data;
         child1().setUseKind(CellUse);
         m_op = MultiGetByOffset;
@@ -726,7 +726,7 @@ public:
 
     void convertToNewObject(RegisteredStructure structure)
     {
-        ASSERT(m_op == CallObjectConstructor);
+        ASSERT(m_op == CallObjectConstructor || m_op == CreateThis);
         setOpAndDefaultFlags(NewObject);
         children.reset();
         m_opInfo = structure;
@@ -738,6 +738,7 @@ public:
     void convertToCallDOM(Graph&);
 
     void convertToRegExpExecNonGlobalOrSticky(FrozenValue* regExp);
+    void convertToRegExpMatchFastGlobal(FrozenValue* regExp);
 
     void convertToSetRegExpObjectLastIndex()
     {
@@ -1001,6 +1002,8 @@ public:
         case GetById:
         case GetByIdFlush:
         case GetByIdWithThis:
+        case GetByIdDirect:
+        case GetByIdDirectFlush:
         case PutById:
         case PutByIdFlush:
         case PutByIdDirect:
@@ -1120,12 +1123,21 @@ public:
 
     unsigned hasVectorLengthHint()
     {
-        return op() == NewArrayBuffer || op() == PhantomNewArrayBuffer;
+        switch (op()) {
+        case NewArray:
+        case NewArrayBuffer:
+        case PhantomNewArrayBuffer:
+            return true;
+        default:
+            return false;
+        }
     }
     
     unsigned vectorLengthHint()
     {
         ASSERT(hasVectorLengthHint());
+        if (op() == NewArray)
+            return m_opInfo2.as<unsigned>();
         return newArrayBufferData().vectorLengthHint;
     }
     
@@ -1568,6 +1580,8 @@ public:
         case GetById:
         case GetByIdFlush:
         case GetByIdWithThis:
+        case GetByIdDirect:
+        case GetByIdDirectFlush:
         case GetPrototypeOf:
         case TryGetById:
         case GetByVal:
@@ -1595,6 +1609,7 @@ public:
         case RegExpExecNonGlobalOrSticky:
         case RegExpTest:
         case RegExpMatchFast:
+        case RegExpMatchFastGlobal:
         case GetGlobalVar:
         case GetGlobalLexicalVariable:
         case StringReplace:
@@ -1676,6 +1691,7 @@ public:
         case DirectConstruct:
         case DirectTailCallInlinedCaller:
         case RegExpExecNonGlobalOrSticky:
+        case RegExpMatchFastGlobal:
             return true;
         default:
             return false;
@@ -2328,6 +2344,11 @@ public:
         return isSymbolSpeculation(prediction());
     }
     
+    bool shouldSpeculateBigInt()
+    {
+        return isBigIntSpeculation(prediction());
+    }
+    
     bool shouldSpeculateFinalObject()
     {
         return isFinalObjectSpeculation(prediction());
@@ -2516,6 +2537,11 @@ public:
     static bool shouldSpeculateSymbol(Node* op1, Node* op2)
     {
         return op1->shouldSpeculateSymbol() && op2->shouldSpeculateSymbol();
+    }
+    
+    static bool shouldSpeculateBigInt(Node* op1, Node* op2)
+    {
+        return op1->shouldSpeculateBigInt() && op2->shouldSpeculateBigInt();
     }
     
     static bool shouldSpeculateFinalObject(Node* op1, Node* op2)

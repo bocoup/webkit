@@ -38,6 +38,7 @@
 #include "JSRTCSessionDescription.h"
 #include "JSReadableStream.h"
 #include "JSReadableStreamPrivateConstructors.h"
+#include "JSRemoteDOMWindow.h"
 #include "JSWorkerGlobalScope.h"
 #include "RuntimeEnabledFeatures.h"
 #include "StructuredClone.h"
@@ -56,8 +57,8 @@ EncodedJSValue JSC_HOST_CALL isReadableByteStreamAPIEnabled(ExecState*);
 
 const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject", &JSGlobalObject::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSDOMGlobalObject) };
 
-JSDOMGlobalObject::JSDOMGlobalObject(VM& vm, Structure* structure, Ref<DOMWrapperWorld>&& world, const GlobalObjectMethodTable* globalObjectMethodTable, RefPtr<JSC::ThreadLocalCache>&& threadLocalCache)
-    : JSGlobalObject(vm, structure, globalObjectMethodTable, WTFMove(threadLocalCache))
+JSDOMGlobalObject::JSDOMGlobalObject(VM& vm, Structure* structure, Ref<DOMWrapperWorld>&& world, const GlobalObjectMethodTable* globalObjectMethodTable)
+    : JSGlobalObject(vm, structure, globalObjectMethodTable)
     , m_world(WTFMove(world))
     , m_worldIsNormal(m_world->isNormal())
     , m_builtinInternalFunctions(vm)
@@ -195,13 +196,15 @@ void JSDOMGlobalObject::finishCreation(VM& vm, JSObject* thisValue)
 
 ScriptExecutionContext* JSDOMGlobalObject::scriptExecutionContext() const
 {
-    if (inherits(vm(), JSDOMWindowBase::info()))
+    if (inherits<JSDOMWindowBase>(vm()))
         return jsCast<const JSDOMWindowBase*>(this)->scriptExecutionContext();
-    if (inherits(vm(), JSWorkerGlobalScopeBase::info()))
+    if (inherits<JSRemoteDOMWindowBase>(vm()))
+        return nullptr;
+    if (inherits<JSWorkerGlobalScopeBase>(vm()))
         return jsCast<const JSWorkerGlobalScopeBase*>(this)->scriptExecutionContext();
     dataLog("Unexpected global object: ", JSValue(this), "\n");
     RELEASE_ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 void JSDOMGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)

@@ -39,7 +39,6 @@
 #include "HTMLVideoElement.h"
 #include "HitTestResult.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PlatformMediaSessionManager.h"
 #include "RenderMedia.h"
@@ -47,7 +46,6 @@
 #include "ScriptController.h"
 #include "Settings.h"
 #include "SourceBuffer.h"
-#include <wtf/CurrentTime.h>
 #include <wtf/text/StringBuilder.h>
 
 #if PLATFORM(IOS)
@@ -140,7 +138,7 @@ void MediaElementSession::addBehaviorRestriction(BehaviorRestrictions restrictio
 void MediaElementSession::removeBehaviorRestriction(BehaviorRestrictions restriction)
 {
     if (restriction & RequireUserGestureToControlControlsManager) {
-        m_mostRecentUserInteractionTime = monotonicallyIncreasingTime();
+        m_mostRecentUserInteractionTime = MonotonicTime::now();
         if (auto page = m_element.document().page())
             page->setAllowsPlaybackControlsForAutoplayingAudio(true);
     }
@@ -395,7 +393,7 @@ bool MediaElementSession::isLargeEnoughForMainContent(MediaSessionMainContentPur
     return isElementLargeEnoughForMainContent(m_element, purpose);
 }
 
-double MediaElementSession::mostRecentUserInteractionTime() const
+MonotonicTime MediaElementSession::mostRecentUserInteractionTime() const
 {
     return m_mostRecentUserInteractionTime;
 }
@@ -652,7 +650,7 @@ void MediaElementSession::mediaEngineUpdated(const HTMLMediaElement& element)
 
 void MediaElementSession::resetPlaybackSessionState()
 {
-    m_mostRecentUserInteractionTime = 0;
+    m_mostRecentUserInteractionTime = MonotonicTime();
     addBehaviorRestriction(RequireUserGestureToControlControlsManager | RequirePlaybackToControlControlsManager);
 }
 
@@ -718,7 +716,7 @@ static bool isMainContentForPurposesOfAutoplay(const HTMLMediaElement& element)
     if (!document.frame() || !document.frame()->isMainFrame())
         return false;
 
-    MainFrame& mainFrame = document.frame()->mainFrame();
+    auto& mainFrame = document.frame()->mainFrame();
     if (!mainFrame.view() || !mainFrame.view()->renderView())
         return false;
 

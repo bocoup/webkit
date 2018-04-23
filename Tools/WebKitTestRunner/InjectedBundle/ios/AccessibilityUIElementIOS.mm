@@ -80,6 +80,7 @@ typedef void (*AXPostedNotificationCallback)(id element, NSString* notification,
 - (NSUInteger)accessibilityBlockquoteLevel;
 - (NSArray *)accessibilityFindMatchingObjects:(NSDictionary *)parameters;
 - (NSArray<NSString *> *)accessibilitySpeechHint;
+- (BOOL)_accessibilityIsStrongPasswordField;
 
 // TextMarker related
 - (NSArray *)textMarkerRange;
@@ -400,6 +401,8 @@ bool AccessibilityUIElement::boolAttributeValue(JSStringRef attribute)
 {
     if (JSStringIsEqualToUTF8CString(attribute, "AXHasTouchEventListener"))
         return [m_element _accessibilityHasTouchEventListener];
+    if (JSStringIsEqualToUTF8CString(attribute, "AXIsStrongPasswordField"))
+        return [m_element _accessibilityIsStrongPasswordField];
     return false;
 }
 
@@ -834,6 +837,11 @@ void AccessibilityUIElement::press()
 {
     [m_element _accessibilityActivate];
 }
+    
+bool AccessibilityUIElement::dismiss()
+{
+    return [m_element accessibilityPerformEscape];
+}
 
 void AccessibilityUIElement::setSelectedChild(AccessibilityUIElement* element) const
 {
@@ -1120,6 +1128,16 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::accessibilityElementForTe
     id obj = [m_element accessibilityObjectForTextMarker:(id)marker->platformTextMarker()];
     if (obj)
         return AccessibilityUIElement::create(obj);
+    return nullptr;
+}
+
+JSRetainPtr<JSStringRef> AccessibilityUIElement::attributedStringForTextMarkerRange(AccessibilityTextMarkerRange* markerRange)
+{
+    return nullptr;
+}
+
+JSRetainPtr<JSStringRef> AccessibilityUIElement::attributedStringForTextMarkerRangeWithOptions(AccessibilityTextMarkerRange* markerRange, bool)
+{
     return nullptr;
 }
 

@@ -88,7 +88,6 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
 
     // RuntimeEnabledFeatures.
     void setIndexedDBWorkersEnabled(boolean enabled);
-    void setCSSGridLayoutEnabled(boolean enabled);
     void setWebGL2Enabled(boolean enabled);
     void setWebGPUEnabled(boolean enabled);
     void setWebVREnabled(boolean enabled);
@@ -110,5 +109,9 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
 
     [MayThrowException] void setShouldManageAudioSessionCategory(boolean should);
     [MayThrowException] void setCustomPasteboardDataEnabled(boolean enabled);
+
+    [EnabledAtRuntime=WebAnimations] boolean cssAnimationsAndCSSTransitionsBackedByWebAnimationsEnabled();
+
+    [MayThrowException] void setAccessibilityEventsEnabled(boolean enabled);
 };
 
