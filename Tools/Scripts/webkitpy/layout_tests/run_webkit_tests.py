@@ -41,6 +41,7 @@ from webkitpy.layout_tests.models.test_run_results import INTERRUPTED_EXIT_STATU
 from webkitpy.port import configuration_options, platform_options
 from webkitpy.layout_tests.views import buildbot_results
 from webkitpy.layout_tests.views import printing
+from webkitpy.layout_tests.upload import BuildBinariesFetcher
 
 
 _log = logging.getLogger(__name__)
@@ -74,6 +75,15 @@ def main(argv, stdout, stderr):
         print(str(e), file=stderr)
         return EXCEPTIONAL_EXIT_STATUS
 
+    if options.download_build_binaries:
+        try:
+            build_binaries_fetcher = BuildBinariesFetcher(host,port.port_name, options.architecture, options.configuration, options.download_build_binaries)
+            options.build_directory = build_binaries_fetcher.get_path()
+
+        except Exception as error:
+            # TODO not found
+            print('%s: %s' % type(error) % error)
+            return EXCEPTIONAL_EXIT_STATUS
     if options.print_expectations:
         return _print_expectations(port, options, args, stderr)
 
@@ -96,7 +106,6 @@ def main(argv, stdout, stderr):
             print('\n%s raised: %s' % (e.__class__.__name__, str(e)), file=stderr)
             traceback.print_exc(file=stderr)
         return EXCEPTIONAL_EXIT_STATUS
-
 
 def parse_args(args):
     option_group_definitions = []
@@ -215,6 +224,7 @@ def parse_args(args):
             help="Override the default layout test directory.", dest="layout_tests_dir")
     ]))
 
+
     option_group_definitions.append(("Testing Options", [
         optparse.make_option("--build", dest="build",
             action="store_true", default=True,
@@ -290,6 +300,9 @@ def parse_args(args):
         optparse.make_option('--display-server', choices=['xvfb', 'xorg', 'weston', 'wayland'], default='xvfb',
             help='"xvfb": Use a virtualized X11 server. "xorg": Use the current X11 session. '
                  '"weston": Use a virtualized Weston server. "wayland": Use the current wayland session.'),
+        # TODO finish help text
+        optparse.make_option("--download_build_binaries", type="str", default=None,
+            help="Pass in a build number from WebKit archives and auto download binaries")
     ]))
 
     option_group_definitions.append(("iOS Options", [
