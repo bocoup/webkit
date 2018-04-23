@@ -197,7 +197,7 @@ def configure_logging(logging_level=None, logger=None, stream=None,
     if logging_level is None:
         logging_level = logging.INFO
     if logger is None:
-        logger = logging.getLogger()
+        logger = logging.getLogger(__name__)
     if stream is None:
         stream = sys.stderr
     if handlers is None:
