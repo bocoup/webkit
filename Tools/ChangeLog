@@ -1,3 +1,30 @@
+2018-04-24  Amal Hussein  <amal@bocoup.com>
+
+        Added a Build Binaries Fetcher in Run WebKit Tests via a new flag `--download-binaries`
+        https://bugs.webkit.org/show_bug.cgi?id=184920
+
+        Reviewed by NOBODY (OOPS!).
+
+        * Scripts/webkitpy/common/build_binaries_fetcher.py: Added.
+        (BuildBinariesFetcher):
+        (BuildBinariesFetcher.__init__):
+        (BuildBinariesFetcher.downloaded_binaries_dir):
+        (BuildBinariesFetcher.should_default_to_latest_revision):
+        (BuildBinariesFetcher.s3_build_type):
+        (BuildBinariesFetcher.s3_build_binaries_url):
+        (BuildBinariesFetcher.local_build_binaries_dir):
+        (BuildBinariesFetcher.local_zip_path):
+        (BuildBinariesFetcher.layout_helper_exec_path):
+        (BuildBinariesFetcher.webkit_test_runner_exec_path):
+        (BuildBinariesFetcher._get_os_version_name):
+        (BuildBinariesFetcher.get_path):
+        (BuildBinariesFetcher._fetch_build_binaries_json):
+        (BuildBinariesFetcher._fetch_build_binaries_zip):
+        (BuildBinariesFetcher.clean_up_on_error):
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        (main):
+        (parse_args):
+
 2018-04-23  Michael Catanzaro  <mcatanzaro@igalia.com>
 
         [GTK][WPE] TestSSL fails due to additional TLS errors returned

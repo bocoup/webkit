@@ -61,6 +61,7 @@ def platform_options(use_globs=False):
             help=('Alias for --platform=wincairo')),
         ] + (config.apple_additions().platform_options() if config.apple_additions() else [])
 
+
 def configuration_options():
     return [
         optparse.make_option("-t", "--target", default=config.Config(executive.Executive(), filesystem.FileSystem()).default_configuration(), dest="configuration", help="(DEPRECATED) (default: %default)"),

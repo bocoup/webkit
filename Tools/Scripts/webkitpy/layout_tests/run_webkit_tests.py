@@ -106,6 +106,7 @@ def main(argv, stdout, stderr):
             traceback.print_exc(file=stderr)
         return EXCEPTIONAL_EXIT_STATUS
 
+
 def parse_args(args):
     option_group_definitions = []
 
@@ -223,7 +224,6 @@ def parse_args(args):
             help="Override the default layout test directory.", dest="layout_tests_dir")
     ]))
 
-
     option_group_definitions.append(("Testing Options", [
         optparse.make_option("--build", dest="build",
             action="store_true", default=True,
@@ -299,9 +299,7 @@ def parse_args(args):
         optparse.make_option('--display-server', choices=['xvfb', 'xorg', 'weston', 'wayland'], default='xvfb',
             help='"xvfb": Use a virtualized X11 server. "xorg": Use the current X11 session. '
                  '"weston": Use a virtualized Weston server. "wayland": Use the current wayland session.'),
-        # TODO finish help text
-        optparse.make_option("--download-build-binaries", type="str", default=None,
-            help="Pass in a build number from WebKit archives and auto download binaries")
+        optparse.make_option("--download-build-binaries", type="str", default=None, help="Pass in a build revision number from WebKit archives to auto download binaries"),
     ]))
 
     option_group_definitions.append(("iOS Options", [

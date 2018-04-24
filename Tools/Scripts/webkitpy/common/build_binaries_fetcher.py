@@ -34,6 +34,7 @@ from webkitpy.port.ios import IOSPort
 
 _log = logging.getLogger(__name__)
 
+
 class BuildBinariesFetcher:
     """A class to which automates the fetching of the build binaries revisions."""
 
