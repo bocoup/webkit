@@ -48,7 +48,6 @@ class MockWeb(object):
 class MockResponse(object):
     def __init__(self, values):
         self.status_code = values['status_code']
-        self.data = values.get('data', {})
         self.url = ''
         self.body = values.get('body', '')
 

@@ -122,7 +122,7 @@ class TestExporterTest(unittest.TestCase):
 
     def test_export(self):
         host = TestExporterTest.MyMockHost()
-        host.web.responses.append({'status_code': 200, 'data': {'login': 'USER'}})
+        host.web.responses.append({'status_code': 200, 'body': '{"login": "USER"}'})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN'])
         w3c_changeset = W3cChangeset(host, options)
         exporter = TestExporter(host, options, w3c_changeset, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
@@ -152,7 +152,7 @@ class TestExporterTest(unittest.TestCase):
 
     def test_export_with_specific_branch(self):
         host = TestExporterTest.MyMockHost()
-        host.web.responses.append({'status_code': 200, 'data': {'login': 'USER'}})
+        host.web.responses.append({'status_code': 200, 'body': '{"login": "USER"}'})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN', '-bn', 'wpt-export-branch'])
         w3c_changeset = W3cChangeset(host, options)
         exporter = TestExporter(host, options, w3c_changeset, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
@@ -174,10 +174,9 @@ class TestExporterTest(unittest.TestCase):
             'checkout master',
             'reset hard origin/master'])
 
-
     def test_export_interactive_mode(self):
         host = TestExporterTest.MyMockHost()
-        host.web.responses.append({'status_code': 200, 'data': {'login': 'USER'}})
+        host.web.responses.append({'status_code': 200, 'body': '{"login": "USER"}'})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN', '--interactive'])
         w3c_changeset = W3cChangeset(host, options)
         exporter = TestExporter(host, options, w3c_changeset, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
@@ -194,7 +193,7 @@ class TestExporterTest(unittest.TestCase):
 
     def test_export_wrong_token(self):
         host = TestExporterTest.MyMockHost()
-        host.web.responses.append({'status_code': 200, 'data': {'login': 'DIFF_USER'}})
+        host.web.responses.append({'status_code': 200, 'body': '{"login": "DIFF_USER"}'})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN'])
         w3c_changeset = W3cChangeset(host, options)
         with self.assertRaises(Exception) as context:

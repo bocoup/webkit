@@ -69,7 +69,6 @@ class W3cChangeset(object):
             return ''
         return patch_data
 
-
     def create_git_patch_file(self):
         patch_file = './patch.temp.' + str(time.clock())
         patch_data = self._create_patch()
@@ -165,11 +164,7 @@ class TestExporter(object):
         # validate token and username
         url = 'https://api.github.com/user?access_token=%s' % (token,)
         try:
-            response = self._host.web.request(
-                method='GET',
-                url=url,
-                data=None
-            )
+            response = self._host.web.request(method='GET', url=url, data=None)
         except HTTPError as e:
             raise Exception("OAuth token is not valid")
         data = json.load(response)
@@ -386,6 +381,7 @@ def configure_logging():
             return record.getMessage()
 
     logger = logging.getLogger('webkitpy.w3c.test_exporter')
+    logger.propagate = False
     logger.setLevel(logging.INFO)
     handler = LogHandler()
     handler.setLevel(logging.INFO)
@@ -395,6 +391,7 @@ def configure_logging():
 
 def main(_argv, _stdout, _stderr):
     export_wpt_test_changes(_argv, silent_noop=False)
+
 
 def export_wpt_test_changes(args, silent_noop=False):
     options = parse_args(args)
