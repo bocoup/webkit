@@ -25,10 +25,14 @@ import json
 import sys
 import subprocess
 import shutil
+import logging
 from zipfile import ZipFile, BadZipfile
 from urllib2 import urlopen, HTTPError, URLError
 from webkitpy.common.webkit_finder import WebKitFinder
 from webkitpy.port.ios import IOSPort
+
+
+_log = logging.getLogger(__name__)
 
 class BuildBinariesFetcher:
     """A class to which automates the fetching of the build binaries revisions."""
@@ -91,7 +95,7 @@ class BuildBinariesFetcher:
         try:
             # check to see if previously downloaded local version exists before downloading
             if self.host.filesystem.exists(self.local_build_binaries_dir):
-                print('Build Binary has already been downloaded and can be found at: %s' % self.local_build_binaries_dir)
+                _log.info('Build Binary has already been downloaded and can be found at: %s' % self.local_build_binaries_dir)
                 return self.local_build_binaries_dir
 
             return self._fetch_build_binaries_json()
@@ -107,7 +111,7 @@ class BuildBinariesFetcher:
         if build_binaries_json['Count'] >= 1:
 
             if self.should_default_to_latest_revision:
-                print('first %s' % build_binaries_json['Items'][0]['revision']['N'])
+                _log.info('first %s' % build_binaries_json['Items'][0]['revision']['N'])
                 self.s3_zip_url = build_binaries_json['Items'][0]['revision']['N']
             else:
                 for item in build_binaries_json['Items']:
@@ -128,29 +132,30 @@ class BuildBinariesFetcher:
 
         try:
             # attempt to download the zip file
-            print("Starting ZipFile Download: %s" % self.s3_zip_url)
+            _log.info("Starting ZipFile Download: %s" % self.s3_zip_url)
             build_zip = urlopen(self.s3_zip_url)
 
             self.host.filesystem.maybe_make_directory(self.local_build_binaries_dir)
 
             with open(self.local_zip_path, "wb") as local_build_binaries:
-                print("Writing ZipFile To Local Drive: %s" % self.local_zip_path)
+                _log.info("Writing ZipFile To Local Drive: %s" % self.local_zip_path)
                 local_build_binaries.write(build_zip.read())
 
-            print("Extracting ZipFile")
+            _log.info("Extracting ZipFile")
 
+            extract_exception = Exception('Cannot extract zipfile %s' % self.local_zip_path)
             if sys.platform == 'darwin':
                 if subprocess.call(["ditto", "-x", "-k", self.local_zip_path, self.local_build_binaries_dir]):
-                    return 1
+                    raise extract_exception
             elif sys.platform == 'cygwin' or sys.platform.startswith('linux'):
                 if subprocess.call(["unzip", "-o", self.local_zip_path], cwd=self.local_build_binaries_dir):
-                    return 1
+                    raise extract_exception
             elif sys.platform == 'win32':
                 archive = ZipFile(self.local_zip_path, "r")
                 archive.extractall(self.local_build_binaries_dir)
                 archive.close()
 
-            print ("Deleting ZipFile Extracted Binaries Can Be Found Here: %s" % self.local_build_binaries_dir)
+            _log.info("Deleting ZipFile Extracted Binaries Can Be Found Here: %s" % self.local_build_binaries_dir)
             os.remove(self.local_zip_path)
 
             return self.local_build_binaries_dir
