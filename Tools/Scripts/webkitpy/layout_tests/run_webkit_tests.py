@@ -77,12 +77,12 @@ def main(argv, stdout, stderr):
 
     if options.download_build_binaries:
         try:
-            build_binaries_fetcher = BuildBinariesFetcher(host,port.port_name, options.architecture, options.configuration, options.download_build_binaries)
+            build_binaries_fetcher = BuildBinariesFetcher(host, port.port_name, options.architecture, options.configuration, options.download_build_binaries)
             options.build_directory = build_binaries_fetcher.get_path()
-
         except Exception as error:
             print('%s : %s' % (type(error), error))
             return EXCEPTIONAL_EXIT_STATUS
+
     if options.print_expectations:
         return _print_expectations(port, options, args, stderr)
 

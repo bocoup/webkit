@@ -21,8 +21,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os
-import stat
 import json
+import sys
+import subprocess
+import shutil
 from zipfile import ZipFile, BadZipfile
 from urllib2 import urlopen, HTTPError, URLError
 from webkitpy.common.webkit_finder import WebKitFinder
@@ -86,12 +88,16 @@ class BuildBinariesFetcher:
             raise NotImplementedError('Downloading binaries for the %s is not currently supported' % self.port_name)
 
     def get_path(self):
-        # check to see if previously downloaded local version exists before downloading
-        if self.host.filesystem.exists(self.local_build_binaries_dir):
-            print('Build Binary has already been downloaded and can be found at: %s' % self.local_build_binaries_dir)
-            return self.local_build_binaries_dir
+        try:
+            # check to see if previously downloaded local version exists before downloading
+            if self.host.filesystem.exists(self.local_build_binaries_dir):
+                print('Build Binary has already been downloaded and can be found at: %s' % self.local_build_binaries_dir)
+                return self.local_build_binaries_dir
 
-        return self._fetch_build_binaries_json()
+            return self._fetch_build_binaries_json()
+        except Exception as error:
+            self.clean_up_on_error()
+            raise error
 
     def _fetch_build_binaries_json(self):
 
@@ -132,15 +138,23 @@ class BuildBinariesFetcher:
                 local_build_binaries.write(build_zip.read())
 
             print("Extracting ZipFile")
-            with ZipFile(self.local_zip_path, 'r') as zip_file:
-                zip_file.extractall(self.local_build_binaries_dir)
 
-                print ("Deleting ZipFile Extracted Binaries Can Be Found Here: %s" % self.local_build_binaries_dir)
-                os.remove(self.local_zip_path)
+            if sys.platform == 'darwin':
+                if subprocess.call(["ditto", "-x", "-k", self.local_zip_path, self.local_build_binaries_dir]):
+                    return 1
+            elif sys.platform == 'cygwin' or sys.platform.startswith('linux'):
+                if subprocess.call(["unzip", "-o", self.local_zip_path], cwd=self.local_build_binaries_dir):
+                    return 1
+            elif sys.platform == 'win32':
+                archive = ZipFile(self.local_zip_path, "r")
+                archive.extractall(self.local_build_binaries_dir)
+                archive.close()
 
-                self._set_permissions_for_executables()
+            print ("Deleting ZipFile Extracted Binaries Can Be Found Here: %s" % self.local_build_binaries_dir)
+            os.remove(self.local_zip_path)
 
-                return self.local_build_binaries_dir
+            return self.local_build_binaries_dir
+
         except BadZipfile:
             raise Exception('BadZipfile Error: could not exact ZipFile')
         except HTTPError:
@@ -148,10 +162,10 @@ class BuildBinariesFetcher:
         except URLError:
             raise Exception('URLError Error: please make sure %s is a valid link' % self.s3_build_binaries_url)
 
-    def _set_permissions_for_executables(self):
+    def clean_up_on_error(self):
+        """ Delete newly creating files & directories which may be corrupt or incomplete"""
+        if self.host.filesystem.exists(self.local_build_binaries_dir):
+            shutil.rmtree(self.local_build_binaries_dir)
 
-        if self.host.filesystem.exists(self.layout_helper_exec_path):
-            os.chmod(self.layout_helper_exec_path, stat.S_IRWXU)
-
-        if self.host.filesystem.exists(self.webkit_test_runner_exec_path):
-            os.chmod(self.webkit_test_runner_exec_path, stat.S_IRWXU)
+        if self.host.filesystem.exists(self.local_zip_path):
+            os.remove(self.local_zip_path)
