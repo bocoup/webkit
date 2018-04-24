@@ -41,7 +41,7 @@ from webkitpy.layout_tests.models.test_run_results import INTERRUPTED_EXIT_STATU
 from webkitpy.port import configuration_options, platform_options
 from webkitpy.layout_tests.views import buildbot_results
 from webkitpy.layout_tests.views import printing
-from webkitpy.layout_tests.upload import BuildBinariesFetcher
+from webkitpy.common.build_binaries_fetcher import BuildBinariesFetcher
 
 
 _log = logging.getLogger(__name__)
@@ -81,8 +81,7 @@ def main(argv, stdout, stderr):
             options.build_directory = build_binaries_fetcher.get_path()
 
         except Exception as error:
-            # TODO not found
-            print('%s: %s' % type(error) % error)
+            print('%s : %s' % (type(error), error))
             return EXCEPTIONAL_EXIT_STATUS
     if options.print_expectations:
         return _print_expectations(port, options, args, stderr)
@@ -301,7 +300,7 @@ def parse_args(args):
             help='"xvfb": Use a virtualized X11 server. "xorg": Use the current X11 session. '
                  '"weston": Use a virtualized Weston server. "wayland": Use the current wayland session.'),
         # TODO finish help text
-        optparse.make_option("--download_build_binaries", type="str", default=None,
+        optparse.make_option("--download-build-binaries", type="str", default=None,
             help="Pass in a build number from WebKit archives and auto download binaries")
     ]))
 

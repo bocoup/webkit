@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2014-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@ import json
 from zipfile import ZipFile, BadZipfile
 from urllib2 import urlopen, HTTPError, URLError
 from webkitpy.common.webkit_finder import WebKitFinder
+from webkitpy.port.ios import IOSPort
 
 class BuildBinariesFetcher:
     """A class to which automates the fetching of the build binaries revisions."""
@@ -33,14 +34,15 @@ class BuildBinariesFetcher:
     def __init__(self, host, port_name, architecture, configuration, build_binaries_revision=None):
         """ Initialize the build url options needed to construct paths"""
         self.host = host
-        self.os_version_name = host.platform.os_version_name().lower().replace(' ', '')
         self.port_name = port_name
+        self.os_version_name = self._get_os_version_name()
         self.architecture = architecture
         self.configuration = configuration
         self.build_binaries_revision = build_binaries_revision
-        # TODO follow up on latest & v2 params
-        self.s3_build_binaries_api_base_path = 'https://q1tzqfy48e.execute-api.us-west-2.amazonaws.com/v2/latest'
         self.s3_zip_url = None
+
+        # FIXME find version of this endpoint which returns more than the latest 30 builds
+        self.s3_build_binaries_api_base_path = 'https://q1tzqfy48e.execute-api.us-west-2.amazonaws.com/v2/latest'
 
     @property
     def downloaded_binaries_dir(self):
@@ -66,6 +68,22 @@ class BuildBinariesFetcher:
     @property
     def local_zip_path(self):
         return "{self.local_build_binaries_dir}.zip".format(self=self)
+
+    @property
+    def layout_helper_exec_path(self):
+        return self.host.filesystem.join(self.local_build_binaries_dir, self.configuration.capitalize(), 'LayoutTestHelper')
+
+    @property
+    def webkit_test_runner_exec_path(self):
+        return self.host.filesystem.join(self.local_build_binaries_dir, self.configuration.capitalize(), 'WebKitTestRunner')
+
+    def _get_os_version_name(self):
+        if self.port_name == "mac":
+            return self.host.platform.os_version_name().lower().replace(' ', '')
+        elif self.port_name == "ios-simulator":
+            return IOSPort.CURRENT_VERSION.major
+        else:
+            raise NotImplementedError('Downloading binaries for the %s is not currently supported' % self.port_name)
 
     def get_path(self):
         # check to see if previously downloaded local version exists before downloading
@@ -95,7 +113,8 @@ class BuildBinariesFetcher:
             if self.s3_zip_url:
                 return self._fetch_build_binaries_zip()
             else:
-                raise Exception('Could not find s3_zip_url')
+                raise Exception('Could not find revision %s for the constructed API path: %s'
+                                    % (self.build_binaries_revision, self.s3_build_binaries_url))
         else:
             raise Exception('No build revisions found at: %s' % self.s3_build_binaries_url)
 
@@ -119,9 +138,7 @@ class BuildBinariesFetcher:
                 print ("Deleting ZipFile Extracted Binaries Can Be Found Here: %s" % self.local_build_binaries_dir)
                 os.remove(self.local_zip_path)
 
-                os.chmod(self.local_build_binaries_dir + '/Release/LayoutTestHelper', stat.S_IRWXU)
-
-                os.chmod(self.local_build_binaries_dir + '/Release/WebKitTestRunner', stat.S_IRWXU)
+                self._set_permissions_for_executables()
 
                 return self.local_build_binaries_dir
         except BadZipfile:
@@ -130,3 +147,11 @@ class BuildBinariesFetcher:
             raise Exception('HTTP Error: internet connectivity is required fetch binary file')
         except URLError:
             raise Exception('URLError Error: please make sure %s is a valid link' % self.s3_build_binaries_url)
+
+    def _set_permissions_for_executables(self):
+
+        if self.host.filesystem.exists(self.layout_helper_exec_path):
+            os.chmod(self.layout_helper_exec_path, stat.S_IRWXU)
+
+        if self.host.filesystem.exists(self.webkit_test_runner_exec_path):
+            os.chmod(self.webkit_test_runner_exec_path, stat.S_IRWXU)
