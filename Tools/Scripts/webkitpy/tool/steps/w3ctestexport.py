@@ -53,7 +53,7 @@ class W3CTestExport(AbstractStep):
         if not bug_id:
             return
         args.append("--bug")
-        args.append(bug_id)
+        args.append(str(bug_id))
         args.append("--interactive")
         args.append("--create-pr")
 
