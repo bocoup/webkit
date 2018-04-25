@@ -4,15 +4,17 @@ import subprocess
 import time
 import urllib2
 
+_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'config.test.json')
+
 
 class WPTServer(object):
 
     def __init__(self, wpt_root):
         self.wpt_root = wpt_root
-        config_file = os.path.join(wpt_root, 'config.default.json')
-        with open(config_file, 'rb') as config_handle:
+        with open(_CONFIG_FILE, 'r') as config_handle:
             config = json.load(config_handle)
-        self.host = config["browser_host"]
+        self.host = config["host"]
         self.http_port = config["ports"]["http"][0]
         self.https_port = config["ports"]["https"][0]
         self.base_url = 'http://%s:%s' % (self.host, self.http_port)
@@ -21,7 +23,7 @@ class WPTServer(object):
     def start(self):
         self.devnull = open(os.devnull, 'w')
         self.proc = subprocess.Popen(
-            [os.path.join(self.wpt_root, 'wpt'), 'serve'],
+            [os.path.join(self.wpt_root, 'wpt'), 'serve', '--config=' + _CONFIG_FILE],
             stderr=self.devnull,
             cwd=self.wpt_root)
 

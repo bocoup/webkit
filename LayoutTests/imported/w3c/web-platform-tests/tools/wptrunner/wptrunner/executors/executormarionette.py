@@ -32,7 +32,6 @@ from .protocol import (BaseProtocolPart,
                        StorageProtocolPart,
                        SelectorProtocolPart,
                        ClickProtocolPart,
-                       SendKeysProtocolPart,
                        TestDriverProtocolPart)
 from ..testrunner import Stop
 from ..webdriver_server import GeckoDriverServer
@@ -308,12 +307,6 @@ class MarionetteClickProtocolPart(ClickProtocolPart):
     def element(self, element):
         return element.click()
 
-class MarionetteSendKeysProtocolPart(SendKeysProtocolPart):
-    def setup(self):
-        self.marionette = self.parent.marionette
-
-    def send_keys(self, element, keys):
-        return element.send_keys(keys)
 
 class MarionetteTestDriverProtocolPart(TestDriverProtocolPart):
     def setup(self):
@@ -336,7 +329,6 @@ class MarionetteProtocol(Protocol):
                   MarionetteStorageProtocolPart,
                   MarionetteSelectorProtocolPart,
                   MarionetteClickProtocolPart,
-                  MarionetteSendKeysProtocolPart,
                   MarionetteTestDriverProtocolPart]
 
     def __init__(self, executor, browser, capabilities=None, timeout_multiplier=1):
@@ -403,7 +395,7 @@ class MarionetteProtocol(Protocol):
                 self.prefs.set(name, value)
 
         for name, value in new_environment.get("prefs", {}).iteritems():
-            self.executor.original_pref_values[name] = self.prefs.get(name)
+            self.executor.original_pref_values[name] = self.get_pref(name)
             self.prefs.set(name, value)
 
 
@@ -454,7 +446,7 @@ class ExecuteAsyncScriptRun(object):
             # We didn't get any data back from the test, so check if the
             # browser is still responsive
             if self.protocol.is_alive:
-                self.result = False, ("INTERNAL-ERROR", None)
+                self.result = False, ("ERROR", None)
             else:
                 self.result = False, ("CRASH", None)
         return self.result
@@ -475,7 +467,7 @@ class ExecuteAsyncScriptRun(object):
             if message:
                 message += "\n"
             message += traceback.format_exc(e)
-            self.result = False, ("INTERNAL-ERROR", e)
+            self.result = False, ("ERROR", e)
 
         finally:
             self.result_flag.set()
@@ -639,12 +631,12 @@ class MarionetteRefTestExecutor(RefTestExecutor):
                                      test_url,
                                      timeout).run()
 
-    def _screenshot(self, protocol, url, timeout):
-        protocol.marionette.navigate(url)
+    def _screenshot(self, marionette, url, timeout):
+        marionette.navigate(url)
 
-        protocol.base.execute_script(self.wait_script, async=True)
+        marionette.execute_async_script(self.wait_script)
 
-        screenshot = protocol.marionette.screenshot(full=False)
+        screenshot = marionette.screenshot(full=False)
         # strip off the data:img/png, part of the url
         if screenshot.startswith("data:image/png;base64,"):
             screenshot = screenshot.split(",", 1)[1]

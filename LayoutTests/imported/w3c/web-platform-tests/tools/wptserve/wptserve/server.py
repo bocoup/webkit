@@ -400,10 +400,9 @@ class WebTestHttpd(object):
             server_cls = WebTestServer
 
         if use_ssl:
-            if not os.path.exists(key_file):
-                raise ValueError("SSL certificate not found: {}".format(key_file))
-            if not os.path.exists(certificate):
-                raise ValueError("SSL key not found: {}".format(certificate))
+            if key_file is not None:
+                assert os.path.exists(key_file)
+            assert certificate is not None and os.path.exists(certificate)
 
         try:
             self.httpd = server_cls((host, port),

@@ -14,9 +14,4 @@ Property values requiring vendor prefixes:
 None
 ------------------------------------------------------------------------
 List of files:
-/LayoutTests/imported/w3c/web-platform-tests/resources/test/README.md
-/LayoutTests/imported/w3c/web-platform-tests/resources/test/config.test.json
-/LayoutTests/imported/w3c/web-platform-tests/resources/test/conftest.py
-/LayoutTests/imported/w3c/web-platform-tests/resources/test/harness.html
-/LayoutTests/imported/w3c/web-platform-tests/resources/test/tox.ini
-/LayoutTests/imported/w3c/web-platform-tests/resources/test/wptserver.py
+/LayoutTests/imported/w3c/web-platform-tests/test-scenarios/1.1-new-testfile.html

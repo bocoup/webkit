@@ -19,7 +19,6 @@ from .protocol import (BaseProtocolPart,
                        Protocol,
                        SelectorProtocolPart,
                        ClickProtocolPart,
-                       SendKeysProtocolPart,
                        TestDriverProtocolPart)
 from ..testrunner import Stop
 
@@ -135,13 +134,6 @@ class SeleniumClickProtocolPart(ClickProtocolPart):
     def element(self, element):
         return element.click()
 
-class SeleniumSendKeysProtocolPart(SendKeysProtocolPart):
-    def setup(self):
-        self.webdriver = self.parent.webdriver
-
-    def send_keys(self, element, keys):
-        return element.send_keys(keys)
-
 
 class SeleniumTestDriverProtocolPart(TestDriverProtocolPart):
     def setup(self):
@@ -162,7 +154,6 @@ class SeleniumProtocol(Protocol):
                   SeleniumTestharnessProtocolPart,
                   SeleniumSelectorProtocolPart,
                   SeleniumClickProtocolPart,
-                  SeleniumSendKeysProtocolPart,
                   SeleniumTestDriverProtocolPart]
 
     def __init__(self, executor, browser, capabilities, **kwargs):
@@ -245,7 +236,7 @@ class SeleniumRun(object):
             if message:
                 message += "\n"
             message += traceback.format_exc(e)
-            self.result = False, ("INTERNAL-ERROR", e)
+            self.result = False, ("ERROR", e)
         finally:
             self.result_flag.set()
 
