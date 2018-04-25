@@ -31,11 +31,11 @@ use strict;
 use warnings;
 package Test262::Import;
 
-use Cwd qw/abs_path/;
-use File::Path qw/rmtree/;
-use File::Temp qw/tempdir/;
+use Cwd qw(abs_path);
+use File::Path qw(rmtree);
+use File::Temp qw(tempdir);
 use FindBin;
-use Getopt::Long qw/GetOptions/;
+use Getopt::Long qw(GetOptions);
 use Pod::Usage;
 use Env qw(T262_EXEC_BIN);
 
@@ -61,7 +61,7 @@ sub processCLI {
     );
 
     if ($help) {
-        pod2usage(-exitstatus => 0, -verbose => 1);
+        pod2usage(-exitstatus => 0, -verbose => 1, -input => __FILE__);
     }
 
     if ($sourceDir and $remoteUrl) {
