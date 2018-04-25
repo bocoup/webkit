@@ -903,69 +903,6 @@ def runControlFlowProfiler
     run("ftl-no-cjit-type-profiler", "--useControlFlowProfiler=true", *(FTL_OPTIONS + NO_CJIT_OPTIONS))
 end
 
-def runTest262(mode, exception, includeFiles, flags)
-    failsWithException = exception != "NoException"
-    isStrict = false
-    isModule = false
-    isAsync = false
-
-    flags.each {
-        | flag |
-        case flag
-        when :strict
-            isStrict = true
-        when :module
-            isModule = true
-        when :async
-            isAsync = true
-        else
-            raise "Invalid flag for runTest262, #{flag}"
-        end
-    }
-
-    prepareExtraRelativeFiles(includeFiles.map { |f| "../" + f }, $collection)
-
-    args = [pathToVM.to_s] + BASE_OPTIONS + $testSpecificRequiredOptions
-    args << "--exception=" + exception if failsWithException
-    args << "--test262-async" if isAsync
-    args += includeFiles
-
-    case mode
-    when :normal
-        errorHandler = simpleErrorHandler
-        outputHandler = silentOutputHandler
-    when :fail
-        errorHandler = expectedFailErrorHandler
-        outputHandler = noisyOutputHandler
-    when :failDueToOutdatedOrBadTest
-        errorHandler = expectedFailErrorHandler
-        outputHandler = noisyOutputHandler
-    when :skip
-        return
-    else
-        raise "Invalid mode: #{mode}"
-    end
-
-    if isStrict
-        kind = "default-strict"
-        args << "--strict-file=#{$benchmark}"
-    else
-        kind = "default"
-        if isModule
-            args << "--module-file=#{$benchmark}"
-        else
-            args << $benchmark.to_s
-        end
-    end
-
-    addRunCommand(kind, args, outputHandler, errorHandler)
-end
-
-def prepareTest262Fixture
-    # This function is used to add the files used by Test262 modules tests.
-    prepareExtraRelativeFiles([""], $collection)
-end
-
 def runES6(mode)
     args = [pathToVM.to_s] + BASE_OPTIONS + $testSpecificRequiredOptions + [$benchmark.to_s]
     case mode
