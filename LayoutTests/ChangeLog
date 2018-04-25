@@ -1,3 +1,67 @@
+2018-04-25  Miguel Gomez  <magomez@igalia.com>
+
+        [GTK] fast/repaint/fixed-scale.html failing since r230479 "[TexMap] TextureMapperLayer unnecessarily duplicates state in GraphicsLayerTransform"
+        https://bugs.webkit.org/show_bug.cgi?id=184780
+
+        Reviewed by Žan Doberšek.
+
+        * platform/gtk/TestExpectations:
+
+2018-04-25  Ms2ger  <Ms2ger@igalia.com>
+
+        imported/w3c/web-platform-tests/2dcontext/imagebitmap/createImageBitmap-* LayoutTests are flaky failures
+        https://bugs.webkit.org/show_bug.cgi?id=182833
+
+        Reviewed by Carlos Alberto Lopez Perez.
+
+        * TestExpectations: enable tests
+        * platform/gtk/imported/w3c/web-platform-tests/2dcontext/imagebitmap/createImageBitmap-origin.sub-expected.txt: update expectations
+        * platform/ios/imported/w3c/web-platform-tests/2dcontext/imagebitmap/createImageBitmap-origin.sub-expected.txt: update expectations
+        * platform/wpe/imported/w3c/web-platform-tests/2dcontext/imagebitmap/createImageBitmap-origin.sub-expected.txt: update expectations
+
+2018-04-24  Simon Fraser  <simon.fraser@apple.com>
+
+        Add a new "color-filter" CSS property as an experimental feature
+        https://bugs.webkit.org/show_bug.cgi?id=184940
+
+        Reviewed by Jon Lee.
+
+        * css3/color-filters/color-filter-parsing-expected.txt: Added.
+        * css3/color-filters/color-filter-parsing.html: Added.
+
+2018-04-24  Simon Fraser  <simon.fraser@apple.com>
+
+        shape-outside and filter styles occur twice in the result of getComputedStyle
+        https://bugs.webkit.org/show_bug.cgi?id=184931
+
+        Reviewed by Antti Koivisto.
+
+        CSSPropertyShapeOutside and CSSPropertyFilter were duplicated in the list of computedProperties[]
+        used by getComputedStyle. Remove the duplication.
+
+        * fast/css/getComputedStyle/computed-style-expected.txt:
+        * fast/css/getComputedStyle/computed-style-without-renderer-expected.txt:
+        * platform/ios/fast/css/getComputedStyle/computed-style-expected.txt:
+        * platform/ios/fast/css/getComputedStyle/computed-style-without-renderer-expected.txt:
+        * platform/mac-sierra/fast/css/getComputedStyle/computed-style-expected.txt:
+        * platform/mac-sierra/fast/css/getComputedStyle/computed-style-without-renderer-expected.txt:
+        * platform/mac-sierra/svg/css/getComputedStyle-basic-expected.txt:
+        * platform/mac/fast/css/getComputedStyle/computed-style-expected.txt:
+        * platform/mac/fast/css/getComputedStyle/computed-style-without-renderer-expected.txt:
+        * platform/mac/svg/css/getComputedStyle-basic-expected.txt:
+        * svg/css/getComputedStyle-basic-expected.txt:
+
+2018-04-24  Youenn Fablet  <youenn@apple.com>
+
+        Throw in case of PeerConnection created for detached documents
+        https://bugs.webkit.org/show_bug.cgi?id=184921
+        <rdar://problem/39629216>
+
+        Reviewed by Eric Carlson.
+
+        * webrtc/pc-detached-document-expected.txt: Added.
+        * webrtc/pc-detached-document.html: Added.
+
 2018-04-24  John Wilander  <wilander@apple.com>
 
         From-Origin: Support for 'same' and 'same-site' response header, nested frame origin check

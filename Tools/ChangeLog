@@ -1,3 +1,98 @@
+2018-04-25  Brendan McLoughlin  <brendan@bocoup.com>
+
+        Export changes to web-platform-test as part of the webkit-patch upload workflow
+        https://bugs.webkit.org/show_bug.cgi?id=184914
+
+        Reviewed by NOBODY (OOPS!).
+
+        * Scripts/webkitpy/common/net/web_mock.py:
+        (MockResponse.__init__):
+        * Scripts/webkitpy/common/system/logutils.py:
+        (configure_logging):
+        * Scripts/webkitpy/tool/commands/upload.py:
+        (Upload):
+        (CreateBug.execute):
+        (W3CTestExport):
+        * Scripts/webkitpy/tool/steps/__init__.py:
+        * Scripts/webkitpy/tool/steps/w3ctestexport.py: Added.
+        (W3CTestExport):
+        (W3CTestExport.options):
+        (W3CTestExport.run):
+        * Scripts/webkitpy/w3c/common.py:
+        * Scripts/webkitpy/w3c/test_exporter.py:
+        (W3cChangeset):
+        (W3cChangeset.__init__):
+        (W3cChangeset.has_wpt_changes):
+        (W3cChangeset._create_patch):
+        (W3cChangeset.create_git_patch_file):
+        (TestExporter.__init__):
+        (TestExporter._prompt_for_token):
+        (TestExporter):
+        (TestExporter._prompt_for_username):
+        (TestExporter._ensure_username_and_token):
+        (TestExporter._validate_and_save_token):
+        (TestExporter.create_git_patch):
+        (TestExporter._confirm_export):
+        (TestExporter.do_export):
+        (parse_args):
+        * Scripts/webkitpy/w3c/test_exporter_unittest.py:
+        (TestExporterTest.test_export):
+        (TestExporterTest.test_export_with_specific_branch):
+        (TestExporterTest):
+        (TestExporterTest.test_export_interactive_mode):
+        (TestExporterTest.test_export_invalid_token):
+        (TestExporterTest.test_export_wrong_token):
+
+2018-04-25  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] Implement MouseEvent.buttons
+        https://bugs.webkit.org/show_bug.cgi?id=184913
+
+        Reviewed by Žan Doberšek.
+
+        Include the mouse buttons state in WTR synthesized events.
+
+        * WebKitTestRunner/EventSenderProxy.h:
+        * WebKitTestRunner/gtk/EventSenderProxyGtk.cpp:
+        (WTR::EventSenderProxy::EventSenderProxy):
+        (WTR::EventSenderProxy::createMouseButtonEvent):
+        (WTR::EventSenderProxy::mouseDown):
+        (WTR::EventSenderProxy::mouseUp):
+        (WTR::EventSenderProxy::mouseMoveTo):
+
+2018-04-24  Pablo Saavedra  <psaavedra@igalia.com>
+
+        [GTK][WPE] Fix triggered bot name on the WPE Debug Build bot
+        https://bugs.webkit.org/show_bug.cgi?id=184954
+
+        Reviewed by Michael Catanzaro.
+
+        * BuildSlaveSupport/build.webkit.org-config/config.json:
+
+2018-04-24  Saam Barati  <sbarati@apple.com>
+
+        Keep around a pre-warmed process when doing process swap on navigation
+        https://bugs.webkit.org/show_bug.cgi?id=184765
+        <rdar://problem/39685099>
+
+        Reviewed by Ryosuke Niwa and Brady Eidson.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+
+2018-04-24  Aakash Jain  <aakash_jain@apple.com>
+
+        [build.webkit.org] unit-tests fail when passwords.json is missing
+        https://bugs.webkit.org/show_bug.cgi?id=180390
+
+        Reviewed by Carlos Alberto Lopez Perez.
+
+        * BuildSlaveSupport/build.webkit.org-config/loadConfig.py:
+        (loadBuilderConfig): Add support for test_mode. Load mock passwords in test_mode.
+        * BuildSlaveSupport/build.webkit.org-config/steps_unittest.py:
+        (BuildBotConfigLoader._add_dependant_modules_to_sys_modules): Call _add_webkitpy_to_sys_path as well.
+        (BuildBotConfigLoader._mock_open): Deleted.
+        (BuildBotConfigLoader.load_config): Deleted.
+
 2018-04-24  John Wilander  <wilander@apple.com>
 
         From-Origin: Support for 'same' and 'same-site' response header, nested frame origin check
