@@ -303,7 +303,7 @@ sub main {
 
     if ($saveExpectations) {
         DumpFile($expectationsFile, \%failed);
-        print "\nSaved results in: $expectationsFile\n";
+        print "\nSaved new expectations in: $expectationsFile\n";
     } else {
         print "\nRun with --save to save a new expectations file\n";
     }
