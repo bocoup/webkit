@@ -43,15 +43,15 @@ class W3CTestExport(AbstractStep):
     def run(self, state):
         if self._options.non_interactive:
             return
-        args = ["--git-commit"]
+        args = []
         if self._options.git_commit:
+            args.append("--git-commit")
             args.append(self._options.git_commit)
-        else:
-            args.append("HEAD")
 
         bug_id = state.get("bug_id")
         if not bug_id:
             return
+
         args.append("--bug")
         args.append(str(bug_id))
         args.append("--interactive")
