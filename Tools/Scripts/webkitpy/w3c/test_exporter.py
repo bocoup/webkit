@@ -393,12 +393,12 @@ def main(_argv, _stdout, _stderr):
     export_wpt_test_changes(_argv, silent_noop=False)
 
 
-def export_wpt_test_changes(args, silent_noop=False):
+def export_wpt_test_changes(args, silent_noop=False, host=None):
     options = parse_args(args)
 
     configure_logging()
 
-    host = Host()
+    host = host or Host()
     w3c_changeset = W3cChangeset(host, options)
 
     if w3c_changeset.has_wpt_changes():

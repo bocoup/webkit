@@ -57,4 +57,4 @@ class W3CTestExport(AbstractStep):
         args.append("--interactive")
         args.append("--create-pr")
 
-        export_wpt_test_changes(args, silent_noop=True)
+        export_wpt_test_changes(args, silent_noop=True, host=self._tool)
