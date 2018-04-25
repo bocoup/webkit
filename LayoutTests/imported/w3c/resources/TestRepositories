@@ -1,7 +1,7 @@
 [
     {
         "name": "web-platform-tests",
-        "url": "https://github.com/bmac/web-platform-tests.git",
+        "url": "https://github.com/bocoup/web-platform-tests.git",
         "revision": "test-scenarios",
         "paths_to_skip": [
             "conformance-checkers",
