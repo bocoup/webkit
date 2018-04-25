@@ -1,7 +1,0 @@
-
-Harness Error (TIMEOUT), message = null
-
-PASS postMessage to a ServiceWorker (and back via MessagePort) 
-TIMEOUT postMessage a transferable ArrayBuffer between ServiceWorker and Client Test timed out
-NOTRUN postMessage a transferable ArrayBuffer between ServiceWorker and Client over MessagePort 
-

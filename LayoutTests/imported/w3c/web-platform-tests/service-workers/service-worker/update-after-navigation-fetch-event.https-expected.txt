@@ -1,3 +1,0 @@
-
-PASS Update should be triggered after a navigation fetch event. 
-

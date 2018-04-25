@@ -1,3 +1,0 @@
-
-PASS fetch() in Worker should be intercepted after the client is claimed. 
-

@@ -1,3 +1,0 @@
-
-FAIL connect should return the node connected to. assert_equals: expected (object) object "[object GainNode]" but got (undefined) undefined
-

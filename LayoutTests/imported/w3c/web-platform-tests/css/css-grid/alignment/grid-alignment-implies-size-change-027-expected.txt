@@ -1,6 +1,0 @@
-XXXXXX
-X
-XX XXX
-
-PASS .before 1 
-

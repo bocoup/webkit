@@ -1,3 +1,0 @@
-
-PASS waiting is set after installation 
-
