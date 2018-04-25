@@ -14,8 +14,10 @@ Property values requiring vendor prefixes:
 None
 ------------------------------------------------------------------------
 List of files:
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/CHANGELOG.md
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/LICENSE
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/README.md
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/coverage.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/index.js
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/package-lock.json
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/package.json

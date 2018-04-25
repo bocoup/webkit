@@ -20,5 +20,6 @@ List of files:
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/idlharness/IdlInterface/has_to_json_regular_operation.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/idlharness/IdlInterface/test_immutable_prototype.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/idlharness/IdlInterface/test_primary_interface_of.html
+/LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/idlharness/IdlInterface/test_primary_interface_of_undefined.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/idlharness/IdlInterface/test_to_json_operation.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/idlharness/IdlInterface/traverse_inherited_and_consequential_interfaces.html

@@ -21,6 +21,7 @@ List of files:
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/api-tests-1.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/api-tests-2.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/api-tests-3.html
+/LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/force_timeout.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/generate-callback.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/iframe-callback.html
 /LayoutTests/imported/w3c/web-platform-tests/resources/test/tests/iframe-consolidate-errors.html

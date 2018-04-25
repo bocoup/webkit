@@ -1,8 +1,8 @@
 [
     {
         "name": "web-platform-tests",
-        "url": "https://github.com/w3c/web-platform-tests.git",
-        "revision": "94b33b5",
+        "url": "https://github.com/bmac/web-platform-tests.git",
+        "revision": "test-scenarios",
         "paths_to_skip": [
             "conformance-checkers",
             "docs",

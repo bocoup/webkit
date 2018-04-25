@@ -14,7 +14,8 @@ Property values requiring vendor prefixes:
 None
 ------------------------------------------------------------------------
 List of files:
+/LayoutTests/imported/w3c/web-platform-tests/tools/certs/README.md
+/LayoutTests/imported/w3c/web-platform-tests/tools/certs/cacert.key
 /LayoutTests/imported/w3c/web-platform-tests/tools/certs/cacert.pem
-/LayoutTests/imported/w3c/web-platform-tests/tools/certs/cakey.pem
 /LayoutTests/imported/w3c/web-platform-tests/tools/certs/web-platform.test.key
 /LayoutTests/imported/w3c/web-platform-tests/tools/certs/web-platform.test.pem

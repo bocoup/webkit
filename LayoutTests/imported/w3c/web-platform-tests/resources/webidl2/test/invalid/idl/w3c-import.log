@@ -14,18 +14,25 @@ Property values requiring vendor prefixes:
 None
 ------------------------------------------------------------------------
 List of files:
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/array.widl
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/caller.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/dict-required-default.widl
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/duplicate.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/enum.widl
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/exception.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/maplike-1type.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/module.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/nonnullableany.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/nonnullableobjects.widl
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/promise-with-extended-attribute.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/raises.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/readonly-iterable.widl
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/record-key-with-extended-attribute.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/record-key.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/scopedname.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/sequenceAsAttribute.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/setlike-2types.widl
+/LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/setter-creator.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/special-omittable.widl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/stringconstants.idl
 /LayoutTests/imported/w3c/web-platform-tests/resources/webidl2/test/invalid/idl/typedef-nested.widl
