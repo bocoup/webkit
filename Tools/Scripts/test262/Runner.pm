@@ -65,7 +65,7 @@ use Pod::Usage;
 use Term::ANSIColor;
 
 # Commandline args
-my $cliProcesses;
+my $max_process;
 my @cliTestDirs;
 my $verbose;
 my $JSC;
@@ -122,7 +122,7 @@ sub processCLI {
         'j|jsc=s' => \$JSC,
         't|t262=s' => \$test262Dir,
         'o|test-only=s@' => \@cliTestDirs,
-        'p|child-processes=i' => \$cliProcesses,
+        'p|child-processes=i' => \$max_process,
         'h|help' => \$help,
         'd|debug' => \$debug,
         'v|verbose' => \$verbose,
@@ -200,13 +200,13 @@ sub processCLI {
         %filterFeatures = map { $_ => 1 } @features;
     }
 
-    $cliProcesses ||= getProcesses();
+    $max_process ||= getProcesses();
 
     print "\n-------------------------Settings------------------------\n"
         . "Test262 Dir: $test262Dir\n"
         . "JSC: $JSC\n"
         . "DYLD_FRAMEWORK_PATH: $DYLD_FRAMEWORK_PATH\n"
-        . "Child Processes: $cliProcesses\n";
+        . "Child Processes: $max_process\n";
 
     print "Features to include: " . join(', ', @features) . "\n" if @features;
     print "Paths:  " . join(', ', @cliTestDirs) . "\n" if @cliTestDirs;
@@ -222,9 +222,6 @@ sub processCLI {
 
 sub main {
     push(@cliTestDirs, 'test') if not @cliTestDirs;
-
-    my $max_process = $cliProcesses;
-    my $pm = Parallel::ForkManager->new($max_process);
 
     if ($latestImport) {
         @files = loadImportFile();
@@ -245,16 +242,35 @@ sub main {
         }
     }
 
-    FILES:
-    foreach my $file (@files) {
-        $pm->start and next FILES; # do the fork
-        srand(time ^ $$); # Creates a new seed for each fork
-        processFile($file);
+    # If we are processing many files, fork process
+    if (scalar @files > $max_process * 10) {
+        my $pm = Parallel::ForkManager->new($max_process);
 
-        $pm->finish; # do the exit in the child process
-    };
+        my $filesperprocess = int(scalar @files / $max_process);
 
-    $pm->wait_all_children;
+        FILES:
+        for (my $i = 0; $i <= $max_process-1; $i++) {
+            $pm->start and next FILES; # do the fork
+            srand(time ^ $$); # Creates a new seed for each fork
+
+            my $first = $filesperprocess * $i;
+            my $last = $i == $max_process-1 ? scalar @files : $filesperprocess * ($i+1);
+
+            for (my $j = $first; $j < $last; $j++) {
+                processFile($files[$j]);
+            };
+
+            $pm->finish; # do the exit in the child process
+        };
+
+        $pm->wait_all_children;
+    }
+    # Otherwising, running sequentially is fine
+    else {
+        foreach my $file (@files) {
+            processFile($file);
+        };
+    }
 
     close $deffh;
 
