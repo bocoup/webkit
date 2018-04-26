@@ -49,6 +49,7 @@ __cmake_systeminformation/
 # Ignore YouCompleteMe symlinks
 .ycm_extra_conf.py
 
-# Ignore generated Test262 results file
+# Ignore generated Test262 results files
 JSTests/test262/results.yaml
-
+JSTests/test262/results-summary.yaml
+JSTests/test262/results-summary.txt
