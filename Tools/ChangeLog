@@ -1,3 +1,13 @@
+2018-05-04  Leo Balter  <leonardo.balter@gmail.com>
+
+        Fix Tools/Scripts/webkitdirs.pm for retrocompatibility
+        https://bugs.webkit.org/show_bug.cgi?id=185316
+
+        Reviewed by NOBODY (OOPS!).
+
+        * Scripts/webkitdirs.pm:
+        (buildVisualStudioProject):
+
 2018-05-04  Wenson Hsieh  <whsieh@berkeley.edu>
 
         REGRESSION: [ios-simulator] 3 WKWebViewAutofillTests API test failures seen with 11.3 SDK

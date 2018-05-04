@@ -30,7 +30,6 @@
 # Module to share code to get to WebKit directories.
 
 use strict;
-use version;
 use warnings;
 use Config;
 use Cwd qw(realpath);
@@ -38,7 +37,7 @@ use Digest::MD5 qw(md5_hex);
 use FindBin;
 use File::Basename;
 use File::Find;
-use File::Path qw(make_path mkpath rmtree);
+use File::Path qw(mkpath rmtree);
 use File::Spec;
 use File::Temp qw(tempdir);
 use File::stat;
@@ -49,8 +48,7 @@ use VCSUtils;
 
 BEGIN {
    use Exporter   ();
-   our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
-   $VERSION     = 1.00;
+   our (@ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
    @ISA         = qw(Exporter);
    @EXPORT      = qw(
        &XcodeCoverageSupportOptions
@@ -1924,7 +1922,7 @@ sub buildVisualStudioProject
 
     my $platform = "/p:Platform=" . (isWin64() ? "x64" : "Win32");
     my $logPath = File::Spec->catdir($baseProductDir, $configuration);
-    make_path($logPath) unless -d $logPath or $logPath eq ".";
+    mkpath($logPath) unless -d $logPath or $logPath eq ".";
 
     my $errorLogFile = File::Spec->catfile($logPath, "webkit_errors.log");
     chomp($errorLogFile = `cygpath -w "$errorLogFile"`) if isCygwin();
