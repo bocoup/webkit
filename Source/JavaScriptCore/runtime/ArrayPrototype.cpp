@@ -249,7 +249,6 @@ static ALWAYS_INLINE std::pair<SpeciesConstructResult, JSObject*> speciesConstru
         }
     } else {
         // If isArray is false, return ? ArrayCreate(length).
-        RETURN_IF_EXCEPTION(scope, exceptionResult());
         return std::make_pair(SpeciesConstructResult::FastPath, nullptr);
     }
 
