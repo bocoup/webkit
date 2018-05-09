@@ -39,7 +39,6 @@ use File::Basename qw(dirname);
 use File::Path qw(mkpath);
 use Cwd qw(abs_path);
 use FindBin;
-use Env qw(DYLD_FRAMEWORK_PATH);
 use Config;
 
 my $podIsAvailable;
@@ -82,6 +81,7 @@ my $saveExpectations;
 my $failingOnly;
 my $latestImport;
 my $runningAllTests;
+my $DYLD_FRAMEWORK_PATH;
 
 my $expectationsFile = abs_path("$Bin/../../../JSTests/test262/expectations.yaml");
 my $configFile = abs_path("$Bin/../../../JSTests/test262/config.yaml");
@@ -172,10 +172,7 @@ sub processCLI {
             die "Error: --jsc path does not exist.";
         }
 
-        # For custom JSC paths, Sets only if not yet defined
-        if (not defined $DYLD_FRAMEWORK_PATH) {
-            $DYLD_FRAMEWORK_PATH = dirname($JSC);
-        }
+        $DYLD_FRAMEWORK_PATH = dirname($JSC);
     } else {
         $JSC = getBuildPath($debug);
     }
@@ -466,8 +463,10 @@ sub getBuildPath {
     my $jscDir = qx($cmd);
     chomp $jscDir;
 
+
     my $jsc;
-    $jsc = $jscDir . '/jsc';
+    # $jsc = $jscDir . '/jsc';
+    $jsc = '/Users/leo/dev/webkit/WebKitBuild/Release/jsc';
 
     $jsc = $jscDir . '/JavaScriptCore.framework/Resources/jsc' if (! -e $jsc);
     $jsc = $jscDir . '/bin/jsc' if (! -e $jsc);
@@ -613,7 +612,8 @@ sub runTest {
     my $defaultHarness = '';
     $defaultHarness = $deffile if $scenario ne 'raw';
 
-    my $result = qx/$JSC $args $defaultHarness $includesfile '$prefixFile$filename'/;
+    my $prefix = qq(DYLD_FRAMEWORK_PATH=$DYLD_FRAMEWORK_PATH);
+    my $result = qx($prefix $JSC $args $defaultHarness $includesfile '$prefixFile$filename');
 
     chomp $result;
 
