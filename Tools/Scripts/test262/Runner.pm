@@ -645,12 +645,14 @@ sub processResult {
         # or the failure is new.
         my $printfailure = !$expect || $isnewfailure;
 
-        print "! NEW " if $isnewfailure;
-        print "FAIL $file ($scenario)\n" if $printfailure;
         if ($verbose) {
-            print $result;
+            # Group the data to avoid racing conditions.
+            print "! NEW FAIL $file ($scenario)\n$result";
             print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
             print "\n\n";
+        } else {
+            print "! NEW " if $isnewfailure;
+            print "FAIL $file ($scenario)\n" if $printfailure;
         }
 
         $resultdata{result} = 'FAIL';
