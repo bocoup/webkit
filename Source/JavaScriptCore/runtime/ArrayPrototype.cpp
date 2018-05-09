@@ -249,11 +249,8 @@ static ALWAYS_INLINE std::pair<SpeciesConstructResult, JSObject*> speciesConstru
         }
     } else {
         // If isArray is false, return ? ArrayCreate(length).
-        JSGlobalObject* globalObject = thisObject->globalObject();
-        JSValue newValue = constructArrayWithSizeQuirk(exec, nullptr, globalObject, jsNumber(length), exec->newTarget());
-        JSObject* newObject = newValue.toObject(exec);
         RETURN_IF_EXCEPTION(scope, exceptionResult());
-        return std::make_pair(SpeciesConstructResult::CreatedObject, newObject);
+        return std::make_pair(SpeciesConstructResult::FastPath, nullptr);
     }
 
     if (constructor.isUndefined())
