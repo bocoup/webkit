@@ -646,7 +646,6 @@ sub processResult {
         my $printfailure = !$expect || $isnewfailure;
 
         if ($verbose) {
-            # Group the data to avoid racing conditions.
             print "! NEW FAIL $file ($scenario)\n$result";
             print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
             print "\n\n";
