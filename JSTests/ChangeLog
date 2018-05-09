@@ -1,3 +1,14 @@
+2018-05-04  Leo Balter  <leonardo.balter@gmail.com>
+
+        Detach the old Test262 Runner from the stress tests
+        https://bugs.webkit.org/show_bug.cgi?id=184934
+
+        Reviewed by NOBODY (OOPS!).
+
+        Remove JSTests/test262.yaml
+
+        * test262.yaml: Removed.
+
 2018-05-08  Valerie R Young  <valerie@bocoup.com>
 
         test262/Runner.pm: move input files to JSTests/test262
