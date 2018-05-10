@@ -1511,3 +1511,4 @@ webkit.org/b/48451 animations/3d/transform-origin-vs-functions.html [ Pass Failu
 # test-scenarios
 imported/w3c/web-platform-tests/test-scenarios/16.1-existing-expected-fail-but-passed.html [ Failure ]
 imported/w3c/web-platform-tests/test-scenarios/16.2-existing-expected-fail-but-passed-ref-test.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/test-scenarios/17.1-crashing-test-now-passes.html [ Crash ]
