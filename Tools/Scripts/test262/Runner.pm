@@ -653,16 +653,22 @@ sub processResult {
 
         # Print the failure if we haven't loaded an expectation file
         # or the failure is new.
-        my $printfailure = !$expect || $isnewfailure;
+        my $printFailure = !$expect || $isnewfailure;
+
+        my $newFail = '';
+        $newFail = '! NEW ' if $isnewfailure;
+        my $failMsg = '';
+        $failMsg = "FAIL $file ($scenario)\n" if ($printFailure or $verbose);
+
+        my $suffixMsg = '';
 
         if ($verbose) {
-            print "! NEW FAIL $file ($scenario)\n$result";
-            print "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
-            print "\n\n";
-        } else {
-            print "! NEW " if $isnewfailure;
-            print "FAIL $file ($scenario)\n" if $printfailure;
+            my $featuresList = '';
+            $featuresList = "\nFeatures: " . join(', ', @{ $data->{features} }) if $data->{features};
+            $suffixMsg = "$result$featuresList\n\n";
         }
+
+        print "$newFail$failMsg$suffixMsg";
 
         $resultdata{result} = 'FAIL';
         $resultdata{error} = $currentfailure;
