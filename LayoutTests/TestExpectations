@@ -1506,3 +1506,8 @@ webkit.org/b/48451 animations/combo-transform-translate+scale.html [ Pass Failur
 webkit.org/b/48451 animations/play-state.html [ Pass Failure ]
 webkit.org/b/48451 animations/suspend-resume-animation.html [ Pass Failure ]
 webkit.org/b/48451 animations/3d/transform-origin-vs-functions.html [ Pass Failure ]
+
+
+# test-scenarios
+imported/w3c/web-platform-tests/test-scenarios/16.1-existing-expected-fail-but-passed.html [ Failure ]
+imported/w3c/web-platform-tests/test-scenarios/16.2-existing-expected-fail-but-passed-ref-test.html [ ImageOnlyFailure ]
