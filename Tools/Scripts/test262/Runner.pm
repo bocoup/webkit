@@ -65,6 +65,7 @@ BEGIN {
 use YAML qw(Load LoadFile Dump DumpFile Bless);
 use Parallel::ForkManager;
 use Getopt::Long qw(GetOptions);
+use webkitdirs_5008008 qw(executableProductDir setConfiguration);
 
 # Commandline settings
 my $max_process;
@@ -457,24 +458,16 @@ sub parseError {
 }
 
 sub getBuildPath {
-    my $debug = shift;
+    my ($debug) = @_;
 
-    # Try to find JSC for user, if not supplied
-    my $cmd = abs_path("$Bin/../webkit-build-directory");
-    if (! -e $cmd) {
-        die 'Error: cannot find webkit-build-directory, specify with JSC with --jsc <path>.';
-    }
-
+    my $config;
     if ($debug) {
-        $cmd .= ' --debug';
+        $config = 'Debug';
     } else {
-        $cmd .= ' --release';
+        $config = 'Release';
     }
-    $cmd .= ' --executablePath';
-    my $jscDir = qx($cmd);
-    chomp $jscDir;
-
-
+    setConfiguration($config);
+    my $jscDir = executableProductDir();
     my $jsc;
     $jsc = $jscDir . '/jsc';
 
