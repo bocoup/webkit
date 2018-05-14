@@ -381,7 +381,7 @@ def main(_argv, _stdout, _stderr):
     host = Host()
 
     if not has_wpt_test_changes(_argv, host):
-        log.info('No changes to upstream. Exiting...')
+        _log.info('No changes to upstream. Exiting...')
         return
 
     export_wpt_test_changes(_argv, host)
@@ -392,6 +392,7 @@ def export_wpt_test_changes(args, host):
     wpt_patch_generator = WebPlatformTestPatchGenerator(host, options)
     test_exporter = TestExporter(host, options, wpt_patch_generator)
     test_exporter.do_export()
+
 
 def has_wpt_test_changes(args, host):
     options = parse_args(args)
