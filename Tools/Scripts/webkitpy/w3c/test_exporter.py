@@ -126,17 +126,13 @@ class TestExporter(object):
         return self._host.user.prompt('Enter github username: ')
 
     def _ensure_username_and_token(self, options):
-        """
-        Ask the user to provide a username and token if the
-        --interactive flag is passed and username and token
-        are not already set.
-        """
         self._username = options.username
         if not self._username:
+            # FIXME: Use the keychain to store username and oauth token instead of .git/config
             self._username = self._git.local_config('github.username').rstrip()
             if not self._username:
                 self._username = os.environ.get('GITHUB_USERNAME')
-            if not self._username and options.interactive_mode:
+            if not self._username and not options.non_interactive:
                 self._username = self._prompt_for_username()
             if not self._username:
                 raise ValueError("Missing GitHub username, please provide it as a command argument (see help for the command).")
@@ -146,7 +142,7 @@ class TestExporter(object):
             self._token = self._git.local_config('github.token').rstrip()
             if not self._token:
                 self._token = os.environ.get('GITHUB_TOKEN')
-            if not self._token and options.interactive_mode:
+            if not self._token and not options.non_interactive:
                 self._token = self._prompt_for_token()
             if not self._token:
                 _log.info("Missing GitHub token, the script will not be able to create a pull request to W3C web-platform-tests repository.")
@@ -285,7 +281,7 @@ class TestExporter(object):
 
     def _confirm_export(self):
         message = "web-platform-tests changes detected. Would you like to create a pull-request to the WPT github repo now?"
-        if self._options.interactive_mode:
+        if not self._options.non_interactive:
             return self._host.user.confirm(message)
         else:
             return True
@@ -359,7 +355,7 @@ def parse_args(args):
     parser.add_argument('-u', '--remote-url', dest='repository_remote_url', default=None, help='repository url to use to push')
     parser.add_argument('-d', '--repository', dest='repository_directory', default=None, help='repository directory')
     parser.add_argument('-c', '--create-pr', dest='create_pull_request', action='store_true', default=False, help='create pull request to w3c web-platform-tests')
-    parser.add_argument('-i', '--interactive', dest='interactive_mode', action='store_true', default=False, help='Prompts the user for their github credentials and asks for confirmation before exporting the changes.')
+    parser.add_argument('--non-interactive', action='store_true', dest='non_interactive', default=False, help='Never prompt the user, fail as fast as possible.')
 
     options, args = parser.parse_known_args(args)
 
@@ -384,19 +380,20 @@ def configure_logging():
 
 
 def main(_argv, _stdout, _stderr):
-    export_wpt_test_changes(_argv, silent_noop=False)
+    export_wpt_test_changes(_argv)
 
 
-def export_wpt_test_changes(args, silent_noop=False, host=None):
+def export_wpt_test_changes(args, log_if_nowptchange=True, host=Host()):
     options = parse_args(args)
 
     configure_logging()
 
-    host = host or Host()
     wpt_patch_generator = WebPlatformTestPatchGenerator(host, options)
 
-    if wpt_patch_generator.has_wpt_changes():
-        test_exporter = TestExporter(host, options, wpt_patch_generator)
-        test_exporter.do_export()
-    elif not silent_noop:
-        _log.info('No changes to upstream. Exiting...')
+    if not wpt_patch_generator.has_wpt_changes():
+        if log_if_nowptchange:
+            log.info('No changes to upstream. Exiting...')
+        return
+
+    test_exporter = TestExporter(host, options, wpt_patch_generator)
+    test_exporter.do_export()
