@@ -42,7 +42,7 @@ from webkitpy.w3c.common import WPT_GH_ORG
 _log = logging.getLogger(__name__)
 
 WEBKIT_WPT_DIR = 'LayoutTests/imported/w3c/web-platform-tests'
-WPT_PR_URL = "https://github.com/%s/web-platform-tests/pull/" % (WPT_GH_ORG,)
+WPT_PR_URL = "https://github.com/%s/web-platform-tests/pull/" % WPT_GH_ORG
 WEBKIT_EXPORT_PR_LABEL = 'webkit-export'
 
 
@@ -119,10 +119,14 @@ class TestExporter(object):
         if not self._wpt_fork_push_url:
             self._wpt_fork_push_url = "https://" + self._username + "@github.com/" + self._username + "/web-platform-tests.git"
 
-    def _prompt_for_token(self):
+    def _prompt_for_token(self, options):
+        if options.non_interactive:
+            return None
         return self._host.user.prompt_password('Enter github OAuth token: ')
 
-    def _prompt_for_username(self):
+    def _prompt_for_username(self, options):
+        if options.non_interactive:
+            return None
         return self._host.user.prompt('Enter github username: ')
 
     def _ensure_username_and_token(self, options):
@@ -132,8 +136,8 @@ class TestExporter(object):
             self._username = self._git.local_config('github.username').rstrip()
             if not self._username:
                 self._username = os.environ.get('GITHUB_USERNAME')
-            if not self._username and not options.non_interactive:
-                self._username = self._prompt_for_username()
+            if not self._username:
+                self._username = self._prompt_for_username(options)
             if not self._username:
                 raise ValueError("Missing GitHub username, please provide it as a command argument (see help for the command).")
 
@@ -142,8 +146,8 @@ class TestExporter(object):
             self._token = self._git.local_config('github.token').rstrip()
             if not self._token:
                 self._token = os.environ.get('GITHUB_TOKEN')
-            if not self._token and not options.non_interactive:
-                self._token = self._prompt_for_token()
+            if not self._token:
+                self._token = self._prompt_for_token(options)
             if not self._token:
                 _log.info("Missing GitHub token, the script will not be able to create a pull request to W3C web-platform-tests repository.")
 
@@ -280,11 +284,11 @@ class TestExporter(object):
             self._git.remote(["add", self._wpt_fork_remote, self._wpt_fork_push_url])
 
     def _confirm_export(self):
-        message = "web-platform-tests changes detected. Would you like to create a pull-request to the WPT github repo now?"
-        if not self._options.non_interactive:
-            return self._host.user.confirm(message)
-        else:
+        if self._options.non_interactive:
             return True
+
+        message = "web-platform-tests changes detected. Would you like to create a pull-request to the WPT github repo now?"
+        return self._host.user.confirm(message)
 
     def do_export(self):
         git_patch_file = self.create_git_patch()
