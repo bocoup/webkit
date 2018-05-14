@@ -233,18 +233,21 @@ class TestExporter(object):
         self._git.commit(['-a', '-m', self._commit_message])
         return True
 
+    @property
+    def wpt_fork_branch_github_url(self):
+        return "https://github.com/" + self._username + "/web-platform-tests/tree/" + self._public_branch_name
+
     def push_to_wpt_fork(self):
         self.create_upload_remote_if_needed()
-        wpt_fork_branch_github_url = "https://github.com/" + self._username + "/web-platform-tests/tree/" + self._public_branch_name
         _log.info('Pushing branch ' + self._branch_name + " to " + self._git.remote(["get-url", self._wpt_fork_remote]).rstrip())
         _log.info('This may take some time')
         self._git.push([self._wpt_fork_remote, self._branch_name + ":" + self._public_branch_name, '-f'])
-        _log.info('Branch available at ' + wpt_fork_branch_github_url)
+        _log.info('Branch available at ' + self.wpt_fork_branch_github_url)
         return True
 
     def make_pull_request(self):
         if not self._github:
-            _log.info('Missing information to create a pull request')
+            _log.info('Skipping pull request because OAuth token was not provided. You can open the pull request manually using the branch ' + self.wpt_fork_branch_github_url)
             return
 
         _log.info('Making pull request')
@@ -272,7 +275,7 @@ class TestExporter(object):
         return pr_number
 
     def delete_local_branch(self):
-        _log.info('Removing branch ' + self._branch_name)
+        _log.info('Removing local branch ' + self._branch_name)
         self._git.checkout('master')
         self._git.delete_branch(self._branch_name)
 
@@ -283,21 +286,11 @@ class TestExporter(object):
         if not self._wpt_fork_remote in self._git.remote([]):
             self._git.remote(["add", self._wpt_fork_remote, self._wpt_fork_push_url])
 
-    def _confirm_export(self):
-        if self._options.non_interactive:
-            return True
-
-        message = "web-platform-tests changes detected. Would you like to create a pull-request to the WPT github repo now?"
-        return self._host.user.confirm(message)
-
     def do_export(self):
         git_patch_file = self.create_git_patch()
 
         if not git_patch_file:
             _log.error("Unable to create a patch to apply to web-platform-tests repository")
-            return
-
-        if not self._confirm_export():
             return
 
         self._fetch_wpt_repository()
@@ -384,20 +377,23 @@ def configure_logging():
 
 
 def main(_argv, _stdout, _stderr):
-    export_wpt_test_changes(_argv)
-
-
-def export_wpt_test_changes(args, log_if_nowptchange=True, host=Host()):
-    options = parse_args(args)
-
     configure_logging()
+    host = Host()
 
-    wpt_patch_generator = WebPlatformTestPatchGenerator(host, options)
-
-    if not wpt_patch_generator.has_wpt_changes():
-        if log_if_nowptchange:
-            log.info('No changes to upstream. Exiting...')
+    if not has_wpt_test_changes(_argv, host):
+        log.info('No changes to upstream. Exiting...')
         return
 
+    export_wpt_test_changes(_argv, host)
+
+
+def export_wpt_test_changes(args, host):
+    options = parse_args(args)
+    wpt_patch_generator = WebPlatformTestPatchGenerator(host, options)
     test_exporter = TestExporter(host, options, wpt_patch_generator)
     test_exporter.do_export()
+
+def has_wpt_test_changes(args, host):
+    options = parse_args(args)
+    wpt_patch_generator = WebPlatformTestPatchGenerator(host, options)
+    return wpt_patch_generator.has_wpt_changes()

@@ -23,7 +23,7 @@
 from webkitpy.common.system.executive import ScriptError
 from webkitpy.tool.steps.abstractstep import AbstractStep
 from webkitpy.tool.steps.options import Options
-from webkitpy.w3c.test_exporter import export_wpt_test_changes
+from webkitpy.w3c.test_exporter import has_wpt_test_changes, export_wpt_test_changes
 
 
 class WPTChangeExport(AbstractStep):
@@ -48,4 +48,6 @@ class WPTChangeExport(AbstractStep):
             args.append("--git-commit")
             args.append(self._options.git_commit)
 
-        export_wpt_test_changes(args, log_if_nowptchange=False, host=self._tool)
+        message = 'web-platform-tests changes detected. Would you like to create a pull-request to the WPT github repo now?'
+        if has_wpt_test_changes(args, self._tool) and self._tool.user.confirm(message):
+            export_wpt_test_changes(args, self._tool)
