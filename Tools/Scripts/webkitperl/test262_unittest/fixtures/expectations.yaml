@@ -1,0 +1,10 @@
+---
+test/expected-to-fail-now-passing.js:
+  default: 'Test262: This test errors.'
+  strict mode: 'Test262: This test errors.'
+test/expected-to-fail-now-failing.js:
+  default: 'Test262: This test errors.'
+  strict mode: 'Test262: This test errors.'
+test/expected-to-fail-now-failing-with-new-error.js:
+  default: 'Test262: This test errors.'
+  strict mode: 'Test262: This test errors.'

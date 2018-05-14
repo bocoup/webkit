@@ -44,6 +44,7 @@ use Config;
 use Time::HiRes qw(time);
 
 my $Bin;
+my $Mode;
 BEGIN {
     $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK} = 1;
 
@@ -56,6 +57,8 @@ BEGIN {
     unshift @INC, "$Bin/..";
 
     $ENV{LOAD_ROUTES} = 1;
+
+    $Mode = $ENV{T262_RUNNER_MODE} || "PRODUCTION";
 }
 
 use YAML qw(Load LoadFile Dump DumpFile Bless);
@@ -107,7 +110,7 @@ my @files;
 my $tempdir = tempdir();
 my ($deffh, $deffile) = getTempFile();
 
-my @default_harnesses;
+my @default_harnesses = ();
 
 my $startTime = time();
 
@@ -259,13 +262,15 @@ sub processCLI {
 sub main {
     processCLI();
 
-    @default_harnesses = (
-        "$harnessDir/sta.js",
-        "$harnessDir/assert.js",
-        "$harnessDir/doneprintHandle.js",
-        "$Bin/agent.js"
-    );
-    print $deffh getHarness(<@default_harnesses>);
+    if ($Mode ne 'TESTING') { # if testing, no need to load harness files
+        @default_harnesses = (
+            "$harnessDir/sta.js",
+            "$harnessDir/assert.js",
+            "$harnessDir/doneprintHandle.js",
+            "$Bin/agent.js"
+            );
+    }
+    print $deffh getHarness(\@default_harnesses);
 
     # If not commandline test path supplied, use the root directory of all tests.
     push(@cliTestDirs, 'test') if not @cliTestDirs;
@@ -592,7 +597,8 @@ sub compileTest {
     my $includes = shift;
     my ($tfh, $tfname) = getTempFile();
 
-    my $includesContent = getHarness(map { "$harnessDir/$_" } @{ $includes });
+    my @includes = map { "$harnessDir/$_" } @{ $includes };
+    my $includesContent = getHarness(\@includes);
     print $tfh $includesContent;
 
     return ($tfh, $tfname);
@@ -664,10 +670,11 @@ sub processResult {
 
     if ($scenario ne 'skip' && $currentfailure) {
 
-        # We have a new failure if we have loaded an expectation file
-        # AND (there is no expected failure OR the failure has changed).
-        my $isnewfailure = $expect
-            && (!$expectedfailure || $expectedfailure ne $currentfailure);
+        # We have a new failure if we haven't loaded an expectation file
+        # (all fails are new) OR we have loaded an expectation fail and
+        # (there is no expected failure OR the failure has changed).
+        my $isnewfailure = ! $expect
+            || !$expectedfailure || $expectedfailure ne $currentfailure;
 
         # Print the failure if we haven't loaded an expectation file
         # or the failure is new.
@@ -743,9 +750,10 @@ sub parseData {
 }
 
 sub getHarness {
-    my @files = @_;
+    my ($filesref) = @_;
+
     my $content;
-    for (@files) {
+    for (@{$filesref}) {
         my $file = $_;
 
         open(my $harness_file, '<', $file)
@@ -756,7 +764,7 @@ sub getHarness {
         close $harness_file;
     };
 
-    return $content;
+    return $content || '';
 }
 
 sub summarizeResults {
