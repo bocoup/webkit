@@ -28,6 +28,8 @@ import argparse
 import logging
 import os
 import time
+import json
+from urllib2 import HTTPError
 
 from webkitpy.common.checkout.scm.git import Git
 from webkitpy.common.host import Host
@@ -35,20 +37,51 @@ from webkitpy.common.net.bugzilla import Bugzilla
 from webkitpy.common.webkit_finder import WebKitFinder
 from webkitpy.w3c.wpt_github import WPTGitHub
 from webkitpy.w3c.wpt_linter import WPTLinter
+from webkitpy.w3c.common import WPT_GH_ORG
 
 _log = logging.getLogger(__name__)
 
 WEBKIT_WPT_DIR = 'LayoutTests/imported/w3c/web-platform-tests'
-WPT_PR_URL = "https://github.com/w3c/web-platform-tests/pull/"
+WPT_PR_URL = "https://github.com/%s/web-platform-tests/pull/" % (WPT_GH_ORG,)
 WEBKIT_EXPORT_PR_LABEL = 'webkit-export'
 
 
-class TestExporter(object):
+class WebPlatformTestPatchGenerator(object):
 
-    def __init__(self, host, options, gitClass=Git, bugzillaClass=Bugzilla, WPTGitHubClass=WPTGitHub, WPTLinterClass=WPTLinter):
+    def __init__(self, host, options):
         self._host = host
         self._filesystem = host.filesystem
         self._options = options
+
+        self._host.initialize_scm()
+
+    def has_wpt_changes(self):
+        return bool(self._create_patch())
+
+    def _create_patch(self):
+        patch_data = self._host.scm().create_patch(self._options.git_commit, [WEBKIT_WPT_DIR])
+        if not patch_data or not 'diff' in patch_data:
+            return ''
+        return patch_data
+
+    def create_git_patch_file(self):
+        _, patch_file = self._filesystem.open_binary_tempfile('wpt_export_patch')
+        patch_data = self._create_patch()
+        if not 'diff' in patch_data:
+            _log.info('No changes to upstream, patch data is: "%s"' % (patch_data))
+            return ''
+        # FIXME: We can probably try to use --relative git parameter to not do that replacement.
+        patch_data = patch_data.replace(WEBKIT_WPT_DIR + '/', '')
+        self._filesystem.write_text_file(patch_file, patch_data)
+        return patch_file
+
+
+class TestExporter(object):
+    def __init__(self, host, options, wpt_patch_generator, gitClass=Git, bugzillaClass=Bugzilla, WPTGitHubClass=WPTGitHub, WPTLinterClass=WPTLinter):
+        self._host = host
+        self._filesystem = host.filesystem
+        self._options = options
+        self._wpt_patch_generator = wpt_patch_generator
 
         self._host.initialize_scm()
 
@@ -67,25 +100,7 @@ class TestExporter(object):
         self._git = self._ensure_wpt_repository("https://github.com/w3c/web-platform-tests.git", self._options.repository_directory, gitClass)
         self._linter = WPTLinterClass(self._options.repository_directory, host.filesystem)
 
-        self._username = options.username
-        if not self._username:
-            self._username = self._git.local_config('github.username').rstrip()
-            if not self._username:
-                self._username = os.environ.get('GITHUB_USERNAME')
-            if not self._username:
-                raise ValueError("Missing GitHub username, please provide it as a command argument (see help for the command).")
-        elif not self._git.local_config('github.username'):
-            self._git.set_local_config('github.username', self._username)
-
-        self._token = options.token
-        if not self._token:
-            self._token = self._git.local_config('github.token').rstrip()
-            if not self._token:
-                self._token = os.environ.get('GITHUB_TOKEN')
-            if not self._token:
-                _log.info("Missing GitHub token, the script will not be able to create a pull request to W3C web-platform-tests repository.")
-        elif not self._git.local_config('github.token'):
-            self._git.set_local_config('github.token', self._token)
+        self._ensure_username_and_token(options)
 
         self._github = WPTGitHubClass(self._host, self._username, self._token) if self._username and self._token else None
 
@@ -103,6 +118,60 @@ class TestExporter(object):
         self._wpt_fork_push_url = options.repository_remote_url
         if not self._wpt_fork_push_url:
             self._wpt_fork_push_url = "https://" + self._username + "@github.com/" + self._username + "/web-platform-tests.git"
+
+    def _prompt_for_token(self):
+        return self._host.user.prompt_password('Enter github OAuth token: ')
+
+    def _prompt_for_username(self):
+        return self._host.user.prompt('Enter github username: ')
+
+    def _ensure_username_and_token(self, options):
+        """
+        Ask the user to provide a username and token if the
+        --interactive flag is passed and username and token
+        are not already set.
+        """
+        self._username = options.username
+        if not self._username:
+            self._username = self._git.local_config('github.username').rstrip()
+            if not self._username:
+                self._username = os.environ.get('GITHUB_USERNAME')
+            if not self._username and options.interactive_mode:
+                self._username = self._prompt_for_username()
+            if not self._username:
+                raise ValueError("Missing GitHub username, please provide it as a command argument (see help for the command).")
+
+        self._token = options.token
+        if not self._token:
+            self._token = self._git.local_config('github.token').rstrip()
+            if not self._token:
+                self._token = os.environ.get('GITHUB_TOKEN')
+            if not self._token and options.interactive_mode:
+                self._token = self._prompt_for_token()
+            if not self._token:
+                _log.info("Missing GitHub token, the script will not be able to create a pull request to W3C web-platform-tests repository.")
+
+        if self._token:
+            self._validate_and_save_token(self._username, self._token)
+
+    def _validate_and_save_token(self, username, token):
+        # validate token and username
+        url = 'https://api.github.com/user?access_token=%s' % (token,)
+        try:
+            response = self._host.web.request(method='GET', url=url, data=None)
+        except HTTPError as e:
+            raise Exception("OAuth token is not valid")
+        data = json.load(response)
+        login = data.get('login', None)
+        if login != username:
+            raise Exception("OAuth token does not match the provided username. Provided user: %s, github login: %s" % (username, login))
+        else:
+            # Username and token are valid. Save them in the git config so we
+            # do not need to ask for them again
+            if not self._git.local_config('github.token'):
+                self._git.set_local_config('github.token', token)
+            if not self._git.local_config('github.username'):
+                self._git.set_local_config('github.username', username)
 
     def _ensure_wpt_repository(self, url, wpt_repository_directory, gitClass):
         git = None
@@ -208,27 +277,27 @@ class TestExporter(object):
         self._git.delete_branch(self._branch_name)
 
     def create_git_patch(self):
-        patch_file = './patch.temp.' + str(time.clock())
-        git_commit = "HEAD...." if not self._options.git_commit else self._options.git_commit + "~1.." + self._options.git_commit
-        patch_data = self._host.scm().create_patch(git_commit, [WEBKIT_WPT_DIR])
-        if not patch_data or not 'diff' in patch_data:
-            _log.info('No changes to upstream, patch data is: "%s"' % (patch_data))
-            return ''
-        # FIXME: We can probably try to use --relative git parameter to not do that replacement.
-        patch_data = patch_data.replace(WEBKIT_WPT_DIR + '/', '')
-        patch_file = self._filesystem.abspath(patch_file)
-        self._filesystem.write_text_file(patch_file, patch_data)
-        return patch_file
+        return self._wpt_patch_generator.create_git_patch_file()
 
     def create_upload_remote_if_needed(self):
         if not self._wpt_fork_remote in self._git.remote([]):
             self._git.remote(["add", self._wpt_fork_remote, self._wpt_fork_push_url])
+
+    def _confirm_export(self):
+        message = "web-platform-tests changes detected. Would you like to create a pull-request to the WPT github repo now?"
+        if self._options.interactive_mode:
+            return self._host.user.confirm(message)
+        else:
+            return True
 
     def do_export(self):
         git_patch_file = self.create_git_patch()
 
         if not git_patch_file:
             _log.error("Unable to create a patch to apply to web-platform-tests repository")
+            return
+
+        if not self._confirm_export():
             return
 
         self._fetch_wpt_repository()
@@ -290,6 +359,7 @@ def parse_args(args):
     parser.add_argument('-u', '--remote-url', dest='repository_remote_url', default=None, help='repository url to use to push')
     parser.add_argument('-d', '--repository', dest='repository_directory', default=None, help='repository directory')
     parser.add_argument('-c', '--create-pr', dest='create_pull_request', action='store_true', default=False, help='create pull request to w3c web-platform-tests')
+    parser.add_argument('-i', '--interactive', dest='interactive_mode', action='store_true', default=False, help='Prompts the user for their github credentials and asks for confirmation before exporting the changes.')
 
     options, args = parser.parse_known_args(args)
 
@@ -305,6 +375,7 @@ def configure_logging():
             return record.getMessage()
 
     logger = logging.getLogger('webkitpy.w3c.test_exporter')
+    logger.propagate = False
     logger.setLevel(logging.INFO)
     handler = LogHandler()
     handler.setLevel(logging.INFO)
@@ -313,10 +384,19 @@ def configure_logging():
 
 
 def main(_argv, _stdout, _stderr):
-    options = parse_args(_argv)
+    export_wpt_test_changes(_argv, silent_noop=False)
+
+
+def export_wpt_test_changes(args, silent_noop=False, host=None):
+    options = parse_args(args)
 
     configure_logging()
 
-    test_exporter = TestExporter(Host(), options)
+    host = host or Host()
+    wpt_patch_generator = WebPlatformTestPatchGenerator(host, options)
 
-    test_exporter.do_export()
+    if wpt_patch_generator.has_wpt_changes():
+        test_exporter = TestExporter(host, options, wpt_patch_generator)
+        test_exporter.do_export()
+    elif not silent_noop:
+        _log.info('No changes to upstream. Exiting...')
