@@ -1,3 +1,51 @@
+2018-05-15  Amal Hussein  <amal@bocoup.com>
+
+        Add Support for a Download Build Product Script
+        https://bugs.webkit.org/show_bug.cgi?id=185045
+
+        Reviewed by NOBODY (OOPS!).
+
+        * BuildSlaveSupport/build.webkit.org-config/steps.py:
+        (DownloadBuiltProduct):
+        * BuildSlaveSupport/built-product-archive:
+        (main):
+        (archiveBuiltProduct):
+        (unzipArchive):
+        (extractBuiltProduct):
+        * BuildSlaveSupport/download-built-product:
+        (main):
+        * Scripts/bisect-builds:
+        (bisect_builds):
+        (download_and_extract_archive):
+        (find_ge):
+        (get_indices_from_revisions):
+        (minified_platforms):
+        (unminified_platforms):
+        (print_list_and_exit):
+        (main):
+        (download_archive): Deleted.
+        (extract_archive): Deleted.
+        (get_api_url): Deleted.
+        (get_sorted_revisions): Deleted.
+        (get_s3_location_for_revision): Deleted.
+        * Scripts/webkitpy/common/build_binaries_fetcher.py: Added.
+        (BuildBinariesFetcher):
+        (BuildBinariesFetcher.__init__):
+        (BuildBinariesFetcher.local_downloaded_binaries_directory):
+        (BuildBinariesFetcher.local_extracted_directory):
+        (BuildBinariesFetcher.s3_build_type):
+        (BuildBinariesFetcher.s3_build_binaries_url):
+        (BuildBinariesFetcher.s3_build_binaries_single_revision_url):
+        (BuildBinariesFetcher.local_zip_path):
+        (BuildBinariesFetcher._get_archives_json):
+        (BuildBinariesFetcher._prompt_user_to_delete_first):
+        (BuildBinariesFetcher.get_path):
+        (BuildBinariesFetcher.get_sorted_revisions):
+        (BuildBinariesFetcher._get_latest_build_revision):
+        (BuildBinariesFetcher._fetch_build_binaries):
+        (BuildBinariesFetcher._fetch_build_binaries_zip):
+        (BuildBinariesFetcher._extract_zip_archive):
+
 2018-05-15  Michael Catanzaro  <mcatanzaro@igalia.com>
 
         Unreviewed, rolling out r230749
