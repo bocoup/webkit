@@ -48,6 +48,6 @@ class WPTChangeExport(AbstractStep):
             args.append("--git-commit")
             args.append(self._options.git_commit)
 
-        message = 'Would you like to export the changes and/or create a PR to the WPT GitHub repository?'
+        message = 'Would you like to export the web-platform-tests changes and/or create a PR to the WPT GitHub repository?'
         if has_wpt_test_changes(args, self._tool) and self._tool.user.confirm(message):
             export_wpt_test_changes(args, self._tool)
