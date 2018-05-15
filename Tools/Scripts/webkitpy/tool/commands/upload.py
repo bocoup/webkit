@@ -536,7 +536,7 @@ class CreateBug(Command):
 
 class WPTChangeExport(AbstractPatchUploadingCommand):
     name = "wpt-change-export"
-    help_text = "Opens a pull request to sync any changes in the LayoutTests/imported/w3c/web-platform-tests directory"
+    help_text = "Opens a pull request to synchronize any changes in the LayoutTests/imported/w3c/web-platform-tests directory"
     argument_names = "[BUGID]"
     steps = [
         steps.WPTChangeExport,

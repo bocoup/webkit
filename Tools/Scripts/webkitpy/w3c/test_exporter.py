@@ -122,12 +122,12 @@ class TestExporter(object):
     def _prompt_for_token(self, options):
         if options.non_interactive:
             return None
-        return self._host.user.prompt_password('Enter github OAuth token: ')
+        return self._host.user.prompt_password('Enter GitHub OAuth token (or empty string to skip creating a pull request): ')
 
     def _prompt_for_username(self, options):
         if options.non_interactive:
             return None
-        return self._host.user.prompt('Enter github username: ')
+        return self._host.user.prompt('Enter your GitHub username: ')
 
     def _ensure_username_and_token(self, options):
         self._username = options.username
