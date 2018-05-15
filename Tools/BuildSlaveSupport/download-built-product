@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2009 Apple Inc.  All rights reserved.
+# Copyright (C) 2012-2018 Apple Inc.  All rights reserved.
 # Copyright (C) 2012 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -24,33 +24,43 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
-import optparse
+import argparse
 import os
-import subprocess
 import sys
-import urllib
+import logging
 
+# exposing webkitpy from this path
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Scripts'))
+
+from webkitpy.common.build_binaries_fetcher import BuildBinariesFetcher
+from webkitpy.common.host import Host
+
+
+_log = logging.getLogger(__name__)
+
+logging.basicConfig()
+
+_log.setLevel(logging.INFO)
+
+BUILD_DIRECTORY = 'DownloadedBinaries'
 
 def main():
-    parser = optparse.OptionParser("usage: %prog [options] [url]")
-    parser.add_option("--platform", dest="platform")
-    parser.add_option("--debug", action="store_const", const="debug", dest="configuration")
-    parser.add_option("--release", action="store_const", const="release", dest="configuration")
+    parser = argparse.ArgumentParser(description='Downloads and extracts archive executables')
+    parser.add_argument("--platform", dest="platform", required=True, help='Platform to use (e.g., "mac-highsierra")')
+    parser.add_argument("--configuration", default="release", dest="configuration", help='Set the configuration to Release or Debug')
+    parser.add_argument("--debug", action="store_const", const="debug", dest="configuration", help='Alias for --configuration=debug')
+    parser.add_argument("--release", action="store_const", const="release", dest="configuration", help='Alias for --configuration=release')
+    parser.add_argument('--architecture', default='x86_64', help='The architecture to query [x86_64 | i386]')
+    parser.add_argument('--build-directory', nargs='?', const=BUILD_DIRECTORY, help='Path to build executables, and defaults if nothing is passed in')
+    parser.add_argument('--full', action='store_true', default=False, help='Use full archives containing debug symbols. These are significantly larger files!')
+    parser.add_argument('--revision', default=None, help='Pass in a build revision number from WebKit archives to download binaries. Revision=None will download the latest build.')
+    parser.add_argument('--delete-first', action='store_true', default=False, help='Override an exisiting build directory.')
+    parser.add_argument('--no-extract', action='store_true', default=False, help='Only download archives without extracting.')
+    parser.add_argument('url', nargs='?', help='Full url to the s3 zip archive file.')
+    args = parser.parse_args()
 
-    options, (url, ) = parser.parse_args()
-
-    archiveDir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "WebKitBuild"))
-    if not os.path.isdir(archiveDir):
-        os.makedirs(archiveDir)
-    archivePath = os.path.join(archiveDir, "%s.zip" % options.configuration)
-
-    if sys.platform == 'win32':  # curl is not availble on Windows (outside of cygwin)
-        urllib.urlretrieve(url, archivePath)
-        return 0
-
-    return subprocess.call(["curl", "--fail", "--output", archivePath, url])
-
+    build_binaries_fetcher = BuildBinariesFetcher(Host(), args.platform, args.architecture, args.configuration, args.full, args.revision, args.build_directory, args.delete_first, args.no_extract, args.url)
+    build_binaries_fetcher.get_path()
 
 if __name__ == '__main__':
     sys.exit(main())
