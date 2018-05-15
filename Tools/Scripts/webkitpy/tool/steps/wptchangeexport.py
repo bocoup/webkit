@@ -23,7 +23,7 @@
 from webkitpy.common.system.executive import ScriptError
 from webkitpy.tool.steps.abstractstep import AbstractStep
 from webkitpy.tool.steps.options import Options
-from webkitpy.w3c.test_exporter import has_wpt_test_changes, export_wpt_test_changes
+from webkitpy.w3c.test_exporter import WebPlatformTestExporter, parse_args
 
 
 class WPTChangeExport(AbstractStep):
@@ -48,6 +48,7 @@ class WPTChangeExport(AbstractStep):
             args.append("--git-commit")
             args.append(self._options.git_commit)
 
+        test_exporter = WebPlatformTestExporter(self._tool, parse_args(args))
         message = 'Would you like to export the web-platform-tests changes and/or create a PR to the WPT GitHub repository?'
-        if has_wpt_test_changes(args, self._tool) and self._tool.user.confirm(message):
-            export_wpt_test_changes(args, self._tool)
+        if test_exporter.has_wpt_changes() and self._tool.user.confirm(message):
+            test_exporter.do_export()

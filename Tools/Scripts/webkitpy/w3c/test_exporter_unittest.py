@@ -25,7 +25,7 @@ import unittest
 from webkitpy.common.host_mock import MockHost
 from webkitpy.common.system.filesystem_mock import MockFileSystem
 from webkitpy.common.system.executive_mock import MockExecutive2
-from webkitpy.w3c.test_exporter import TestExporter, WebPlatformTestPatchGenerator, parse_args
+from webkitpy.w3c.test_exporter import WebPlatformTestExporter, parse_args
 from webkitpy.w3c.wpt_github_mock import MockWPTGitHub
 
 mock_linter = None
@@ -124,8 +124,7 @@ class TestExporterTest(unittest.TestCase):
         host = TestExporterTest.MyMockHost()
         host.web.responses.append({'status_code': 200, 'body': '{"login": "USER"}'})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN'])
-        w3c_patch_generator = WebPlatformTestPatchGenerator(host, options)
-        exporter = TestExporter(host, options, w3c_patch_generator, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
+        exporter = WebPlatformTestExporter(host, options, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
         exporter.do_export()
         self.assertEquals(exporter._github.calls, ['create_pr', 'add_label "webkit-export"'])
         self.assertTrue('WebKit export' in exporter._github.pull_requests_created[0][1])
@@ -154,8 +153,7 @@ class TestExporterTest(unittest.TestCase):
         host = TestExporterTest.MyMockHost()
         host.web.responses.append({'status_code': 200, 'body': '{"login": "USER"}'})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN', '-bn', 'wpt-export-branch'])
-        w3c_patch_generator = WebPlatformTestPatchGenerator(host, options)
-        exporter = TestExporter(host, options, w3c_patch_generator, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
+        exporter = WebPlatformTestExporter(host, options, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
         exporter.do_export()
         self.assertEquals(exporter._git.calls, [
             '/mock-checkout/WebKitBuild/w3c-tests/web-platform-tests',
@@ -178,24 +176,23 @@ class TestExporterTest(unittest.TestCase):
         host = TestExporterTest.MyMockHost()
         host.web.responses.append({'status_code': 200, 'body': '{"login": "USER"}'})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN', '--interactive'])
-        w3c_patch_generator = WebPlatformTestPatchGenerator(host, options)
-        exporter = TestExporter(host, options, w3c_patch_generator, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
+        exporter = WebPlatformTestExporter(host, options, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
         exporter.do_export()
 
     def test_export_invalid_token(self):
         host = TestExporterTest.MyMockHost()
         host.web.responses.append({'status_code': 401})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN'])
-        w3c_patch_generator = WebPlatformTestPatchGenerator(host, options)
+        exporter = WebPlatformTestExporter(host, options, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
         with self.assertRaises(Exception) as context:
-            exporter = TestExporter(host, options, w3c_patch_generator, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
+            exporter.do_export()
         self.assertIn('OAuth token is not valid', str(context.exception))
 
     def test_export_wrong_token(self):
         host = TestExporterTest.MyMockHost()
         host.web.responses.append({'status_code': 200, 'body': '{"login": "DIFF_USER"}'})
         options = parse_args(['test_exporter.py', '-g', 'HEAD', '-b', '1234', '-c', '-n', 'USER', '-t', 'TOKEN'])
-        w3c_patch_generator = WebPlatformTestPatchGenerator(host, options)
+        exporter = WebPlatformTestExporter(host, options, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
         with self.assertRaises(Exception) as context:
-            exporter = TestExporter(host, options, w3c_patch_generator, TestExporterTest.MockGit, TestExporterTest.MockBugzilla, MockWPTGitHub, TestExporterTest.MockWPTLinter)
+            exporter.do_export()
         self.assertIn('OAuth token does not match the provided username', str(context.exception))

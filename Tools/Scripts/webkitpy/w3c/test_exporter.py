@@ -38,6 +38,7 @@ from webkitpy.common.webkit_finder import WebKitFinder
 from webkitpy.w3c.wpt_github import WPTGitHub
 from webkitpy.w3c.wpt_linter import WPTLinter
 from webkitpy.w3c.common import WPT_GH_ORG
+from webkitpy.common.memoized import memoized
 
 _log = logging.getLogger(__name__)
 
@@ -45,46 +46,16 @@ WEBKIT_WPT_DIR = 'LayoutTests/imported/w3c/web-platform-tests'
 WPT_PR_URL = "https://github.com/%s/web-platform-tests/pull/" % WPT_GH_ORG
 WEBKIT_EXPORT_PR_LABEL = 'webkit-export'
 
-
-class WebPlatformTestPatchGenerator(object):
-
-    def __init__(self, host, options):
+class WebPlatformTestExporter(object):
+    def __init__(self, host, options, gitClass=Git, bugzillaClass=Bugzilla, WPTGitHubClass=WPTGitHub, WPTLinterClass=WPTLinter):
         self._host = host
         self._filesystem = host.filesystem
         self._options = options
 
         self._host.initialize_scm()
 
-    def has_wpt_changes(self):
-        return bool(self._create_patch())
-
-    def _create_patch(self):
-        patch_data = self._host.scm().create_patch(self._options.git_commit, [WEBKIT_WPT_DIR])
-        if not patch_data or not 'diff' in patch_data:
-            return ''
-        return patch_data
-
-    def create_git_patch_file(self):
-        _, patch_file = self._filesystem.open_binary_tempfile('wpt_export_patch')
-        patch_data = self._create_patch()
-        if not 'diff' in patch_data:
-            _log.info('No changes to upstream, patch data is: "%s"' % (patch_data))
-            return ''
-        # FIXME: We can probably try to use --relative git parameter to not do that replacement.
-        patch_data = patch_data.replace(WEBKIT_WPT_DIR + '/', '')
-        self._filesystem.write_text_file(patch_file, patch_data)
-        return patch_file
-
-
-class TestExporter(object):
-    def __init__(self, host, options, wpt_patch_generator, gitClass=Git, bugzillaClass=Bugzilla, WPTGitHubClass=WPTGitHub, WPTLinterClass=WPTLinter):
-        self._host = host
-        self._filesystem = host.filesystem
-        self._options = options
-        self._wpt_patch_generator = wpt_patch_generator
-
-        self._host.initialize_scm()
-
+        self._WPTGitHubClass = WPTGitHubClass
+        self._gitClass = gitClass
         self._bugzilla = bugzillaClass()
         self._bug_id = options.bug_id
         if not self._bug_id:
@@ -97,27 +68,92 @@ class TestExporter(object):
             webkit_finder = WebKitFinder(self._filesystem)
             self._options.repository_directory = webkit_finder.path_from_webkit_base('WebKitBuild', 'w3c-tests', 'web-platform-tests')
 
-        self._git = self._ensure_wpt_repository("https://github.com/w3c/web-platform-tests.git", self._options.repository_directory, gitClass)
         self._linter = WPTLinterClass(self._options.repository_directory, host.filesystem)
 
-        self._ensure_username_and_token(options)
-
-        self._github = WPTGitHubClass(self._host, self._username, self._token) if self._username and self._token else None
-
-        self._branch_name = self._ensure_new_branch_name()
-        self._public_branch_name = options.public_branch_name if options.public_branch_name else self._branch_name
         self._bugzilla_url = "https://bugs.webkit.org/show_bug.cgi?id=" + str(self._bug_id)
         self._commit_message = options.message
         if not self._commit_message:
             self._commit_message = 'WebKit export of ' + self._bugzilla_url if self._bug_id else 'Export made from a WebKit repository'
 
-        self._wpt_fork_remote = options.repository_remote
-        if not self._wpt_fork_remote:
-            self._wpt_fork_remote = self._username
+    @property
+    def username(self):
+        if hasattr(self, '_username'):
+            return self._username
 
-        self._wpt_fork_push_url = options.repository_remote_url
-        if not self._wpt_fork_push_url:
-            self._wpt_fork_push_url = "https://" + self._username + "@github.com/" + self._username + "/web-platform-tests.git"
+        self._ensure_username_and_token(self._options)
+        return self._username
+
+    @property
+    def token(self):
+        if hasattr(self, '_token'):
+            return self._token
+
+        self._ensure_username_and_token(self._options)
+        return self._token
+
+    @property
+    @memoized
+    def _github(self):
+        return self._WPTGitHubClass(self._host, self.username, self.token) if self.username and self.token else None
+
+    @property
+    @memoized
+    def _wpt_fork_branch_github_url(self):
+        return "https://github.com/" + self.username + "/web-platform-tests/tree/" + self._public_branch_name
+
+    @property
+    @memoized
+    def _wpt_fork_remote(self):
+        wpt_fork_remote = self._options.repository_remote
+        if not wpt_fork_remote:
+            wpt_fork_remote = self.username
+
+        return wpt_fork_remote
+
+    @property
+    @memoized
+    def _wpt_fork_push_url(self):
+        wpt_fork_push_url = self._options.repository_remote_url
+        if not wpt_fork_push_url:
+            wpt_fork_push_url = "https://" + self.username + "@github.com/" + self.username + "/web-platform-tests.git"
+
+        return wpt_fork_push_url
+
+    @property
+    @memoized
+    def _git(self):
+        return self._ensure_wpt_repository("https://github.com/w3c/web-platform-tests.git", self._options.repository_directory, self._gitClass)
+
+    @property
+    @memoized
+    def _branch_name(self):
+        return self._ensure_new_branch_name()
+
+    @property
+    @memoized
+    def _public_branch_name(self):
+        options = self._options
+        return options.public_branch_name if options.public_branch_name else self._branch_name
+
+    def has_wpt_changes(self):
+        return bool(self._create_patch())
+
+    def _create_patch(self):
+        patch_data = self._host.scm().create_patch(self._options.git_commit, [WEBKIT_WPT_DIR])
+        if not patch_data or not 'diff' in patch_data:
+            return ''
+        return patch_data
+
+    def create_git_patch(self):
+        _, patch_file = self._filesystem.open_binary_tempfile('wpt_export_patch')
+        patch_data = self._create_patch()
+        if not 'diff' in patch_data:
+            _log.info('No changes to upstream, patch data is: "%s"' % (patch_data))
+            return ''
+        # FIXME: We can probably try to use --relative git parameter to not do that replacement.
+        patch_data = patch_data.replace(WEBKIT_WPT_DIR + '/', '')
+        self._filesystem.write_text_file(patch_file, patch_data)
+        return patch_file
 
     def _prompt_for_token(self, options):
         if options.non_interactive:
@@ -233,21 +269,17 @@ class TestExporter(object):
         self._git.commit(['-a', '-m', self._commit_message])
         return True
 
-    @property
-    def wpt_fork_branch_github_url(self):
-        return "https://github.com/" + self._username + "/web-platform-tests/tree/" + self._public_branch_name
-
     def push_to_wpt_fork(self):
         self.create_upload_remote_if_needed()
         _log.info('Pushing branch ' + self._branch_name + " to " + self._git.remote(["get-url", self._wpt_fork_remote]).rstrip())
         _log.info('This may take some time')
         self._git.push([self._wpt_fork_remote, self._branch_name + ":" + self._public_branch_name, '-f'])
-        _log.info('Branch available at ' + self.wpt_fork_branch_github_url)
+        _log.info('Branch available at ' + self._wpt_fork_branch_github_url)
         return True
 
     def make_pull_request(self):
         if not self._github:
-            _log.info('Skipping pull request because OAuth token was not provided. You can open the pull request manually using the branch ' + self.wpt_fork_branch_github_url)
+            _log.info('Skipping pull request because OAuth token was not provided. You can open the pull request manually using the branch ' + self._wpt_fork_branch_github_url)
             return
 
         _log.info('Making pull request')
@@ -258,7 +290,7 @@ class TestExporter(object):
                 self._github.add_label(pr_number, WEBKIT_EXPORT_PR_LABEL)
             except Exception as e:
                 _log.warning(e)
-                _log.info('Could not add label "%s" to pr #%s. User "%s" may not have permission to update labels in the w3c/web-platform-test repo.' % (WEBKIT_EXPORT_PR_LABEL, pr_number, self._username))
+                _log.info('Could not add label "%s" to pr #%s. User "%s" may not have permission to update labels in the w3c/web-platform-test repo.' % (WEBKIT_EXPORT_PR_LABEL, pr_number, self.username))
         if self._bug_id and pr_number:
             self._bugzilla.post_comment_to_bug(self._bug_id, "Submitted web-platform-tests pull request: " + WPT_PR_URL + str(pr_number))
 
@@ -278,9 +310,6 @@ class TestExporter(object):
         _log.info('Removing local branch ' + self._branch_name)
         self._git.checkout('master')
         self._git.delete_branch(self._branch_name)
-
-    def create_git_patch(self):
-        return self._wpt_patch_generator.create_git_patch_file()
 
     def create_upload_remote_if_needed(self):
         if not self._wpt_fork_remote in self._git.remote([]):
@@ -378,23 +407,12 @@ def configure_logging():
 
 def main(_argv, _stdout, _stderr):
     configure_logging()
-    host = Host()
+    options = parse_args(_argv)
 
-    if not has_wpt_test_changes(_argv, host):
+    test_exporter = WebPlatformTestExporter(Host(), options)
+
+    if not test_exporter.has_wpt_changes():
         _log.info('No changes to upstream. Exiting...')
         return
 
-    export_wpt_test_changes(_argv, host)
-
-
-def export_wpt_test_changes(args, host):
-    options = parse_args(args)
-    wpt_patch_generator = WebPlatformTestPatchGenerator(host, options)
-    test_exporter = TestExporter(host, options, wpt_patch_generator)
     test_exporter.do_export()
-
-
-def has_wpt_test_changes(args, host):
-    options = parse_args(args)
-    wpt_patch_generator = WebPlatformTestPatchGenerator(host, options)
-    return wpt_patch_generator.has_wpt_changes()
