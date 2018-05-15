@@ -46,6 +46,7 @@ WEBKIT_WPT_DIR = 'LayoutTests/imported/w3c/web-platform-tests'
 WPT_PR_URL = "https://github.com/%s/web-platform-tests/pull/" % WPT_GH_ORG
 WEBKIT_EXPORT_PR_LABEL = 'webkit-export'
 
+
 class WebPlatformTestExporter(object):
     def __init__(self, host, options, gitClass=Git, bugzillaClass=Bugzilla, WPTGitHubClass=WPTGitHub, WPTLinterClass=WPTLinter):
         self._host = host
@@ -406,9 +407,9 @@ def configure_logging():
 
 
 def main(_argv, _stdout, _stderr):
-    configure_logging()
     options = parse_args(_argv)
 
+    configure_logging()
     test_exporter = WebPlatformTestExporter(Host(), options)
 
     if not test_exporter.has_wpt_changes():
