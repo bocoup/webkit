@@ -145,7 +145,7 @@ class WebPlatformTestExporter(object):
             return ''
         return patch_data
 
-    def create_git_patch(self):
+    def write_git_patch_file(self):
         _, patch_file = self._filesystem.open_binary_tempfile('wpt_export_patch')
         patch_data = self._create_patch()
         if not 'diff' in patch_data:
@@ -317,7 +317,7 @@ class WebPlatformTestExporter(object):
             self._git.remote(["add", self._wpt_fork_remote, self._wpt_fork_push_url])
 
     def do_export(self):
-        git_patch_file = self.create_git_patch()
+        git_patch_file = self.write_git_patch_file()
 
         if not git_patch_file:
             _log.error("Unable to create a patch to apply to web-platform-tests repository")
