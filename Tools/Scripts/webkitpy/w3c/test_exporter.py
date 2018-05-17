@@ -136,18 +136,20 @@ class WebPlatformTestExporter(object):
         options = self._options
         return options.public_branch_name if options.public_branch_name else self._branch_name
 
-    def has_wpt_changes(self):
-        return bool(self._create_patch())
-
-    def _create_patch(self):
+    @property
+    @memoized
+    def _wpt_patch(self):
         patch_data = self._host.scm().create_patch(self._options.git_commit, [WEBKIT_WPT_DIR])
         if not patch_data or not 'diff' in patch_data:
             return ''
         return patch_data
 
+    def has_wpt_changes(self):
+        return bool(self._wpt_patch)
+
     def write_git_patch_file(self):
         _, patch_file = self._filesystem.open_binary_tempfile('wpt_export_patch')
-        patch_data = self._create_patch()
+        patch_data = self._wpt_patch
         if not 'diff' in patch_data:
             _log.info('No changes to upstream, patch data is: "%s"' % (patch_data))
             return ''
@@ -192,7 +194,6 @@ class WebPlatformTestExporter(object):
             self._validate_and_save_token(self._username, self._token)
 
     def _validate_and_save_token(self, username, token):
-        # validate token and username
         url = 'https://api.github.com/user?access_token=%s' % (token,)
         try:
             response = self._host.web.request(method='GET', url=url, data=None)
