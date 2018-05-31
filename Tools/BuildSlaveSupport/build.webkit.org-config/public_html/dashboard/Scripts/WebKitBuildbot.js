@@ -53,6 +53,9 @@ WebKitBuildbot = function()
             "Apple Sierra Release Test262 (Tests)": {heading: "Release Test262 (Tests)"},
         }},
         "Apple iOS 11 Release (Build)": {platform: Dashboard.Platform.iOS11Device, debug: false, builder: true, architecture: Buildbot.BuildArchitecture.SixtyFourBit},
+        "Apple iOS 11 JSC": {platform: Dashboard.Platform.iOS11Device, heading: "JavaScript", combinedQueues: {
+            "Apple iOS 11 Release Test262 (Tests)": {heading: "Release Test262 (Tests)"},
+        }},
         "Apple iOS 11 Simulator Release (Build)": {platform: Dashboard.Platform.iOS11Simulator, debug: false, builder: true, architecture: Buildbot.BuildArchitecture.SixtyFourBit},
         "Apple iOS 11 Simulator Release WK2 (Tests)": {platform: Dashboard.Platform.iOS11Simulator, debug: false, tester: true, testCategory: Buildbot.TestCategory.WebKit2},
         "Apple iOS 11 Simulator Debug (Build)": {platform: Dashboard.Platform.iOS11Simulator, debug: true, builder: true, architecture: Buildbot.BuildArchitecture.SixtyFourBit},

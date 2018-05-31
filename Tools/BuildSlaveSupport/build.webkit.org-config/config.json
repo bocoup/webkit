@@ -38,6 +38,7 @@
                     { "name": "bot699", "platform": "mac-sierra" },
 
                     { "name": "bot673", "platform": "ios-11" },
+                    { "name": "bot674", "platform": "ios-11" },
                     { "name": "bot626", "platform": "ios-simulator-11" },
                     { "name": "bot618", "platform": "ios-simulator-11" },
                     { "name": "bot620", "platform": "ios-simulator-11" },
@@ -191,6 +192,10 @@
                       "name": "Apple iOS 11 Release (Build)", "type": "Build", "builddir": "ios-11-release",
                       "platform": "ios-11", "configuration": "release", "architectures": ["arm64"],
                       "slavenames": ["bot673"]
+                    },
+                    { "name": "Apple iOS 11 Release Test262 (Tests)", "type": "Test262", "builddir": "ios-11-release-tests-test262",
+                      "platform": "ios-11", "configuration": "release", "architectures": ["arm64"],
+                      "slavenames": ["bot674"]
                     },
                     {
                       "name": "Apple iOS 11 Simulator Release (Build)", "type": "Build", "builddir": "ios-simulator-11-release",
