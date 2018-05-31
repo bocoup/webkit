@@ -1,3 +1,16 @@
+2018-05-30  Leo Balter  <leonardo.balter@gmail.com>
+
+        Test262-runner should not report an error for the --debug option
+        https://bugs.webkit.org/show_bug.cgi?id=186116
+
+        Reviewed by NOBODY (OOPS!).
+
+        The debug option is already set by default, so calling the runner with --debug won't affect its usage.
+
+        This patch prevents a bogus error message when the build bot calls the runner with this option.
+        * Scripts/test262/Runner.pm:
+        (processCLI):
+
 2018-05-30  Brady Eidson  <beidson@apple.com>
 
         REGRESSION (r224684): User-agent seen by page does not change when modified by the develop menu options after reloading.

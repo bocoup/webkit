@@ -131,6 +131,7 @@ sub processCLI {
         'p|child-processes=i' => \$max_process,
         'h|help' => \$help,
         'release' => \$release,
+        'debug', # Avoids the 'Unknown option: debug' message
         'v|verbose' => \$verbose,
         'f|features=s@' => \@features,
         'c|config=s' => \$configFile,
