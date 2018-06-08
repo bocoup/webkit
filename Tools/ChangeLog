@@ -1,3 +1,15 @@
+2018-06-08  Leo Balter  <leonardo.balter@gmail.com>
+
+        Test262-Runner: Improve files queue to optimize CPU usage/balancing
+        https://bugs.webkit.org/show_bug.cgi?id=186443
+
+        Reviewed by NOBODY (OOPS!).
+
+        This patch creates a queue manager for to keep the child process open while the parent process feed each child with test files to run.
+        * Scripts/test262/Runner.pm:
+        (processCLI):
+        (main):
+
 2018-06-18  Zan Dobersek  <zdobersek@igalia.com>
 
         [webkitpy] WPTRunner should remove any metadata content before (re)generating it
