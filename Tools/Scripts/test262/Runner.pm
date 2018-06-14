@@ -841,7 +841,7 @@ sub summarizeResults {
             foreach my $feature (@{$test->{features}}) {
 
                 if (not exists $byfeature{$feature}) {
-                    $byfeature{$feature} = [0, 0, 0, 0]
+                    $byfeature{$feature} = [0, 0, 0, 0];
                 }
 
                 if ($result eq 'PASS') {
@@ -896,7 +896,7 @@ sub summarizeResults {
 
         my $time = sprintf("%.1f", $bypath{$key}->[3]) . "s";
         my $avgTime;
-        
+
         if ($totalFilesRan) {
             $avgTime = sprintf("%.2f", $bypath{$key}->[3] / $totalFilesRan) . "s";
         } else {
@@ -926,7 +926,7 @@ sub summarizeResults {
 
         my $time = sprintf("%.1f", $byfeature{$key}->[3]) . "s";
         my $avgTime;
-        
+
         if ($totalFilesRan) {
             $avgTime = sprintf("%.2f", $byfeature{$key}->[3] / $totalFilesRan) . "s";
         } else {
