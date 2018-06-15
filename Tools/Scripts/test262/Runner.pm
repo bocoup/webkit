@@ -594,8 +594,7 @@ sub shouldSkip {
         my @skipFeatures;
         @skipFeatures = map {
             # Remove inline comments from the yaml parsed config
-            my ($feature) = $_ =~ /(\S*)/;
-            $feature;
+            $_ =~ /(\S*)/;
         } @{ $config->{skip}->{features} } if defined $config->{skip}->{features};
 
         my $skip = 0;
