@@ -5,9 +5,6 @@ test/annexB/built-ins/Function/createdynfn-html-close-comment-params.js:
 test/annexB/built-ins/Function/createdynfn-html-open-comment-params.js:
   default: "SyntaxError: Unexpected token '}'. Expected a parameter pattern or a ')' in parameter list."
   strict mode: "SyntaxError: Unexpected token '}'. Expected a parameter pattern or a ')' in parameter list."
-test/annexB/built-ins/RegExp/named-groups/non-unicode-malformed.js:
-  default: 'SyntaxError: Invalid regular expression: invalid group specifier name'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid group specifier name'
 test/annexB/built-ins/RegExp/prototype/Symbol.split/Symbol.match-getter-recompiles-source.js:
   default: 'Test262Error: Expected SameValue(Â«Â», Â«aÂ») to be true'
   strict mode: 'Test262Error: Expected SameValue(Â«Â», Â«aÂ») to be true'
@@ -1122,6 +1119,9 @@ test/built-ins/Proxy/ownKeys/return-duplicate-entries-throws.js:
 test/built-ins/Proxy/ownKeys/return-duplicate-symbol-entries-throws.js:
   default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
   strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
+test/built-ins/RegExp/S15.10.2.12_A2_T1.js:
+  default: 'Test262Error: #6: Error matching character class S between character 1800 and 1bff'
+  strict mode: 'Test262Error: #6: Error matching character class S between character 1800 and 1bff'
 test/built-ins/RegExp/named-groups/groups-object-subclass-sans.js:
   default: 'Test262Error: Expected SameValue(Â«bÂ», Â«$<a>Â») to be true'
   strict mode: 'Test262Error: Expected SameValue(Â«bÂ», Â«$<a>Â») to be true'
@@ -1134,9 +1134,6 @@ test/built-ins/RegExp/named-groups/groups-object-undefined.js:
 test/built-ins/RegExp/named-groups/groups-object.js:
   default: 'Test262Error: Expected SameValue(Â«nullÂ», Â«[object Object]Â») to be true'
   strict mode: 'Test262Error: Expected SameValue(Â«nullÂ», Â«[object Object]Â») to be true'
-test/built-ins/RegExp/named-groups/lookbehind.js:
-  default: 'SyntaxError: Invalid regular expression: invalid group specifier name'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid group specifier name'
 test/built-ins/RegExp/named-groups/non-unicode-malformed.js:
   default: 'Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all'
   strict mode: 'Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all'
@@ -3939,9 +3936,3 @@ test/language/types/reference/put-value-prop-base-primitive-realm.js:
 test/language/types/reference/put-value-prop-base-primitive.js:
   default: 'Test262Error: number Expected SameValue(Â«0Â», Â«1Â») to be true'
   strict mode: 'TypeError: Attempted to assign to readonly property.'
-test/language/white-space/mongolian-vowel-separator-eval.js:
-  default: 'Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all'
-test/language/white-space/mongolian-vowel-separator.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
