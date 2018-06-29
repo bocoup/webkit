@@ -1220,3 +1220,21 @@ webkit.org/b/185254 http/tests/cache/disk-cache/redirect-chain-limits.html [ Fai
 
 webkit.org/b/184501 imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/failures.worker.html [ Failure ]
 webkit.org/b/184501 imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes.worker.html [ Failure ]
+
+webkit.org/b/186752 fast/css-grid-layout/flex-sizing-rows-min-max-height.html [ Crash ]
+webkit.org/b/186752 fast/css-grid-layout/grid-indefinite-size-auto-repeat-crash.html [ Crash ]
+webkit.org/b/186752 fast/css-grid-layout/maximize-tracks-definite-indefinite-height.html [ Crash ]
+
+webkit.org/b/186753 animations/multiple-animations-timing-function.html [ Crash ]
+webkit.org/b/186753 fast/animation/css-animation-resuming-when-visible-with-style-change.html [ Crash ]
+webkit.org/b/186753 fast/animation/css-animation-resuming-when-visible.html [ Crash ]
+webkit.org/b/186753 imported/w3c/web-platform-tests/web-animations/interfaces/Animatable/animate-no-browsing-context.html [ Crash ]
+webkit.org/b/186753 imported/w3c/web-platform-tests/web-animations/interfaces/Animatable/getAnimations.html [ Crash ]
+
+webkit.org/b/186100 css3/color-filters/color-filter-color-property-list-item.html [ ImageOnlyFailure ]
+webkit.org/b/186100 css3/color-filters/color-filter-ignore-semantic.html [ ImageOnlyFailure ]
+webkit.org/b/186100 css3/color-filters/color-filter-opacity.html [ ImageOnlyFailure ]
+
+webkit.org/b/186754 legacy-animation-engine/accessibility/transformed-bounds.html [ Failure ]
+webkit.org/b/186252 legacy-animation-engine/css3/filters/backdrop/animation.html [ Timeout ]
+webkit.org/b/168426 legacy-animation-engine/imported/blink/animations/display-inline-style-adjust.html [ ImageOnlyFailure ]

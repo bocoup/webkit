@@ -1,3 +1,148 @@
+2018-06-08  Leo Balter  <leonardo.balter@gmail.com>
+
+        Test262-Runner: Improve files queue to optimize CPU usage/balancing
+        https://bugs.webkit.org/show_bug.cgi?id=186443
+
+        Reviewed by NOBODY (OOPS!).
+
+        This patch creates a queue manager for to keep the child process open while the parent process feed each child with test files to run.
+        * Scripts/test262/Runner.pm:
+        (processCLI):
+        (main):
+
+2018-06-18  Zan Dobersek  <zdobersek@igalia.com>
+
+        [webkitpy] WPTRunner should remove any metadata content before (re)generating it
+        https://bugs.webkit.org/show_bug.cgi?id=186755
+
+        Reviewed by Carlos Garcia Campos.
+
+        WPTRunner generates the WPT-compliant metadata content before each test
+        run. Before it does so, it should remove the complete target directory
+        for this metadata, allowing any change in the expectations JSON to be
+        immediately reflected.
+
+        For example, if a test failure expectation is removed, the related .ini
+        metadata file is not generated anymore, but the stale .ini file isn't
+        removed from the current metadata directory. To avoid this, purging
+        the metadata directory and regenerating it from scratch should be done
+        for each test run.
+
+        * Scripts/webkitpy/w3c/wpt_runner.py:
+        (WPTRunner._generate_metadata_directory):
+        * Scripts/webkitpy/w3c/wpt_runner_unittest.py:
+        (WPTRunnerTest.test_generate_metadata_directory):
+
+2018-06-12  Darin Adler  <darin@apple.com>
+
+        [Cocoa] Make some RetainPtr refinements to get more ready for ARC
+        https://bugs.webkit.org/show_bug.cgi?id=186526
+
+        Reviewed by Anders Carlsson.
+
+        * DumpRenderTree/mac/LayoutTestHelper.m:
+        (colorProfileURLForDisplay): Use CFBridgingRelease instead of using
+        CFAutorelease for a bridging use case.
+
+2018-06-16  Leo Balter  <leonardo.balter@gmail.com>
+
+        [test262-runner] Handle items from the config list with inline comments
+        https://bugs.webkit.org/show_bug.cgi?id=186707
+
+        Reviewed by Michael Saboff.
+
+        This is a workaround for the Yaml parser that bundles inline comments together with any items.
+        * Scripts/test262/Runner.pm:
+        (shouldSkip):
+
+2018-06-16  Valerie R Young  <valerie@bocoup.com>
+
+        test262/Runner.pm: option to run test skipped in config file
+        https://bugs.webkit.org/show_bug.cgi?id=186660
+
+        Reviewed by Michael Saboff.
+
+        Adds option --skipped-files, -S, to run all files skipped in the
+        config.yaml file.
+
+        * Scripts/test262/Runner.pm:
+        (processCLI):
+        (main):
+        (getBuildPath):
+        (processFile):
+        (processResult):
+
+2018-05-18  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        Unreviewed, add myself as a WebKit committer.
+
+        * Scripts/webkitpy/common/config/contributors.json:
+
+2018-06-15  Chris Dumez  <cdumez@apple.com>
+
+        Add API test coverage for SW RegistrationDatabase destruction and fix issues found by the test
+        https://bugs.webkit.org/show_bug.cgi?id=186681
+
+        Reviewed by Brady Eidson.
+
+       Add API test coverage.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ServiceWorkerBasic.mm:
+
+2018-06-15  Brady Eidson  <beidson@apple.com>
+
+        Crash in both StorageProcess and UIProcess when using custom WKWebsiteDataStores for data management.
+        <rdar://problem/41019893> and https://bugs.webkit.org/show_bug.cgi?id=186682
+
+        Reviewed by Chris Dumez.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKitCocoa/WebsiteDataStoreCustomPaths.mm:
+        (TEST):
+
+2018-06-15  Carlos Alberto Lopez Perez  <clopez@igalia.com>
+
+        [GTK] Fix adding error in browserperfdash_runner.
+
+        Unreviewed follow-up fix after r232820.
+
+        * Scripts/webkitpy/browserperfdash/browserperfdash_runner.py:
+        (BrowserPerfDashRunner.run):
+
+2018-06-15  Carlos Alberto Lopez Perez  <clopez@igalia.com>
+
+        [GTK][WKE] Disable memory pressure handling when running layout tests (WTR)
+        https://bugs.webkit.org/show_bug.cgi?id=186663
+
+        Reviewed by Michael Catanzaro.
+
+        Disable memory pressure handling when running tests via WTR by
+        setting WEBKIT_DISABLE_MEMORY_PRESSURE_MONITOR=1 on the environment.
+
+        * WebKitTestRunner/gtk/main.cpp:
+        (main):
+        * WebKitTestRunner/wpe/main.cpp:
+        (main):
+
+2018-06-15  Jonathan Bedard  <jbedard@apple.com>
+
+        Add iOS 12 and watchOS 5 to webkitpy
+        https://bugs.webkit.org/show_bug.cgi?id=186285
+
+        Reviewed by Aakash Jain.
+
+        * BuildSlaveSupport/build.webkit.org-config/wkbuild.py:
+        * BuildSlaveSupport/build.webkit.org-config/wkbuild_unittest.py:
+        Trigger the right build queues for iOS 12 on check-in.
+        * Scripts/webkitpy/common/version_name_map.py:
+        (VersionNameMap.__init__): Add iOS 12, tvOS 12 and watchOS 5.
+        * Scripts/webkitpy/common/version_name_map_unittest.py:
+        (VersionMapTestCase.test_ios_name_by_version): Test iOS 12 version-name mapping.
+        * Scripts/webkitpy/port/ios_device_unittest.py:
+        (IOSDeviceTest.test_layout_test_searchpath_without_apple_additions):
+        * Scripts/webkitpy/port/ios_simulator_unittest.py:
+        (IOSSimulatorTest.test_layout_test_searchpath_without_apple_additions):
+
 2018-06-14  Saam Barati  <sbarati@apple.com>
 
         sun spider compile time benchmark fails in run-jsc-benchmarks with JSC_validateOptions=1

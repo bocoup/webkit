@@ -33,7 +33,9 @@
 #include "LayoutContainer.h"
 #include "LayoutContext.h"
 #include "LayoutDescendantIterator.h"
+#include "Logging.h"
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 namespace Layout {
@@ -52,7 +54,7 @@ FormattingContext::~FormattingContext()
 void FormattingContext::computeFloatingHeightAndMargin(LayoutContext& layoutContext, const Box& layoutBox, Display::Box& displayBox) const
 {
     auto heightAndMargin = Geometry::floatingHeightAndMargin(layoutContext, layoutBox);
-    displayBox.setHeight(heightAndMargin.height);
+    displayBox.setContentBoxHeight(heightAndMargin.height);
     displayBox.moveVertically(heightAndMargin.margin.top);
     displayBox.setVerticalMargin(heightAndMargin.margin);
 }
@@ -60,7 +62,7 @@ void FormattingContext::computeFloatingHeightAndMargin(LayoutContext& layoutCont
 void FormattingContext::computeFloatingWidthAndMargin(LayoutContext& layoutContext, const Box& layoutBox, Display::Box& displayBox) const
 {
     auto widthAndMargin = Geometry::floatingWidthAndMargin(layoutContext, layoutBox);
-    displayBox.setWidth(widthAndMargin.width);
+    displayBox.setContentBoxWidth(widthAndMargin.width);
     displayBox.moveHorizontally(widthAndMargin.margin.left);
     displayBox.setHorizontalMargin(widthAndMargin.margin);
 }
@@ -69,7 +71,7 @@ void FormattingContext::computeOutOfFlowHorizontalGeometry(LayoutContext& layout
 {
     auto horizontalGeometry = Geometry::outOfFlowHorizontalGeometry(layoutContext, layoutBox);
     displayBox.setLeft(horizontalGeometry.left);
-    displayBox.setWidth(horizontalGeometry.widthAndMargin.width);
+    displayBox.setContentBoxWidth(horizontalGeometry.widthAndMargin.width);
     ASSERT(horizontalGeometry.left + horizontalGeometry.widthAndMargin.width == horizontalGeometry.right);
     displayBox.setHorizontalMargin(horizontalGeometry.widthAndMargin.margin);
 }
@@ -78,7 +80,7 @@ void FormattingContext::computeOutOfFlowVerticalGeometry(LayoutContext& layoutCo
 {
     auto verticalGeometry = Geometry::outOfFlowVerticalGeometry(layoutContext, layoutBox);
     displayBox.setTop(verticalGeometry.top);
-    displayBox.setHeight(verticalGeometry.heightAndMargin.height);
+    displayBox.setContentBoxHeight(verticalGeometry.heightAndMargin.height);
     ASSERT(verticalGeometry.top + verticalGeometry.heightAndMargin.height == verticalGeometry.bottom);
     displayBox.setVerticalMargin(verticalGeometry.heightAndMargin.margin);
 }
@@ -96,17 +98,22 @@ void FormattingContext::placeInFlowPositionedChildren(LayoutContext& layoutConte
     if (container.establishesFormattingContext() && &container != &root())
         return;
 
+    LOG_WITH_STREAM(FormattingContextLayout, stream << "Start: move in-flow positioned children -> context: " << &layoutContext << " parent: " << &container);
     for (auto& layoutBox : childrenOfType<Box>(container)) {
         if (!layoutBox.isInFlowPositioned())
             continue;
         computeInFlowPositionedPosition(layoutContext, layoutBox, *layoutContext.displayBoxForLayoutBox(layoutBox));
     }
+    LOG_WITH_STREAM(FormattingContextLayout, stream << "End: move in-flow positioned children -> context: " << &layoutContext << " parent: " << &container);
 }
 
 void FormattingContext::layoutOutOfFlowDescendants(LayoutContext& layoutContext) const
 {
     if (!is<Container>(m_root.get()))
         return;
+
+    LOG_WITH_STREAM(FormattingContextLayout, stream << "Start: layout out-of-flow descendants -> context: " << &layoutContext << " root: " << &root());
+
     for (auto& outOfFlowBox : downcast<Container>(*m_root).outOfFlowDescendants()) {
         auto& layoutBox = *outOfFlowBox;
         auto& displayBox = layoutContext.createDisplayBox(layoutBox);
@@ -124,6 +131,7 @@ void FormattingContext::layoutOutOfFlowDescendants(LayoutContext& layoutContext)
 
         computeOutOfFlowVerticalGeometry(layoutContext, layoutBox, displayBox);
     }
+    LOG_WITH_STREAM(FormattingContextLayout, stream << "End: layout out-of-flow descendants -> context: " << &layoutContext << " root: " << &root());
 }
 
 #ifndef NDEBUG
@@ -136,9 +144,9 @@ void FormattingContext::validateGeometryConstraintsAfterLayout(const LayoutConte
     for (auto& layoutBox : descendantsOfType<Box>(formattingContextRoot)) {
         if (&layoutBox.formattingContextRoot() != &formattingContextRoot)
             continue;
-        auto* containingBlock = layoutBox.containingBlock();
-        ASSERT(containingBlock);
-        auto containingBlockSize = layoutContext.displayBoxForLayoutBox(*containingBlock)->size();
+        auto& containingBlockDisplayBox = *layoutContext.displayBoxForLayoutBox(*layoutBox.containingBlock());
+        auto containingBlockHeight = containingBlockDisplayBox.contentBoxHeight();
+        auto containingBlockWidth = containingBlockDisplayBox.contentBoxWidth();
         auto* displayBox = layoutContext.displayBoxForLayoutBox(layoutBox);
         ASSERT(displayBox);
 
@@ -146,15 +154,15 @@ void FormattingContext::validateGeometryConstraintsAfterLayout(const LayoutConte
         // 10.3.7 Absolutely positioned, non-replaced elements
         if ((layoutBox.isBlockLevelBox() || layoutBox.isOutOfFlowPositioned()) && !layoutBox.replaced()) {
             // margin-left + border-left-width + padding-left + width + padding-right + border-right-width + margin-right = width of containing block
-            ASSERT(displayBox->marginLeft() + displayBox->borderLeft() + displayBox->paddingLeft() + displayBox->width()
-                + displayBox->paddingRight() + displayBox->borderRight() + displayBox->marginRight() == containingBlockSize.width());
+            ASSERT(displayBox->marginLeft() + displayBox->borderLeft() + displayBox->paddingLeft() + displayBox->contentBoxWidth()
+                + displayBox->paddingRight() + displayBox->borderRight() + displayBox->marginRight() == containingBlockWidth);
         }
 
         // 10.6.4 Absolutely positioned, non-replaced elements
         if (layoutBox.isOutOfFlowPositioned() && !layoutBox.replaced()) {
             // top + margin-top + border-top-width + padding-top + height + padding-bottom + border-bottom-width + margin-bottom + bottom = height of containing block
-            ASSERT(displayBox->top() + displayBox->marginTop() + displayBox->borderTop() + displayBox->paddingTop()
-                + displayBox->paddingBottom() + displayBox->borderBottom() + displayBox->marginBottom() == containingBlockSize.height());
+            ASSERT(displayBox->top() + displayBox->marginTop() + displayBox->borderTop() + displayBox->paddingTop() + displayBox->contentBoxHeight()
+                + displayBox->paddingBottom() + displayBox->borderBottom() + displayBox->marginBottom() == containingBlockHeight);
         }
     }
 }

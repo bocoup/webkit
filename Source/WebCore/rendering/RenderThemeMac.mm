@@ -156,6 +156,14 @@ static const double progressAnimationNumFrames = 256;
 
 - (CFDictionaryRef)_adjustedCoreUIDrawOptionsForDrawingBordersOnly:(CFDictionaryRef)defaultOptions
 {
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+    // Dark mode controls don't have borders, just a semi-transparent background of shadows.
+    // In the dark mode case we can't disable borders, or we will not paint anything for the control.
+    NSAppearanceName appearance = [self.controlView.effectiveAppearance bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]];
+    if ([appearance isEqualToString:NSAppearanceNameDarkAqua])
+        return defaultOptions;
+#endif
+
     // FIXME: This is a workaround for <rdar://problem/11385461>. When that bug is resolved, we should remove this code,
     // as well as the internal method overrides below.
     CFMutableDictionaryRef coreUIDrawOptions = CFDictionaryCreateMutableCopy(NULL, 0, defaultOptions);
@@ -497,7 +505,7 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
         // Only use NSColor when the system appearance is desired, otherwise use RenderTheme's default.
         if (useSystemAppearance) {
             if (!m_systemVisitedLinkColor.isValid())
-                m_systemVisitedLinkColor = colorFromNSColor([NSColor systemPurpleColor]);
+                m_systemVisitedLinkColor = semanticColorFromNSColor([NSColor systemPurpleColor]);
             return m_systemVisitedLinkColor;
         }
 
@@ -659,7 +667,7 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
 
         if (auto selector = selectCocoaColor()) {
             if (auto color = wtfObjcMsgSend<NSColor *>([NSColor class], selector))
-                return colorFromNSColor(color);
+                return semanticColorFromNSColor(color);
         }
 
         switch (cssValueID) {
@@ -687,7 +695,7 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
             NSArray<NSColor *> *alternateColors = [NSColor controlAlternatingRowBackgroundColors];
 #endif
             ASSERT(alternateColors.count >= 2);
-            return colorFromNSColor(alternateColors[0]);
+            return semanticColorFromNSColor(alternateColors[0]);
         }
 
         case CSSValueAppleSystemOddAlternatingContentBackground: {
@@ -697,7 +705,7 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
             NSArray<NSColor *> *alternateColors = [NSColor controlAlternatingRowBackgroundColors];
 #endif
             ASSERT(alternateColors.count >= 2);
-            return colorFromNSColor(alternateColors[1]);
+            return semanticColorFromNSColor(alternateColors[1]);
         }
 
         case CSSValueBackground:

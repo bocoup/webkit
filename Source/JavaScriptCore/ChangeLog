@@ -1,3 +1,140 @@
+2018-06-18  Carlos Alberto Lopez Perez  <clopez@igalia.com>
+
+        [WTF] Remove workarounds needed to support libstdc++-4
+        https://bugs.webkit.org/show_bug.cgi?id=186762
+
+        Reviewed by Michael Catanzaro.
+
+        Revert r226299, r226300 r226301 and r226302.
+
+        * API/tests/TypedArrayCTest.cpp:
+        (assertEqualsAsNumber):
+
+2018-06-16  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        REGRESSION(r227717): Hardcoded page size causing JSC crashes on platforms with page size bigger than 16 KB
+        https://bugs.webkit.org/show_bug.cgi?id=182923
+
+        Reviewed by Mark Lam.
+
+        The blockSize used by MarkedBlock is incorrect on platforms with pages larger than 16 KB.
+        Upstream Fedora's patch to use a safer 64 KB default. This fixes PowerPC and s390x.
+
+        * heap/MarkedBlock.h:
+
+2018-06-16  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [JSC] Inline JSArray::pushInline and Structure::nonPropertyTransition
+        https://bugs.webkit.org/show_bug.cgi?id=186723
+
+        Reviewed by Mark Lam.
+
+        Now, CoW -> non-CoW transition is heavy path. We inline the part of Structure::nonPropertyTransition
+        to catch the major path. And we also inline JSArray::pushInline well to spread this in operationArrayPushMultiple.
+
+        This patch improves SixSpeed/spread-literal.es5.
+
+                                     baseline                  patched
+
+        spread-literal.es5      114.4140+-4.5146     ^    104.5475+-3.6157        ^ definitely 1.0944x faster
+
+        * runtime/JSArrayInlines.h:
+        (JSC::JSArray::pushInline):
+        * runtime/Structure.cpp:
+        (JSC::Structure::nonPropertyTransitionSlow):
+        (JSC::Structure::nonPropertyTransition): Deleted.
+        * runtime/Structure.h:
+        * runtime/StructureInlines.h:
+        (JSC::Structure::nonPropertyTransition):
+
+2018-06-16  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [DFG] Reduce OSRExit for Kraken/crypto-aes due to CoW array
+        https://bugs.webkit.org/show_bug.cgi?id=186721
+
+        Reviewed by Keith Miller.
+
+        We still have several other OSRExits, but this patch reduces that.
+
+        1. While ArraySlice code accepts CoW arrays, it always emits CheckStructure without CoW Array structures.
+        So DFG emits ArraySlice onto CoW arrays, and always performs OSRExits.
+
+        2. The CoW patch removed ArrayAllocationProfile updates. This makes allocated JSImmutableButterfly
+        non-appropriate.
+
+        These changes a bit fix Kraken/crypto-aes regression.
+
+                                      baseline                  patched
+
+        stanford-crypto-aes        63.718+-2.312      ^      56.140+-0.966         ^ definitely 1.1350x faster
+
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::handleIntrinsicCall):
+        * ftl/FTLOperations.cpp:
+        (JSC::FTL::operationMaterializeObjectInOSR):
+        * runtime/CommonSlowPaths.cpp:
+        (JSC::SLOW_PATH_DECL):
+
+2018-06-15  Yusuke Suzuki  <utatane.tea@gmail.com>
+
+        [DFG][FTL] Spread onto PhantomNewArrayBuffer assumes JSFixedArray, but JSImmutableButterfly is returned
+        https://bugs.webkit.org/show_bug.cgi?id=186460
+
+        Reviewed by Saam Barati.
+
+        Spread(PhantomNewArrayBuffer) returns JSImmutableButterfly. But it is wrong.
+        We should return JSFixedArray for Spread. This patch adds a code generating
+        a JSFixedArray from JSImmutableButterfly.
+
+        Merging JSFixedArray into JSImmutableButterfly is possible future extension.
+
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileSpread):
+        * runtime/JSFixedArray.h:
+
+2018-06-15  Saam Barati  <sbarati@apple.com>
+
+        Annotate shrinkFootprintWhenIdle with NS_AVAILABLE
+        https://bugs.webkit.org/show_bug.cgi?id=186687
+        <rdar://problem/40071332>
+
+        Reviewed by Keith Miller.
+
+        * API/JSVirtualMachinePrivate.h:
+
+2018-06-15  Saam Barati  <sbarati@apple.com>
+
+        Make ForceOSRExit CFG pruning in bytecode parser more aggressive by making the original block to ignore be the plan's osrEntryBytecodeIndex
+        https://bugs.webkit.org/show_bug.cgi?id=186648
+
+        Reviewed by Michael Saboff.
+
+        This patch is neutral on SunSpider/bitops-bitwise-and. That test originally
+        regressed with my first version of ForceOSRExit CFG pruning. This patch makes
+        ForceOSRExit CFG pruning more aggressive by not ignoring everything that
+        can reach any loop_hint, but only ignoring blocks that can reach a loop_hint
+        if it's the plan's osr entry bytecode target. The goal is to get a speedometer
+        2 speedup with this change on iOS.
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parse):
+
+2018-06-15  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        Unreviewed, rolling out r232816.
+
+        Suggested by Caitlin:
+        "this patch clearly does get some things wrong, and it's not
+        easy to find what those things are"
+
+        Reverted changeset:
+
+        "[LLInt] use loadp consistently for
+        get_from_scope/put_to_scope"
+        https://bugs.webkit.org/show_bug.cgi?id=132333
+        https://trac.webkit.org/changeset/232816
+
 2018-06-14  Michael Saboff  <msaboff@apple.com>
 
         REGRESSION(232741): Crash running ARES-6

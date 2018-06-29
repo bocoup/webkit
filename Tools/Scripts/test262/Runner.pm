@@ -42,6 +42,8 @@ use FindBin;
 use Env qw(DYLD_FRAMEWORK_PATH);
 use Config;
 use Time::HiRes qw(time);
+use IO::Handle;
+use IO::Select;
 
 my $Bin;
 BEGIN {
@@ -74,7 +76,7 @@ if (eval {require Pod::Usage; 1;}) {
 }
 
 # Commandline settings
-my $max_process;
+my $maxProcesses;
 my @cliTestDirs;
 my $verbose;
 my $JSC;
@@ -89,6 +91,7 @@ my $failingOnly;
 my $latestImport;
 my $runningAllTests;
 my $timeout;
+my $skippedOnly;
 
 my $test262Dir;
 my $webkitTest262Dir = abs_path("$Bin/../../../JSTests/test262");
@@ -125,7 +128,7 @@ sub processCLI {
         'j|jsc=s' => \$JSC,
         't|t262=s' => \$test262Dir,
         'o|test-only=s@' => \@cliTestDirs,
-        'p|child-processes=i' => \$max_process,
+        'p|child-processes=i' => \$maxProcesses,
         'h|help' => \$help,
         'release' => \$release,
         'v|verbose' => \$verbose,
@@ -140,6 +143,7 @@ sub processCLI {
         'stats' => \$stats,
         'r|results=s' => \$specifiedResultsFile,
         'timeout=i' => \$timeout,
+        'S|skipped-files' => \$skippedOnly,
     );
 
     if ($help) {
@@ -219,7 +223,7 @@ sub processCLI {
     if (! $ignoreConfig) {
         if ($configFile && ! -e $configFile) {
             die "Error: Config file $configFile does not exist!\n" .
-                "Run without config file with -i or supply with --config.\n"
+                "Run without config file with -i or supply with --config.\n";
         }
         $config = LoadFile($configFile) or die $!;
         if ($config->{skip} && $config->{skip}->{files}) {
@@ -236,20 +240,29 @@ sub processCLI {
     }
 
     # If the expectation file doesn't exist and is not specified, run all tests.
-    if (! $ignoreExpectations && -e $expectationsFile) {
+    # If we are running only skipped files, then ignore the expectation file.
+    if (! $ignoreExpectations && -e $expectationsFile && !$skippedOnly) {
         $expect = LoadFile($expectationsFile) or die $!;
+    }
+
+    # If running only the skipped files from the config list
+    if ($skippedOnly) {
+        if (! -e $configFile) {
+            die "Error: Config file $configFile does not exist!\n" .
+                "Cannot run skipped tests from config. Supply file with --config.\n";
+        }
     }
 
     if (@features) {
         %filterFeatures = map { $_ => 1 } @features;
     }
 
-    $max_process ||= getProcesses();
+    $maxProcesses ||= getProcesses();
 
     print "\nSettings:\n"
         . "Test262 Dir: " . abs2rel($test262Dir) . "\n"
         . "JSC: " . abs2rel($JSC) . "\n"
-        . "Child Processes: $max_process\n";
+        . "Child Processes: $maxProcesses\n";
 
     print "Test timeout: $timeout\n" if $timeout;
     print "DYLD_FRAMEWORK_PATH: $DYLD_FRAMEWORK_PATH\n" if $DYLD_FRAMEWORK_PATH;
@@ -259,13 +272,13 @@ sub processCLI {
     print "Expectations file: " . abs2rel($expectationsFile) . "\n" if $expect;
     print "Results file: ". abs2rel($resultsFile) . "\n" if $stats || $failingOnly;
 
+    print "Running only the failing files in expectations.yaml\n" if $failingOnly;
     print "Running only the latest imported files\n" if $latestImport;
-
+    print "Running only the skipped files in config.yaml\n" if $skippedOnly;
     print "Verbose mode\n" if $verbose;
 
     print "---\n\n";
 }
-
 
 sub main {
     processCLI();
@@ -301,52 +314,107 @@ sub main {
         }
     }
 
-    # If we are processing many files, fork process
-    if (scalar @files > $max_process * 5) {
+    my $pm = Parallel::ForkManager->new($maxProcesses);
+    my $select = IO::Select->new();
+
+    my @children;
+    my @parents;
+    my $activeChildren = 0;
+
+    my @resultsfhs;
+
+    # Open each process
+    PROCESSES:
+    foreach (0..$maxProcesses-1) {
+        my $i = $_;
 
         # Make temporary files to record results
-        my @resultsfhs;
-        for (my $i = 0; $i <= $max_process-1; $i++) {
-            my ($fh, $filename) = getTempFile();
-            $resultsfhs[$i] = $fh;
+        my ($fh, $filename) = getTempFile();
+        $resultsfhs[$i] = $fh;
+
+        socketpair($children[$i], $parents[$i], 1, 1, 0);
+        my $child = $children[$i];
+        my $parent = $parents[$i];
+        $child->autoflush(1);
+        $parent->autoflush(1);
+
+        # seeds each child with a file;
+
+        my $pid = $pm->start;
+        if ($pid) { # parent
+            $select->add($child);
+            # each child starts with a file;
+            my $file = shift @files;
+            chomp $file;
+            if ($file) {
+                print $child "$file\n";
+                $activeChildren++;
+            }
+
+            next PROCESSES;
         }
 
-        my $pm = Parallel::ForkManager->new($max_process);
-        my $filesperprocess = int(scalar @files / $max_process);
+        # children will start here
+        srand(time ^ $$); # Creates a new seed for each fork
+        CHILD:
+        while (<$parent>) {
+            my $file = $_;
+            chomp $file;
+            if ($file eq 'END') {
+                last;
+            }
 
-        FILES:
-        for (my $i = 0; $i <= $max_process-1; $i++) {
-            $pm->start and next FILES; # do the fork
-            srand(time ^ $$); # Creates a new seed for each fork
+            processFile($file, $resultsfhs[$i]);
+            print $parent "signal\n";
+        }
 
-            my $first = $filesperprocess * $i;
-            my $last = $i == $max_process-1 ? scalar @files : $filesperprocess * ($i+1);
+        $child->close();
+        $pm->finish;
+    }
 
-            for (my $j = $first; $j < $last; $j++) {
-                processFile($files[$j], $resultsfhs[$i]);
-            };
-
-            $pm->finish; # do the exit in the child process
-        };
-
-        $pm->wait_all_children;
-
-        # Read results from file into @results and close
-        for (my $i = 0; $i <= $max_process-1; $i++) {
-            seek($resultsfhs[$i], 0, 0);
-            push @results, LoadFile($resultsfhs[$i]);
-            close $resultsfhs[$i];
+    my @ready;
+    FILES:
+    while ($activeChildren and @ready = $select->can_read($timeout)) {
+        foreach (@ready) {
+            my $readyChild = $_;
+            my $childMsg = <$readyChild>;
+            chomp $childMsg;
+            $activeChildren--;
+            my $file = shift @files;
+            if ($file) {
+                chomp $file;
+                print $readyChild "$file\n";
+                $activeChildren++;
+            } elsif (!$activeChildren) {
+                last FILES;
+            }
         }
     }
-    # Otherwising, running sequentially is fine
-    else {
-        my ($resfh, $resfilename) = getTempFile();
-        foreach my $file (@files) {
-            processFile($file, $resfh);
-        };
-        seek($resfh, 0, 0);
-        @results = LoadFile($resfh);
-        close $resfh;
+
+    foreach (@children) {
+        print $_ "END\n";
+    }
+
+    foreach (@parents) {
+        $_->close();
+    }
+
+    my $count = 0;
+    for my $parent (@parents) {
+        my $child = $children[$count];
+        print $child "END\n";
+        $parent->close();
+        $count++;
+    }
+
+    $pm->wait_all_children;
+
+    # Read results from file into @results and close
+    foreach (0..$maxProcesses-1) {
+        my $i = $_;
+        seek($resultsfhs[$i], 0, 0);
+        push @results, LoadFile($resultsfhs[$i]);
+        close $resultsfhs[$i];
     }
 
     close $deffh;
@@ -397,10 +465,10 @@ sub main {
         }
         elsif ($test->{result} eq 'PASS') {
             # If this is an newly passing test
-            if ($expectedFailure) {
+            if ($expectedFailure || $skippedOnly) {
                 $newpasscount++;
 
-                if ($verbose) {
+                if ($verbose || $skippedOnly) {
                     my $path = $test->{path};
                     my $mode = $test->{mode};
                     $newpassreport .= "PASS $path ($mode)\n";
@@ -423,16 +491,22 @@ sub main {
             print "---------------NEW PASSING TESTS SUMMARY---------------\n\n";
             print "$newpassreport\n";
         }
+        print "---------------------------------------------------------\n\n";
+    }
+
+    # If we are running only skipped tests, report all the new passing tests
+    if ($skippedOnly && $newpassreport) {
+        print "---------------NEW PASSING TESTS SUMMARY---------------\n";
+        print "\n$newpassreport\n";
         print "---------------------------------------------------------\n";
     }
 
+    print("\n");
+
     if ($saveExpectations) {
         DumpFile($expectationsFile, \%failed);
-        print "\nSaved results in: $expectationsFile\n";
-    } else {
-        print "\nRun with --save to save a new expectations file\n";
+        print "Saved expectation file in: $expectationsFile\n";
     }
-
     if ($runningAllTests) {
         if (! -e $resultsDir) {
             mkpath($resultsDir);
@@ -449,6 +523,7 @@ sub main {
 
     if ( !$expect ) {
         print $failcount . " tests failed\n";
+        print $newpasscount . " tests newly pass\n" if $skippedOnly;
     } else {
         print $failcount . " tests failed in total\n";
         print $newfailcount . " tests newly fail\n";
@@ -521,8 +596,8 @@ sub getBuildPath {
     my $jsc;
 
     if ($webkitdirIsAvailable) {
-        my $config = $release ? 'Release' : 'Debug';
-        setConfiguration($config);
+        my $webkit_config = $release ? 'Release' : 'Debug';
+        setConfiguration($webkit_config);
         my $jscDir = executableProductDir();
 
         $jsc = $jscDir . '/jsc';
@@ -554,27 +629,35 @@ sub processFile {
 
     # Check test against filters in config file
     my $file = abs2rel( $filename, $test262Dir );
-    if (shouldSkip($file, $data)) {
-        $resultsdata = processResult($filename, $data, "skip");
-        DumpFile($resultsfh, $resultsdata);
+    my $skipTest = shouldSkip($file, $data);
+
+    # If we only want to run skipped tests, invert filter
+    $skipTest = !$skipTest if $skippedOnly;
+
+    if ($skipTest) {
+        if (! $skippedOnly) {
+            $resultsdata = processResult($filename, $data, "skip");
+            DumpFile($resultsfh, $resultsdata);
+        }
         return;
     }
+    else {
+        my @scenarios = getScenarios(@{ $data->{flags} });
 
-    my @scenarios = getScenarios(@{ $data->{flags} });
+        my $includes = $data->{includes};
+        my ($includesfh, $includesfile);
 
-    my $includes = $data->{includes};
-    my ($includesfh, $includesfile);
+        ($includesfh, $includesfile) = compileTest($includes) if defined $includes;
 
-    ($includesfh, $includesfile) = compileTest($includes) if defined $includes;
+        foreach my $scenario (@scenarios) {
+            my ($result, $execTime) = runTest($includesfile, $filename, $scenario, $data);
 
-    foreach my $scenario (@scenarios) {
-        my ($result, $execTime) = runTest($includesfile, $filename, $scenario, $data);
+            $resultsdata = processResult($filename, $data, $scenario, $result, $execTime);
+            DumpFile($resultsfh, $resultsdata);
+        }
 
-        $resultsdata = processResult($filename, $data, $scenario, $result, $execTime);
-        DumpFile($resultsfh, $resultsdata);
+        close $includesfh if defined $includesfh;
     }
-
-    close $includesfh if defined $includesfh;
 }
 
 sub shouldSkip {
@@ -592,7 +675,10 @@ sub shouldSkip {
         return 1 if (grep {$filename =~ $_} @skipPaths);
 
         my @skipFeatures;
-        @skipFeatures = @{ $config->{skip}->{features} } if defined $config->{skip}->{features};
+        @skipFeatures = map {
+            # Remove inline comments from the yaml parsed config
+            $_ =~ /(\S*)/;
+        } @{ $config->{skip}->{features} } if defined $config->{skip}->{features};
 
         my $skip = 0;
         my $keep = 0;
@@ -723,12 +809,12 @@ sub processResult {
 
         # Print the failure if we haven't loaded an expectation file
         # or the failure is new.
-        my $printFailure = !$expect || $isnewfailure;
+        my $printFailure = (!$expect || $isnewfailure) && !$skippedOnly;
 
         my $newFail = '';
         $newFail = '! NEW ' if $isnewfailure;
         my $failMsg = '';
-        $failMsg = "FAIL $file ($scenario)\n" if ($printFailure or $verbose);
+        $failMsg = "FAIL $file ($scenario)\n";
 
         my $suffixMsg = '';
 
@@ -738,7 +824,7 @@ sub processResult {
             $suffixMsg = "$result$featuresList\n";
         }
 
-        print "$newFail$failMsg$suffixMsg";
+        print "$newFail$failMsg$suffixMsg" if ($printFailure || $verbose);
 
         $resultdata{result} = 'FAIL';
         $resultdata{error} = $currentfailure;
@@ -1005,7 +1091,7 @@ Print a brief help message and exits.
 
 =item B<--child-processes, -p>
 
-Specify number of child processes.
+Specify the number of child processes.
 
 =item B<--t262, -t>
 
@@ -1058,6 +1144,10 @@ Runs all test files that failed in a given results file (specifc with --results)
 =item B<--latest-import, -l>
 
 Runs the test files listed in the last import (./JSTests/test262/latest-changes-summary.txt).
+
+=item B<--skipped-files, -S>
+
+Runs all test files that are skipped according to the config.yaml file.
 
 =item B<--stats>
 

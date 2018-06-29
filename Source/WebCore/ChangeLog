@@ -1,3 +1,545 @@
+2018-06-18  Youenn Fablet  <youenn@apple.com>
+
+        Validate Cross-Origin-Resource-Policy for resources cached in the MemoryCache
+        https://bugs.webkit.org/show_bug.cgi?id=186639
+        <rdar://problem/41106984>
+
+        Reviewed by Geoffrey Garen.
+
+        Add a method to check CORP.
+        Make use of it to validate any memory cached resource.
+        Whitelist CORP header so that it is not filtered out by Network Process.
+
+        Test: http/wpt/cross-origin-resource-policy/image-in-iframe-loads.html
+
+        * loader/CrossOriginAccessControl.cpp:
+        (WebCore::shouldCrossOriginResourcePolicyCancelLoad):
+        (WebCore::validateCrossOriginResourcePolicy):
+        * loader/CrossOriginAccessControl.h:
+        * loader/cache/CachedResourceLoader.cpp:
+        (WebCore::CachedResourceLoader::requestResource):
+        * platform/network/ResourceResponseBase.cpp:
+        (WebCore::isSafeRedirectionResponseHeader):
+        (WebCore::isSafeCrossOriginResponseHeader):
+
+2018-06-18  Carlos Alberto Lopez Perez  <clopez@igalia.com>
+
+        [WTF] Remove workarounds needed to support libstdc++-4
+        https://bugs.webkit.org/show_bug.cgi?id=186762
+
+        Reviewed by Michael Catanzaro.
+
+        Revert r226299, r226300 r226301 and r226302.
+
+        No new tests, no change in behaviour.
+
+        * platform/graphics/FontSelectionAlgorithm.h:
+        (WebCore::FontSelectionValue::clampFloat):
+        * platform/graphics/avfoundation/cf/MediaPlayerPrivateAVFoundationCF.cpp:
+        (WebCore::MediaPlayerPrivateAVFoundationCF::currentMediaTime const):
+        * platform/graphics/win/UniscribeController.cpp:
+        (WebCore::UniscribeController::shapeAndPlaceItem):
+
+2018-06-18  Karl Leplat  <karl.leplat_ext@softathome.com>
+
+        [Threaded paintingEngine] Fix rendering glitches
+        https://bugs.webkit.org/show_bug.cgi?id=186764
+
+        Reviewed by Žan Doberšek.
+
+        * platform/graphics/nicosia/NicosiaPaintingEngineBasic.cpp:
+        (Nicosia::PaintingEngineBasic::paint):
+        To keep backwards compatibility with no multi-threaded,
+        we call Nicosia::Buffer functions beginPainting() and completePainting().
+
+
+2018-06-18  Tomas Popela  <tpopela@redhat.com>
+
+        Properly check the sscanf return valua
+        https://bugs.webkit.org/show_bug.cgi?id=186757
+
+        Reviewed by Carlos Garcia Campos.
+
+        Check if we matched anything and if we matched the expected amount of
+        data.
+
+        * page/linux/ResourceUsageThreadLinux.cpp:
+        (WebCore::cpuPeriod):
+
+2018-06-18  Tomas Popela  <tpopela@redhat.com>
+
+        [GTK] Wrong variable used in RenderThemeGtk
+        https://bugs.webkit.org/show_bug.cgi?id=186756
+
+        Reviewed by Carlos Garcia Campos.
+
+        Use SliderThumbHorizontalPart instead of SliderHorizontalPart.
+
+        * rendering/RenderThemeGtk.cpp:
+        (WebCore::RenderThemeGtk::adjustSliderThumbSize const):
+
+2018-06-18  Philippe Normand  <pnormand@igalia.com>
+
+        [GStreamer] Crash when adding in-band text track with playbin3 enabled
+        https://bugs.webkit.org/show_bug.cgi?id=186654
+
+        Reviewed by Xabier Rodriguez-Calvar.
+
+        Text track indexes should be relative to the total amount of
+        in-band text tracks. The previous code would induce the creation
+        of in-band text tracks with indexes relative to the total amount
+        of all in-band (audio, video, text) tracks.
+
+        * platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp:
+        (WebCore::MediaPlayerPrivateGStreamer::updateTracks):
+
+2018-06-17  Zalan Bujtas  <zalan@apple.com>
+
+        Anonymous block collapsing can destroy the renderer's parent.
+        https://bugs.webkit.org/show_bug.cgi?id=186655
+        <rdar://problem/41157554>
+
+        Reviewed by Antti Koivisto.
+
+        While destroying a chain of renderers (text renderer -> first letter renderer), we need to
+        check if the anonymous block collapsing destroyed the parent renderer (see webkit.org/b/186746).
+
+        Test: fast/text/first-letter-with-anon-wrapper-crash.html
+
+        * rendering/updating/RenderTreeBuilder.cpp:
+        (WebCore::RenderTreeBuilder::destroyAndCleanUpAnonymousWrappers):
+
+2018-06-17  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [WebKit on watchOS] Upstream watchOS source additions to OpenSource (Part 3)
+        https://bugs.webkit.org/show_bug.cgi?id=186442
+        <rdar://problem/40879364>
+
+        Reviewed by Darin Adler.
+
+        Rename references to "Extra zoom mode". No change in behavior.
+
+        * page/DisabledAdaptations.cpp:
+        (WebCore::watchAdaptationName):
+        (WebCore::extraZoomModeAdaptationName): Deleted.
+        * page/DisabledAdaptations.h:
+        * page/ViewportConfiguration.cpp:
+        (WebCore::needsUpdateAfterChangingDisabledAdaptations):
+        (WebCore::ViewportConfiguration::shouldOverrideDeviceWidthAndShrinkToFit const):
+        * page/WindowFeatures.cpp:
+        (WebCore::parseDisabledAdaptations):
+        * testing/Internals.cpp:
+        (WebCore::Internals::extraZoomModeAdaptationName const): Deleted.
+        * testing/Internals.h:
+        * testing/Internals.idl:
+
+2018-06-17  Youenn Fablet  <youenn@apple.com>
+
+        Rename Document::hasHadActiveMediaStreamTrack to Document::hasHadCaptureMediaStreamTrack
+        https://bugs.webkit.org/show_bug.cgi?id=186743
+        rdar://problem/41151193
+
+        Reviewed by Eric Carlson.
+
+        Covered by existing tests.
+
+        Rename setter and getter to be more accurate.
+        Move the place to call the setter to when creating a capture stream.
+
+        * Modules/mediastream/MediaDevicesRequest.cpp:
+        (WebCore::MediaDevicesRequest::start):
+        * Modules/mediastream/MediaStream.cpp:
+        (WebCore::MediaStream::statusDidChange):
+        * Modules/mediastream/UserMediaRequest.cpp:
+        (WebCore::UserMediaRequest::mediaStreamIsReady):
+        * dom/Document.h:
+        (WebCore::Document::setHasCaptureMediaStreamTrack):
+        (WebCore::Document::hasHadCaptureMediaStreamTrack const):
+        (WebCore::Document::setHasActiveMediaStreamTrack): Deleted.
+        (WebCore::Document::hasHadActiveMediaStreamTrack const): Deleted.
+
+2018-06-17  Zalan Bujtas  <zalan@apple.com>
+
+        [LFC] DisplayBox API should be more clear about height/width vs. contentBoxHeight/width
+        https://bugs.webkit.org/show_bug.cgi?id=186744
+
+        Reviewed by Antti Koivisto.
+
+        Display::Box::height/width -> border box size.
+        Display::Box::contentBoxHeight/width -> content box size.
+        Display::Box::top/left/bottom/right -> border box position in the containing box's coordinate system.
+        Display::Box::marginBox/borderBox/paddingBox/contentBox -> relative to border box (border box is { 0, 0 })
+ 
+        (This patch also removes the box-sizing logic from Display::Box. FormattingContext::Geometry should set the
+        correct contentBoxSize/borderBoxSize based on the CSS property.)
+
+        * layout/FormattingContext.cpp:
+        (WebCore::Layout::FormattingContext::computeFloatingHeightAndMargin const):
+        (WebCore::Layout::FormattingContext::computeFloatingWidthAndMargin const):
+        (WebCore::Layout::FormattingContext::computeOutOfFlowHorizontalGeometry const):
+        (WebCore::Layout::FormattingContext::computeOutOfFlowVerticalGeometry const):
+        (WebCore::Layout::FormattingContext::validateGeometryConstraintsAfterLayout const):
+        * layout/FormattingContextGeometry.cpp:
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowNonReplacedHorizontalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowReplacedVerticalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowReplacedHorizontalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::floatingNonReplacedHeightAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::floatingNonReplacedWidthAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::inlineReplacedHeightAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::inlineReplacedWidthAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::computedPadding):
+        (WebCore::Layout::FormattingContext::Geometry::computedNonCollapsedHorizontalMarginValue):
+        (WebCore::Layout::FormattingContext::Geometry::computedNonCollapsedVerticalMarginValue):
+        * layout/LayoutContext.cpp:
+        (WebCore::Layout::LayoutContext::initializeRoot):
+        * layout/blockformatting/BlockFormattingContext.cpp:
+        (WebCore::Layout::BlockFormattingContext::computeInFlowHeightAndMargin const):
+        (WebCore::Layout::BlockFormattingContext::computeInFlowWidthAndMargin const):
+        * layout/blockformatting/BlockFormattingContextGeometry.cpp:
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowNonReplacedHeightAndMargin):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowNonReplacedWidthAndMargin):
+        (WebCore::Layout::BlockFormattingContext::Geometry::staticPosition):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowPositionedPosition):
+        * layout/displaytree/DisplayBox.cpp:
+        (WebCore::Display::Box::marginBox const):
+        (WebCore::Display::Box::borderBox const):
+        (WebCore::Display::Box::paddingBox const):
+        (WebCore::Display::Box::contentBox const):
+        * layout/displaytree/DisplayBox.h:
+        (WebCore::Display::Box::top const):
+        (WebCore::Display::Box::left const):
+        (WebCore::Display::Box::bottom const):
+        (WebCore::Display::Box::right const):
+        (WebCore::Display::Box::topLeft const):
+        (WebCore::Display::Box::bottomRight const):
+        (WebCore::Display::Box::size const):
+        (WebCore::Display::Box::width const):
+        (WebCore::Display::Box::height const):
+        (WebCore::Display::Box::rect const):
+        (WebCore::Display::Box::setTopLeft):
+        (WebCore::Display::Box::setTop):
+        (WebCore::Display::Box::setLeft):
+        (WebCore::Display::Box::moveHorizontally):
+        (WebCore::Display::Box::moveVertically):
+        (WebCore::Display::Box::setHasValidContentHeight):
+        (WebCore::Display::Box::setHasValidContentWidth):
+        (WebCore::Display::Box::setContentBoxHeight):
+        (WebCore::Display::Box::setContentBoxWidth):
+        (WebCore::Display::Box::contentBoxHeight const):
+        (WebCore::Display::Box::contentBoxWidth const):
+        (WebCore::Display::Box::setWidth): Deleted.
+        (WebCore::Display::Box::setHeight): Deleted.
+        (WebCore::Display::Box::setSize): Deleted.
+
+2018-06-17  Carlos Eduardo Ramalho  <cadubentzen@gmail.com>
+
+        [GTK] Correct behavior for dark themes
+        https://bugs.webkit.org/show_bug.cgi?id=186219
+
+        Reviewed by Michael Catanzaro.
+
+        Override RenderThemeGtk::isControlStyled() to not style
+        text inputs if color is set different than default.
+
+        No new tests. Manual theme test and existing layout tests already cover it.
+
+        * rendering/RenderThemeGtk.cpp:
+        (WebCore::RenderThemeGtk::isControlStyled const):
+        * rendering/RenderThemeGtk.h:
+
+2018-06-12  Darin Adler  <darin@apple.com>
+
+        [Cocoa] Make some RetainPtr refinements to get more ready for ARC
+        https://bugs.webkit.org/show_bug.cgi?id=186526
+
+        Reviewed by Anders Carlsson.
+
+        * platform/ios/UserAgentIOS.mm:
+        (WebCore::deviceNameForUserAgent): Drop unnecessary use of RetainPtr.
+
+        * platform/mac/URLMac.mm:
+        (WebCore::URL::operator NSURL * const): Use bridgingAutorelease.
+
+2018-06-16  Chris Dumez  <cdumez@apple.com>
+
+        Better pack ResourceResponse
+        https://bugs.webkit.org/show_bug.cgi?id=186718
+
+        Reviewed by Simon Fraser.
+
+        Better pack ResourceResponse to reduce its size on Mac from 632 to 616 bytes.
+
+        * platform/network/ResourceResponseBase.h:
+
+2018-06-15  Chris Dumez  <cdumez@apple.com>
+
+        Better pack MediaQuery
+        https://bugs.webkit.org/show_bug.cgi?id=186716
+
+        Reviewed by Simon Fraser.
+
+        Better pack MediaQuery to reduce its size from 48 bytes to 40 and save
+        some memory.
+
+        * css/MediaQuery.cpp:
+        (WebCore::MediaQuery::MediaQuery):
+        * css/MediaQuery.h:
+
+2018-06-15  Chris Dumez  <cdumez@apple.com>
+
+        StyleRuleMedia wastes 158KB of Vector capacity on cnn.com
+        https://bugs.webkit.org/show_bug.cgi?id=186705
+        <rdar://problem/41173637>
+
+        Reviewed by Simon Fraser.
+
+        Call shrinkToFit on RefPtr<StyleRuleBase> vectors in CSSParserImpl, after we're
+        done parsing and before constructing StyleRuleMedia, StyleRuleSupports and
+        deferred rules in StyleRuleGroup.
+
+        * css/parser/CSSParserImpl.cpp:
+        (WebCore::CSSParserImpl::parseDeferredRuleList):
+        (WebCore::CSSParserImpl::consumeMediaRule):
+        (WebCore::CSSParserImpl::consumeSupportsRule):
+
+2018-06-15  Chris Dumez  <cdumez@apple.com>
+
+        MediaQuerySet wastes a lot of vector capacity
+        https://bugs.webkit.org/show_bug.cgi?id=186696
+        <rdar://problem/41172850>
+
+        Reviewed by Simon Fraser.
+
+        Call shrinkToFit() on the MediaQuerySet after we're done parsing it
+        to avoid wasting memory.
+
+        * css/parser/MediaQueryParser.cpp:
+        (WebCore::MediaQueryParser::parseInternal):
+
+2018-06-15  Chris Dumez  <cdumez@apple.com>
+
+        CachedRawResource wastes 57K of Vector capacity
+        https://bugs.webkit.org/show_bug.cgi?id=186703
+        <rdar://problem/41173515>
+
+        Reviewed by Simon Fraser.
+
+        Use 0 as minimum capacity for CachedRawResource::m_redirectChain, instead of the
+        default value of 16. m_redirectChain usually contains very few items so 16 is
+        wasteful, especially considering that m_redirectChain contains fairly large
+        objects (std::pair<ResourceRequest, ResourceResponse>). CachedRawResource are
+        stored in the memory cache so it is important to not use more memory than
+        necessary.
+
+        We are also not worried about the performance cost of allocations here since
+        this vector is only populated on HTTP redirects.
+
+        * loader/cache/CachedRawResource.h:
+
+2018-06-15  Antti Koivisto  <antti@apple.com>
+
+        Semantic colors should not be transformed by color-filter
+        https://bugs.webkit.org/show_bug.cgi?id=186566
+        <rdar://problem/40705739>
+
+        Reviewed by Simon Fraser.
+
+        Test: css3/color-filters/color-filter-ignore-semantic.html
+
+        * platform/graphics/Color.h:
+        (WebCore::Color::Color):
+        (WebCore::Color::isSemantic const):
+        (WebCore::Color::setIsSemantic):
+
+        Add a bit to Color to indicate it originated from a semantic color name.
+        Note that a color compares unequal to the semantic version of the same color.
+
+        * platform/graphics/filters/FilterOperations.cpp:
+        (WebCore::FilterOperations::transformColor const):
+        * platform/graphics/mac/ColorMac.h:
+        * platform/graphics/mac/ColorMac.mm:
+        (WebCore::semanticColorFromNSColor):
+        * rendering/RenderThemeMac.mm:
+        (WebCore::RenderThemeMac::systemColor const):
+
+        Set the bit for semantic system colors.
+
+        * rendering/RenderTreeAsText.cpp:
+        (WebCore::RenderTreeAsText::writeRenderObject):
+
+        Fix up the output to avoid unneccary render tree dump changes.
+
+2018-06-15  Chris Dumez  <cdumez@apple.com>
+
+        Add API test coverage for SW RegistrationDatabase destruction and fix issues found by the test
+        https://bugs.webkit.org/show_bug.cgi?id=186681
+
+        Reviewed by Brady Eidson.
+
+        * workers/service/server/RegistrationDatabase.cpp:
+        (WebCore::RegistrationDatabase::RegistrationDatabase):
+        (WebCore::RegistrationDatabase::importRecords):
+        * workers/service/server/RegistrationDatabase.h:
+        Rename m_session to m_sessionID for clarity.
+
+        * workers/service/server/RegistrationStore.cpp:
+        (WebCore::RegistrationStore::~RegistrationStore):
+        Drop bad assertion now that the RegistrationDatabase is refcounted
+        and can outlive the RegistrationStore. The RegistrationDatabase will
+        take care of closing / destroying the SQLiteDatabase on the background
+        thread when destroyed.
+
+2018-06-15  Timothy Hatcher  <timothy@apple.com>
+
+        REGRESSION (r232799): Form controls are blank in dark mode.
+
+        https://bugs.webkit.org/show_bug.cgi?id=186677
+        rdar://problem/41162899
+
+        Reviewed by Wenson Hsieh.
+
+        * rendering/RenderThemeMac.mm:
+        (-[WebCoreTextFieldCell _adjustedCoreUIDrawOptionsForDrawingBordersOnly:]):
+        Dark mode controls don't have borders, just a semi-transparent background of shadows.
+        In the dark mode case we can't disable borders, or we will not paint anything for the control.
+
+2018-06-15  Zalan Bujtas  <zalan@apple.com>
+
+        [LFC] Fix static position left/top
+        https://bugs.webkit.org/show_bug.cgi?id=186640
+
+        Reviewed by Antti Koivisto.
+
+        In visual formatting model, we normally go like [top, left] while LayoutPoint takes [x, y]. Let's make this less error prone.
+
+        * layout/FormattingContext.h:
+        (WebCore::Layout::FormattingContext::Geometry::Position::operator LayoutPoint const):
+        * layout/blockformatting/BlockFormattingContext.h:
+        * layout/blockformatting/BlockFormattingContextGeometry.cpp:
+        (WebCore::Layout::BlockFormattingContext::Geometry::staticPosition):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowPositionedPosition):
+
+2018-06-15  Chris Dumez  <cdumez@apple.com>
+
+        Crash under WebCore::SWServer::registrationStoreImportComplete()
+        https://bugs.webkit.org/show_bug.cgi?id=186644
+        <rdar://problem/40982257>
+
+        Reviewed by Brady Eidson.
+
+        Fix lifetime management issues with RegistrationDatabase. RegistrationDatabase
+        was previously subclassing CrossThreadTaskHandler. CrossThreadTaskHandler
+        currently is not safe for objects that can get destroyed (such as
+        RegistrationDatabase). This is because it does not keep the object alive
+        when going to the background thread or back to the main thread. This would
+        cause crashes such as the one in the radar.
+
+        To address the issue, stop subclassing CrossThreadTaskHandler and use a
+        simple WorkQueue instead. RegistrationDatabase is now ThreadSafeRefCounted
+        and we take care of ref'ing it whenever we dispatch a task to the work queue
+        or back to the main thread. Because the RegistrationDatabase can now outlive
+        the RegistrationStore, m_store is now a WeakPtr.
+
+        * workers/service/server/RegistrationDatabase.cpp:
+        (WebCore::RegistrationDatabase::RegistrationDatabase):
+        (WebCore::RegistrationDatabase::~RegistrationDatabase):
+        (WebCore::RegistrationDatabase::postTaskToWorkQueue):
+        (WebCore::RegistrationDatabase::openSQLiteDatabase):
+        (WebCore::RegistrationDatabase::importRecordsIfNecessary):
+        (WebCore::RegistrationDatabase::pushChanges):
+        (WebCore::RegistrationDatabase::clearAll):
+        (WebCore::RegistrationDatabase::importRecords):
+        (WebCore::RegistrationDatabase::addRegistrationToStore):
+        (WebCore::RegistrationDatabase::databaseFailedToOpen):
+        (WebCore::RegistrationDatabase::databaseOpenedAndRecordsImported):
+        * workers/service/server/RegistrationDatabase.h:
+        (WebCore::RegistrationDatabase::create):
+        * workers/service/server/RegistrationStore.cpp:
+        (WebCore::RegistrationStore::RegistrationStore):
+        (WebCore::RegistrationStore::~RegistrationStore):
+        (WebCore::RegistrationStore::pushChangesToDatabase):
+        (WebCore::RegistrationStore::clearAll):
+        * workers/service/server/RegistrationStore.h:
+
+2018-06-15  Zalan Bujtas  <zalan@apple.com>
+
+        [LFC] Align compute functions styles.
+        https://bugs.webkit.org/show_bug.cgi?id=186649
+
+        Reviewed by Antti Koivisto.
+
+        Improve code readability.
+
+        * layout/FormattingContext.h:
+        * layout/FormattingContextGeometry.cpp:
+        (WebCore::Layout::contentHeightForFormattingContextRoot):
+        (WebCore::Layout::FormattingContext::Geometry::computedValueIfNotAuto):
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowReplacedVerticalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowReplacedHorizontalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::floatingNonReplacedWidthAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::floatingReplacedHeightAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::floatingReplacedWidthAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::inlineReplacedHeightAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::inlineReplacedWidthAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::computedNonCollapsedHorizontalMarginValue):
+        (WebCore::Layout::FormattingContext::Geometry::computedNonCollapsedVerticalMarginValue):
+        (WebCore::Layout::computedValueIfNotAuto): Deleted.
+        * layout/blockformatting/BlockFormattingContextGeometry.cpp:
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowNonReplacedHeightAndMargin):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowNonReplacedWidthAndMargin):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowReplacedWidthAndMargin):
+        (WebCore::Layout::BlockFormattingContext::Geometry::staticPosition):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowPositionedPosition):
+
+2018-06-15  Zalan Bujtas  <zalan@apple.com>
+
+        [LFC] Add FormattingContextLayout logging channel
+        https://bugs.webkit.org/show_bug.cgi?id=186637
+
+        Reviewed by Antti Koivisto.
+
+        Add some basic layout logging (-WebCoreLogging "FormattingContextLayout").
+
+        * layout/FormattingContext.cpp:
+        (WebCore::Layout::FormattingContext::placeInFlowPositionedChildren const):
+        (WebCore::Layout::FormattingContext::layoutOutOfFlowDescendants const):
+        * layout/FormattingContextGeometry.cpp:
+        (WebCore::Layout::contentHeightForFormattingContextRoot):
+        (WebCore::Layout::shrinkToFitWidth):
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowNonReplacedVerticalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowNonReplacedHorizontalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowReplacedVerticalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::outOfFlowReplacedHorizontalGeometry):
+        (WebCore::Layout::FormattingContext::Geometry::floatingNonReplacedHeightAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::floatingNonReplacedWidthAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::floatingReplacedHeightAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::floatingReplacedWidthAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::inlineReplacedHeightAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::inlineReplacedWidthAndMargin):
+        (WebCore::Layout::FormattingContext::Geometry::computedBorder):
+        (WebCore::Layout::FormattingContext::Geometry::computedPadding):
+        (WebCore::Layout::FormattingContext::Geometry::computedNonCollapsedHorizontalMarginValue):
+        (WebCore::Layout::FormattingContext::Geometry::computedNonCollapsedVerticalMarginValue):
+        * layout/Verification.cpp:
+        (WebCore::Layout::outputMismatchingBoxInformationIfNeeded):
+        (WebCore::Layout::verifyAndOutputSubtree):
+        (WebCore::Layout::LayoutContext::verifyAndOutputMismatchingLayoutTree const):
+        * layout/blockformatting/BlockFormattingContext.cpp:
+        (WebCore::Layout::BlockFormattingContext::layout const):
+        * layout/blockformatting/BlockFormattingContextGeometry.cpp:
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowNonReplacedHeightAndMargin):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowNonReplacedWidthAndMargin):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowReplacedWidthAndMargin):
+        (WebCore::Layout::BlockFormattingContext::Geometry::staticPosition):
+        (WebCore::Layout::BlockFormattingContext::Geometry::inFlowPositionedPosition):
+        * layout/layouttree/LayoutTreeBuilder.cpp:
+        (WebCore::Layout::outputLayoutBox):
+        (WebCore::Layout::outputLayoutTree):
+        (WebCore::Layout::TreeBuilder::showLayoutTree):
+        (WebCore::Layout::printLayoutTreeForLiveDocuments):
+        * layout/layouttree/LayoutTreeBuilder.h:
+        * platform/Logging.h:
+
 2018-06-15  Antoine Quint  <graouts@apple.com>
 
         [Web Animations] CSS Animations should take precedence over CSS Transitions

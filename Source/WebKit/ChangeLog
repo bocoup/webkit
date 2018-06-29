@@ -1,3 +1,213 @@
+2018-06-18  Youenn Fablet  <youenn@apple.com>
+
+        Validate Cross-Origin-Resource-Policy for resources cached in the MemoryCache
+        https://bugs.webkit.org/show_bug.cgi?id=186639
+        <rdar://problem/41106984>
+
+        Reviewed by Geoffrey Garen.
+
+        Make use of WebCore method to check CORP.
+
+        * NetworkProcess/NetworkLoadChecker.cpp:
+        (WebKit::NetworkLoadChecker::validateResponse):
+        * NetworkProcess/NetworkLoadChecker.h:
+
+2018-06-18  Karl Leplat  <karl.leplat_ext@softathome.com>
+
+        [Threaded paintingEngine] Fix rendering glitches
+        https://bugs.webkit.org/show_bug.cgi?id=186764
+
+        Reviewed by Žan Doberšek.
+
+        * Shared/CoordinatedGraphics/CoordinatedBackingStore.cpp:
+        (WebKit::CoordinatedBackingStoreTile::swapBuffers):
+        We call Nicosia::Buffer function waitUntilPaintingComplete()
+        in order to synchronize of using Nicosia:buffer between MainThread
+        and ThreadedCompositor.
+
+
+2018-06-17  Chris Dumez  <cdumez@apple.com>
+
+        Crash under SuspendedPageProxy::~SuspendedPageProxy()
+        https://bugs.webkit.org/show_bug.cgi?id=186688
+        <rdar://problem/41060769>
+
+        Reviewed by Darin Adler.
+
+        Ref the WebProcessProxy before calling suspendedPageWasDestroyed() on it as this
+        might cause the WebProcessProxy / WebProcessPool to get destroyed otherwise, and
+        we would crash trying to call unregisterSuspendedPageProxy() on the WebProcessPool
+        on the next line.
+
+        * UIProcess/SuspendedPageProxy.cpp:
+        (WebKit::SuspendedPageProxy::~SuspendedPageProxy):
+
+2018-06-17  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [WebKit on watchOS] Upstream watchOS source additions to OpenSource (Part 3)
+        https://bugs.webkit.org/show_bug.cgi?id=186442
+        <rdar://problem/40879364>
+
+        Reviewed by Darin Adler.
+
+        Rename a category referencing "Extra zoom mode".
+
+        * UIProcess/ios/WKContentViewInteraction.mm:
+
+2018-06-12  Darin Adler  <darin@apple.com>
+
+        [Cocoa] Make some RetainPtr refinements to get more ready for ARC
+        https://bugs.webkit.org/show_bug.cgi?id=186526
+
+        Reviewed by Anders Carlsson.
+
+        * Platform/cf/ModuleCF.cpp:
+        (WebKit::Module::load): Use move assignment instead of adoptCF/leakRef.
+
+        * Shared/Cocoa/WKNSURLExtras.mm:
+        (+[NSURL _web_URLWithWTFString:]): Cast to NSURL * instead of doing the autorelease
+        here, since the NSURL * operator already does what we want.
+        (+[NSURL _web_URLWithWTFString:relativeToURL:]): Ditto.
+
+        * UIProcess/ios/WKContentView.mm:
+        (-[WKContentView _wk_printedDocument]): Get rid of incorrect use of
+        RetainPtr::autorelease. We don't want to null out _printedDocument each time this
+        function is called.
+
+        * WebProcess/InjectedBundle/API/Cocoa/WKWebProcessPlugInFrame.mm:
+        (collectIcons): Get rid of unnecessary use of RetainPtr::autorelease in a function
+        that returns a RetainPtr.
+
+2018-06-15  Chris Dumez  <cdumez@apple.com>
+
+        Add API test coverage for SW RegistrationDatabase destruction and fix issues found by the test
+        https://bugs.webkit.org/show_bug.cgi?id=186681
+
+        Reviewed by Brady Eidson.
+
+        Make sure StorageProcess::unregisterSWServerConnection() does not unnecessarily
+        create a SWServer. Otherwise, we were in quick session destroying the SWServer
+        and then re-constructing it for the same sessionID, merely to try ot unregister
+        a SWServerConnection.
+
+        * StorageProcess/StorageProcess.cpp:
+        (WebKit::StorageProcess::existingSWOriginStoreForSession const):
+        (WebKit::StorageProcess::unregisterSWServerConnection):
+        * StorageProcess/StorageProcess.h:
+
+2018-06-15  Basuke Suzuki  <Basuke.Suzuki@sony.com>
+
+        [WinCairo] Move unrelated features of WorkQueueWin into IPC::Connection
+        https://bugs.webkit.org/show_bug.cgi?id=186582
+
+        Add EventListener private class to handle signaled tasks for I/O.
+        Originally they were in WTF::WorkQueueWin, but those features were not related
+        to WorkQueue and only used in IPC::ConnectionWin. Moved logic is more specialized
+        than old generalized logic. That was unneeded generalization.
+
+        Reviewed by Brent Fulgham.
+
+        * Platform/IPC/Connection.h:
+        (IPC::Connection::EventListener::state):
+        * Platform/IPC/win/ConnectionWin.cpp:
+        (IPC::Connection::platformInitialize):
+        (IPC::Connection::platformInvalidate):
+        (IPC::Connection::readEventHandler):
+        (IPC::Connection::writeEventHandler):
+        (IPC::Connection::invokeReadEventHandler):
+        (IPC::Connection::invokeWriteEventHandler):
+        (IPC::Connection::open):
+        (IPC::Connection::sendOutgoingMessage):
+        (IPC::Connection::EventListener::open):
+        (IPC::Connection::EventListener::callback):
+        (IPC::Connection::EventListener::close):
+
+2018-06-15  Brady Eidson  <beidson@apple.com>
+
+        Crash in both StorageProcess and UIProcess when using custom WKWebsiteDataStores for data management.
+        <rdar://problem/41019893> and https://bugs.webkit.org/show_bug.cgi?id=186682
+
+        Reviewed by Chris Dumez.
+
+        * UIProcess/Storage/StorageProcessProxy.cpp:
+        (WebKit::StorageProcessProxy::didClose): Protect this and the process pool as the cleanup that follows
+          might cause either to get destroyed.
+
+        * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+        (WebKit::WebsiteDataStore::fetchDataAndApply): Protect the operating WebsiteDataStore while async operations
+          are in flight. Otherwise if the data store is destroyed, the SessionIDs for those operations will get
+          destroyed before they complete.
+        (WebKit::WebsiteDataStore::removeData): Ditto.
+
+2018-06-15  Per Arne Vollan  <pvollan@apple.com>
+
+        Unreviewed build fix after r232634.
+
+        * WebProcess/WebPage/DrawingArea.h:
+        * WebProcess/WebPage/DrawingArea.messages.in:
+
+2018-06-15  Per Arne Vollan  <pvollan@apple.com>
+
+        DisplayRefreshMonitorMac should hold a weak pointer to WebPage.
+        https://bugs.webkit.org/show_bug.cgi?id=186683
+
+        Reviewed by Brent Fulgham.
+
+        Instead of DisplayRefreshMonitorMac having a RefPtr to WebPage, it should have a weak pointer.
+        Having a RefPtr could in theory create reference cycles. This potential problem has not been
+        observed in practice, but it is safer to use a weak pointer.
+
+        * WebProcess/WebPage/WebPage.h:
+        * WebProcess/WebPage/mac/DrawingAreaMac.cpp:
+        (WebKit::DisplayRefreshMonitorMac::DisplayRefreshMonitorMac):
+        (WebKit::DisplayRefreshMonitorMac::~DisplayRefreshMonitorMac):
+        (WebKit::DisplayRefreshMonitorMac::requestRefreshCallback):
+
+2018-06-15  Carlos Alberto Lopez Perez  <clopez@igalia.com>
+
+        [GTK][WKE] Disable memory pressure handling when running layout tests (WTR)
+        https://bugs.webkit.org/show_bug.cgi?id=186663
+
+        Reviewed by Michael Catanzaro.
+
+        r196943 added a mechanism to disable the memory pressure handling
+        on Mac. This patch enables using that mechanism also for GTK/WPE.
+        To do that the environment variable WEBKIT_DISABLE_MEMORY_PRESSURE_MONITOR
+        should bet set to 1.
+        We want to use this on the layout tests to avoid flaky tests caused
+        by accumulated leaks on the WebProcess by different tests.
+
+        * UIProcess/gtk/WebProcessPoolGtk.cpp:
+        (WebKit::WebProcessPool::platformInitializeWebProcess):
+        * UIProcess/wpe/WebProcessPoolWPE.cpp:
+        (WebKit::WebProcessPool::platformInitializeWebProcess):
+
+2018-06-15  Per Arne Vollan  <pvollan@apple.com>
+
+        Rollout r231818, as it introduced regression on tickets.com.
+        https://bugs.webkit.org/show_bug.cgi?id=186675
+
+        Unreviewed, rolling out.
+
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::dispatchActivityStateChange):
+        * UIProcess/mac/DisplayLink.cpp:
+        (WebKit::DisplayLink::pause): Deleted.
+        (WebKit::DisplayLink::resume): Deleted.
+        * UIProcess/mac/DisplayLink.h:
+
+2018-06-15  Thibault Saunier  <tsaunier@igalia.com>
+
+        [GTK][WPE]: Avoid using uninitialized launchOptions in getLaunchOptions
+        https://bugs.webkit.org/show_bug.cgi?id=185611
+
+        Reviewed by Chris Dumez.
+
+        Otherwise we might segfault.
+
+        * UIProcess/Plugins/PluginProcessProxy.cpp:
+        (WebKit::PluginProcessProxy::getLaunchOptions):
+
 2018-06-14  Youenn Fablet  <youenn@apple.com>
 
         Make NetworkProcess get cache storage parameters at creation of the CacheStorage engine
